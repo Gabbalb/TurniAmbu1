@@ -240,14 +240,14 @@ export default function TurniBoard() {
     }
   }
 
-  // Allinea lo scorrimento quando si cambia tipo di visualizzazione a 'giorno'
+  // Allinea lo scorrimento all'avvio, al cambio visualizzazione o al termine del caricamento dati
   useEffect(() => {
-    if (viewType === 'giorno') {
+    if (viewType === 'giorno' && !loading) {
       const timer = setTimeout(() => {
         const dateStr = format(currentDate, 'yyyy-MM-dd')
         const targetEl = dayRefs.current[dateStr]
         if (targetEl) {
-          const scrollParent = targetEl.closest('main')
+          const scrollParent = document.querySelector('main')
           if (scrollParent) {
             const parentRect = scrollParent.getBoundingClientRect()
             const elementRect = targetEl.getBoundingClientRect()
@@ -258,17 +258,18 @@ export default function TurniBoard() {
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [viewType])
+  }, [viewType, loading])
 
   // Listener dello scroll per aggiornare la pillola attiva (giorno selezionato) e scorrimento infinito
   useEffect(() => {
     if (viewType !== 'giorno') return
 
-    const scrollParent = containerRef.current?.closest('main')
+    const scrollParent = document.querySelector('main')
     if (!scrollParent) return
 
     const handleScroll = () => {
       if (isScrollingToDaySelect.current) return
+      if (loading) return
 
       const parentRect = scrollParent.getBoundingClientRect()
       
@@ -316,7 +317,7 @@ export default function TurniBoard() {
     return () => {
       scrollParent.removeEventListener('scroll', handleScroll)
     }
-  }, [viewType, listAnchorDate, daysCount])
+  }, [viewType, listAnchorDate, daysCount, loading])
 
   // Esegue la prenotazione di uno slot
   const handleBookSlot = async () => {
