@@ -170,9 +170,9 @@ export default function AdminPanel() {
     let matchShift = true
     if (filterShift !== 'all') {
       const shiftStart = b.shifts?.ora_inizio
-      if (filterShift === '1') matchShift = shiftStart.startsWith('06:')
-      if (filterShift === '2') matchShift = shiftStart.startsWith('14:')
-      if (filterShift === '3') matchShift = shiftStart.startsWith('22:')
+      if (filterShift === '1') matchShift = shiftStart ? shiftStart.startsWith('06:') : false
+      if (filterShift === '2') matchShift = shiftStart ? shiftStart.startsWith('14:') : false
+      if (filterShift === '3') matchShift = shiftStart ? shiftStart.startsWith('22:') : false
     }
     return matchUser && matchShift
   })
@@ -377,11 +377,11 @@ export default function AdminPanel() {
                   <div key={b.id} className="p-3 bg-slate-900/20 border border-slate-800/80 rounded-2xl flex items-center justify-between text-xs">
                     <div className="flex flex-col gap-1 min-w-0 pr-3">
                       <span className="font-bold text-slate-200 capitalize">
-                        {format(parseISO(b.shifts.data), 'dd MMMM yyyy', { locale: it })}
+                        {b.shifts?.data ? format(parseISO(b.shifts.data), 'dd MMMM yyyy', { locale: it }) : 'Data N/D'}
                       </span>
                       <div className="flex items-center gap-1.5 text-slate-400">
                         <span className="font-mono text-[10px]">
-                          {b.shifts.ora_inizio.slice(0, 5)}–{b.shifts.ora_fine.slice(0, 5)}
+                          {b.shifts?.ora_inizio ? b.shifts.ora_inizio.slice(0, 5) : 'N/D'}–{b.shifts?.ora_fine ? b.shifts.ora_fine.slice(0, 5) : 'N/D'}
                         </span>
                         <span>&bull;</span>
                         <span className="font-bold text-indigo-400 uppercase">{b.ruolo_turno}</span>

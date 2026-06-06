@@ -708,7 +708,7 @@ export const api = {
 
     return supabase
       .from('bookings')
-      .select('*, profiles(username, ruolo), shifts(*)')
+      .select('*, profiles(username, ruolo), shifts!inner(*)')
       .lt('shifts.data', todayStr)
       .order('data', { foreignTable: 'shifts', ascending: false })
       .order('ora_inizio', { foreignTable: 'shifts', ascending: false })

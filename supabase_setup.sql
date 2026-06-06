@@ -115,7 +115,7 @@ CREATE OR REPLACE FUNCTION public.admin_set_password(target_user_id uuid, new_pa
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   -- Controlla se il chiamante è admin
@@ -140,11 +140,13 @@ ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 
 -- Policies per PROFILES
+DROP POLICY IF EXISTS "Consenti lettura profili a tutti gli utenti loggati" ON public.profiles;
 CREATE POLICY "Consenti lettura profili a tutti gli utenti loggati"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Consenti scrittura profili solo ad admin" ON public.profiles;
 CREATE POLICY "Consenti scrittura profili solo ad admin"
   ON public.profiles FOR ALL
   TO authenticated
@@ -152,11 +154,13 @@ CREATE POLICY "Consenti scrittura profili solo ad admin"
   WITH CHECK (public.es_admin());
 
 -- Policies per CREWS
+DROP POLICY IF EXISTS "Consenti lettura equipaggi a tutti gli utenti loggati" ON public.crews;
 CREATE POLICY "Consenti lettura equipaggi a tutti gli utenti loggati"
   ON public.crews FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Consenti gestione equipaggi solo ad admin" ON public.crews;
 CREATE POLICY "Consenti gestione equipaggi solo ad admin"
   ON public.crews FOR ALL
   TO authenticated
@@ -164,11 +168,13 @@ CREATE POLICY "Consenti gestione equipaggi solo ad admin"
   WITH CHECK (public.es_admin());
 
 -- Policies per SHIFTS
+DROP POLICY IF EXISTS "Consenti lettura turni a tutti gli utenti loggati" ON public.shifts;
 CREATE POLICY "Consenti lettura turni a tutti gli utenti loggati"
   ON public.shifts FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Consenti gestione turni solo ad admin" ON public.shifts;
 CREATE POLICY "Consenti gestione turni solo ad admin"
   ON public.shifts FOR ALL
   TO authenticated
@@ -176,11 +182,13 @@ CREATE POLICY "Consenti gestione turni solo ad admin"
   WITH CHECK (public.es_admin());
 
 -- Policies per BOOKINGS
+DROP POLICY IF EXISTS "Consenti lettura prenotazioni a tutti gli utenti loggati" ON public.bookings;
 CREATE POLICY "Consenti lettura prenotazioni a tutti gli utenti loggati"
   ON public.bookings FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Consenti inserimento prenotazioni personali o admin" ON public.bookings;
 CREATE POLICY "Consenti inserimento prenotazioni personali o admin"
   ON public.bookings FOR INSERT
   TO authenticated
@@ -189,12 +197,14 @@ CREATE POLICY "Consenti inserimento prenotazioni personali o admin"
     OR public.es_admin()
   );
 
+DROP POLICY IF EXISTS "Consenti modifica prenotazioni solo ad admin" ON public.bookings;
 CREATE POLICY "Consenti modifica prenotazioni solo ad admin"
   ON public.bookings FOR UPDATE
   TO authenticated
   USING (public.es_admin())
   WITH CHECK (public.es_admin());
 
+DROP POLICY IF EXISTS "Consenti cancellazione prenotazioni personali o admin" ON public.bookings;
 CREATE POLICY "Consenti cancellazione prenotazioni personali o admin"
   ON public.bookings FOR DELETE
   TO authenticated
@@ -212,54 +222,63 @@ INSERT INTO public.crews (nome, attivo)
 VALUES ('Equipaggio 1', true)
 ON CONFLICT (nome) DO NOTHING;
 
--- 4b. Crea l'utente admin iniziale in auth.users se non esiste
+-- 4b. Crea l'utente admin iniziale in auth.users
 DO $$
 DECLARE
   admin_uuid uuid := '00000000-0000-0000-0000-000000000001';
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin@app.internal') THEN
-    -- Inserimento in auth.users (password: admin12345)
-    INSERT INTO auth.users (
-      id,
-      instance_id,
-      email,
-      encrypted_password,
-      email_confirmed_at,
-      raw_app_meta_data,
-      raw_user_meta_data,
-      aud,
-      role
-    ) VALUES (
-      admin_uuid,
-      '00000000-0000-0000-0000-000000000000',
-      'admin@app.internal',
-      crypt('admin12345', gen_salt('bf')),
-      now(),
-      '{"provider":"email","providers":["email"]}'::jsonb,
-      '{"username":"admin","ruolo":"admin"}'::jsonb,
-      'authenticated',
-      'authenticated'
-    );
+  -- Elimina eventuale record admin preesistente per resettarlo con i token corretti
+  DELETE FROM auth.users WHERE id = admin_uuid;
 
-    -- Inserimento in auth.identities
-    INSERT INTO auth.identities (
-      id,
-      user_id,
-      identity_data,
-      provider,
-      provider_id,
-      last_sign_in_at,
-      created_at,
-      updated_at
-    ) VALUES (
-      admin_uuid,
-      admin_uuid,
-      jsonb_build_object('sub', admin_uuid, 'email', 'admin@app.internal'),
-      'email',
-      admin_uuid::text,
-      now(),
-      now(),
-      now()
-    );
-  END IF;
+  -- Inserimento in auth.users (password: admin12345)
+  INSERT INTO auth.users (
+    id,
+    instance_id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    aud,
+    role,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change
+  ) VALUES (
+    admin_uuid,
+    '00000000-0000-0000-0000-000000000000',
+    'admin@app.internal',
+    crypt('admin12345', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"username":"admin","ruolo":"admin"}'::jsonb,
+    'authenticated',
+    'authenticated',
+    '',
+    '',
+    '',
+    ''
+  );
+
+  -- Inserimento in auth.identities
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    admin_uuid,
+    admin_uuid,
+    jsonb_build_object('sub', admin_uuid, 'email', 'admin@app.internal'),
+    'email',
+    admin_uuid::text,
+    now(),
+    now(),
+    now()
+  );
 END $$;
