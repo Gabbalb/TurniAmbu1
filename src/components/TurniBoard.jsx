@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
@@ -8,6 +8,8 @@ import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw 
 export default function TurniBoard() {
   const { user, profile } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [listAnchorDate, setListAnchorDate] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [daysCount, setDaysCount] = useState(10)
   const [viewType, setViewType] = useState('giorno') // 'giorno' | 'settimana'
   const [shifts, setShifts] = useState([])
   const [bookings, setBookings] = useState([])
@@ -21,6 +23,12 @@ export default function TurniBoard() {
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [confirmError, setConfirmError] = useState(null)
+
+  const containerRef = useRef(null)
+  const dayRefs = useRef({})
+  const isScrollingToDaySelect = useRef(false)
+  const currentDateRef = useRef(currentDate)
+  currentDateRef.current = currentDate
 
   const timeToMinutes = (timeStr) => {
     if (!timeStr) return 0
@@ -123,24 +131,27 @@ export default function TurniBoard() {
     }
   }
 
-  // Calcola le date della settimana corrente
+  // Calcola le date della settimana corrente per i bottoni/pills in cima
   const startOfCurrWeek = startOfWeek(currentDate, { weekStartsOn: 1 })
   const endOfCurrWeek = endOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrWeek, i))
+
+  // Calcola i giorni totali da renderizzare nella vista scorrimento infinito
+  const renderedDates = Array.from({ length: daysCount }, (_, i) => addDays(listAnchorDate, i))
 
   // Carica i dati dal DB
   const loadBoardData = async () => {
     setLoading(true)
     try {
-      const startStr = format(startOfCurrWeek, 'yyyy-MM-dd')
-      const endStr = format(endOfCurrWeek, 'yyyy-MM-dd')
+      const startStr = format(listAnchorDate, 'yyyy-MM-dd')
+      const endStr = format(addDays(listAnchorDate, daysCount - 1), 'yyyy-MM-dd')
 
       // Carica equipaggi attivi
       const { data: crewsData } = await api.fetchCrews()
       setCrews(crewsData || [])
 
       // Assicurati che esistano i turni di default (per default equipaggio 1) in queste date
-      const datesStr = weekDays.map(d => format(d, 'yyyy-MM-dd'))
+      const datesStr = renderedDates.map(d => format(d, 'yyyy-MM-dd'))
       if (crewsData && crewsData.length > 0) {
         await api.ensureShiftsExistForDates(datesStr, crewsData)
       }
@@ -164,9 +175,10 @@ export default function TurniBoard() {
     }
   }
 
+  // Carica i turni solo quando l'ancora o il numero di giorni caricati cambia
   useEffect(() => {
     loadBoardData()
-  }, [currentDate])
+  }, [listAnchorDate, daysCount])
 
   useEffect(() => {
     const fetchAdminProfiles = async () => {
@@ -179,16 +191,120 @@ export default function TurniBoard() {
   }, [profile])
 
   const handlePrevWeek = () => {
-    setCurrentDate(addDays(currentDate, -7))
+    const newAnchor = addDays(listAnchorDate, -7)
+    setListAnchorDate(newAnchor)
+    setCurrentDate(newAnchor)
+    setDaysCount(10)
   }
 
   const handleNextWeek = () => {
-    setCurrentDate(addDays(currentDate, 7))
+    const newAnchor = addDays(listAnchorDate, 7)
+    setListAnchorDate(newAnchor)
+    setCurrentDate(newAnchor)
+    setDaysCount(10)
   }
 
   const handleToday = () => {
-    setCurrentDate(new Date())
+    const today = new Date()
+    const newAnchor = startOfWeek(today, { weekStartsOn: 1 })
+    setListAnchorDate(newAnchor)
+    setCurrentDate(today)
+    setDaysCount(10)
   }
+
+  // Seleziona un giorno specifico dalle pills e lo fa scorrere in vista
+  const handleSelectDay = (day) => {
+    setCurrentDate(day)
+    const dateStr = format(day, 'yyyy-MM-dd')
+    const targetEl = dayRefs.current[dateStr]
+    if (targetEl) {
+      isScrollingToDaySelect.current = true
+      const scrollParent = targetEl.closest('main')
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect()
+        const elementRect = targetEl.getBoundingClientRect()
+        const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 10
+        scrollParent.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+      } else {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+      setTimeout(() => {
+        isScrollingToDaySelect.current = false
+      }, 800)
+    }
+  }
+
+  // Allinea lo scorrimento quando si cambia tipo di visualizzazione a 'giorno'
+  useEffect(() => {
+    if (viewType === 'giorno') {
+      const timer = setTimeout(() => {
+        const dateStr = format(currentDate, 'yyyy-MM-dd')
+        const targetEl = dayRefs.current[dateStr]
+        if (targetEl) {
+          const scrollParent = targetEl.closest('main')
+          if (scrollParent) {
+            const parentRect = scrollParent.getBoundingClientRect()
+            const elementRect = targetEl.getBoundingClientRect()
+            const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 10
+            scrollParent.scrollTo({ top: scrollTarget })
+          }
+        }
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [viewType])
+
+  // Listener dello scroll per aggiornare la pillola attiva (giorno selezionato) e scorrimento infinito
+  useEffect(() => {
+    if (viewType !== 'giorno') return
+
+    const scrollParent = containerRef.current?.closest('main')
+    if (!scrollParent) return
+
+    const handleScroll = () => {
+      if (isScrollingToDaySelect.current) return
+
+      const parentRect = scrollParent.getBoundingClientRect()
+      
+      let activeDateStr = null
+      let minDistance = Infinity
+
+      Object.keys(dayRefs.current).forEach(dateStr => {
+        const el = dayRefs.current[dateStr]
+        if (!el) return
+        const rect = el.getBoundingClientRect()
+        const distance = Math.abs(rect.top - parentRect.top)
+        
+        // Elemento visibile nella parte superiore dello scorrimento
+        if (rect.top - parentRect.top < 120 && rect.bottom - parentRect.top > 20) {
+          if (distance < minDistance) {
+            minDistance = distance
+            activeDateStr = dateStr
+          }
+        }
+      })
+
+      if (activeDateStr) {
+        const curDateStr = format(currentDateRef.current, 'yyyy-MM-dd')
+        if (activeDateStr !== curDateStr) {
+          setCurrentDate(new Date(activeDateStr))
+        }
+      }
+
+      // Rileva se l'utente è vicino alla fine dello scorrimento per aggiungere altri giorni (infinite scroll)
+      const threshold = 300
+      const isCloseToBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < threshold
+      if (isCloseToBottom) {
+        setDaysCount(prev => prev + 7)
+      }
+    }
+
+    scrollParent.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      scrollParent.removeEventListener('scroll', handleScroll)
+    }
+  }, [viewType, listAnchorDate, daysCount])
 
   // Esegue la prenotazione di uno slot
   const handleBookSlot = async () => {
@@ -636,7 +752,7 @@ export default function TurniBoard() {
             return (
               <button
                 key={day.toString()}
-                onClick={() => setCurrentDate(day)}
+                onClick={() => handleSelectDay(day)}
                 className={`flex flex-col items-center flex-1 min-w-[46px] py-2 px-1 rounded-xl transition-all duration-200 ${
                   isSelected
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105 font-bold'
@@ -662,7 +778,38 @@ export default function TurniBoard() {
           <span className="text-sm italic">Caricamento turni in corso...</span>
         </div>
       ) : viewType === 'giorno' ? (
-        renderDailyShifts(currentDate)
+        <div ref={containerRef} className="flex flex-col gap-8">
+          {renderedDates.map(day => {
+            const dateStr = format(day, 'yyyy-MM-dd')
+            const isToday = isSameDay(day, new Date())
+            return (
+              <div
+                key={dateStr}
+                data-date={dateStr}
+                ref={(el) => {
+                  if (el) {
+                    dayRefs.current[dateStr] = el
+                  } else {
+                    delete dayRefs.current[dateStr]
+                  }
+                }}
+                className="flex flex-col gap-3.5 border-b border-slate-800/40 pb-8 last:border-0 last:pb-0 scroll-mt-2"
+              >
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-base font-extrabold capitalize text-indigo-400">
+                    {format(day, 'EEEE d MMMM yyyy', { locale: it })}
+                  </h3>
+                  {isToday && (
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                      Oggi
+                    </span>
+                  )}
+                </div>
+                {renderDailyShifts(day)}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         renderWeeklySummary()
       )}

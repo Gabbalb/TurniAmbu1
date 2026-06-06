@@ -9,6 +9,11 @@
     @apply font-sans bg-slate-900 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white;
     -webkit-tap-highlight-color: transparent;
   }
+  
+  /* Prevent iOS auto-zoom on input focus by ensuring font-size is at least 16px */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Custom premium scrollbar for modern mobile-first design */
