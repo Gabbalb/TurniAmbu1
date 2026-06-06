@@ -28,6 +28,13 @@ export default function TurniBoard() {
     return h * 60 + m
   }
 
+  const minutesToTimeStr = (totalMin) => {
+    const normalized = totalMin % 1440
+    const hours = Math.floor(normalized / 60)
+    const minutes = normalized % 60
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  }
+
   const getStandardHours = (placeholder) => {
     const p = Number(placeholder)
     if (p === 1) return { start: '06:00:00', end: '14:00:00' }
@@ -35,16 +42,85 @@ export default function TurniBoard() {
     return { start: '22:00:00', end: '06:00:00' }
   }
 
+  const getUncoveredGaps = (shift, slotBookings) => {
+    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const std = getStandardHours(p)
+    const sStart = timeToMinutes(std.start.slice(0, 5))
+    let sEnd = timeToMinutes(std.end.slice(0, 5))
+    if (p === 3) sEnd += 1440 // night shift goes until 1800 minutes
+
+    // Convert standard bookings to intervals
+    const bookedIntervals = slotBookings.map(bk => {
+      let startM = timeToMinutes(bk.ora_inizio_effettiva || std.start)
+      let endM = timeToMinutes(bk.ora_fine_effettiva || std.end)
+      if (p === 3) {
+        if (startM < 720) startM += 1440
+        if (endM < 720) endM += 1440
+        if (endM <= startM) endM += 1440
+      } else {
+        if (endM <= startM) endM += 1440
+      }
+      return [startM, endM]
+    })
+
+    // Sort intervals by start time
+    bookedIntervals.sort((a, b) => a[0] - b[0])
+
+    // Merge overlapping intervals
+    const merged = []
+    for (const interval of bookedIntervals) {
+      if (merged.length === 0) {
+        merged.push(interval)
+      } else {
+        const last = merged[merged.length - 1]
+        if (interval[0] < last[1]) {
+          last[1] = Math.max(last[1], interval[1])
+        } else {
+          merged.push(interval)
+        }
+      }
+    }
+
+    // Find gaps in [sStart, sEnd]
+    const gaps = []
+    let current = sStart
+    for (const interval of merged) {
+      const [start, end] = interval
+      if (start > current) {
+        gaps.push([current, start])
+      }
+      current = Math.max(current, end)
+    }
+    if (current < sEnd) {
+      gaps.push([current, sEnd])
+    }
+
+    return gaps
+  }
+
   const handleOpenBookingConfirm = (shift, role) => {
     setBookingConfirm({ shift, role })
     setAssigneeId(user.id)
-    setIsPartial(false)
-    
+    setConfirmError(null)
+
+    const slotBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
+    const gaps = getUncoveredGaps(shift, slotBookings)
+
     const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
     const std = getStandardHours(p)
-    setStartTime(std.start.slice(0, 5))
-    setEndTime(std.end.slice(0, 5))
-    setConfirmError(null)
+
+    if (slotBookings.length > 0 && gaps.length > 0) {
+      // Slot parzialmente coperto: imposta il primo gap disponibile e attiva il check "orario parziale"
+      const firstGap = gaps[0]
+      setStartTime(minutesToTimeStr(firstGap[0]))
+      setEndTime(minutesToTimeStr(firstGap[1]))
+      setIsPartial(true)
+    } else {
+      // Slot vuoto o completamente coperto: imposta orario standard
+      setStartTime(std.start.slice(0, 5))
+      setEndTime(std.end.slice(0, 5))
+      setIsPartial(false)
+    }
   }
 
   // Calcola le date della settimana corrente
