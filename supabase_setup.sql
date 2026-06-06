@@ -174,12 +174,24 @@ CREATE POLICY "Consenti lettura turni a tutti gli utenti loggati"
   TO authenticated
   USING (true);
 
-DROP POLICY IF EXISTS "Consenti gestione turni solo ad admin" ON public.shifts;
-CREATE POLICY "Consenti gestione turni solo ad admin"
-  ON public.shifts FOR ALL
+DROP POLICY IF EXISTS "Consenti inserimento turni a tutti gli utenti loggati" ON public.shifts;
+CREATE POLICY "Consenti inserimento turni a tutti gli utenti loggati"
+  ON public.shifts FOR INSERT
   TO authenticated
-  USING (public.es_admin())
-  WITH CHECK (public.es_admin());
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti modifica e cancellazione turni solo ad admin" ON public.shifts;
+DROP POLICY IF EXISTS "Consenti modifica turni solo ad admin" ON public.shifts;
+CREATE POLICY "Consenti modifica turni solo ad admin"
+  ON public.shifts FOR UPDATE
+  TO authenticated
+  USING (public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti cancellazione turni solo ad admin" ON public.shifts;
+CREATE POLICY "Consenti cancellazione turni solo ad admin"
+  ON public.shifts FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
 
 -- Policies per BOOKINGS
 DROP POLICY IF EXISTS "Consenti lettura prenotazioni a tutti gli utenti loggati" ON public.bookings;
@@ -282,3 +294,152 @@ BEGIN
     now()
   );
 END $$;
+
+-- =========================================================================
+-- 5. TABELLA NOTIFICHE E TRIGGER AUDIT LOG (PER EMAIL E PANNELLO)
+-- =========================================================================
+
+-- Tabella Notifiche per l'audit log e l'invio delle email
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tipo text NOT NULL, -- 'registrazione', 'prenotazione_creata', 'prenotazione_cancellata', 'prenotazione_modificata', 'profilo_modificato'
+  messaggio text NOT NULL,
+  creato_da text NOT NULL, -- username di chi ha fatto l'azione
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- Abilita RLS
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- Le notifiche possono essere lette solo dagli admin
+CREATE POLICY "Consenti lettura notifiche solo ad admin"
+  ON public.notifications FOR SELECT
+  TO authenticated
+  USING (public.es_admin());
+
+-- Consenti inserimento a tutti (necessario per i trigger che girano come auth.uid)
+CREATE POLICY "Consenti inserimento notifiche a tutti"
+  ON public.notifications FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+-- Trigger 1: Registrazione di un nuovo profilo
+CREATE OR REPLACE FUNCTION public.on_profile_created()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.notifications (tipo, messaggio, creato_da)
+  VALUES (
+    'registrazione',
+    'Nuovo utente registrato in piattaforma: "' || NEW.username || '" con ruolo "' || NEW.ruolo || '".',
+    NEW.username
+  );
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_profile_created ON public.profiles;
+CREATE TRIGGER tr_profile_created
+  AFTER INSERT ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.on_profile_created();
+
+-- Trigger 2: Modifica di un profilo (attivo/disattivo o ruolo)
+CREATE OR REPLACE FUNCTION public.on_profile_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  actor_name text;
+  msg text;
+BEGIN
+  IF OLD.ruolo <> NEW.ruolo OR OLD.attivo <> NEW.attivo THEN
+    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, 'System');
+
+    msg := 'Profilo di ' || NEW.username || ' aggiornato: ' ||
+           CASE WHEN OLD.ruolo <> NEW.ruolo THEN 'Ruolo modificato da ' || OLD.ruolo || ' a ' || NEW.ruolo || '. ' ELSE '' END ||
+           CASE WHEN OLD.attivo <> NEW.attivo THEN 'Stato attivo cambiato da ' || OLD.attivo || ' a ' || NEW.attivo || '.' ELSE '' END;
+
+    INSERT INTO public.notifications (tipo, messaggio, creato_da)
+    VALUES ('profilo_modificato', msg, actor_name);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_profile_update ON public.profiles;
+CREATE TRIGGER tr_profile_update
+  AFTER UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.on_profile_update();
+
+-- Trigger 3: Creazione, Modifica o Cancellazione di prenotazioni turni
+CREATE OR REPLACE FUNCTION public.on_booking_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  user_name text;
+  shift_date date;
+  shift_time time;
+  role_name text;
+  msg text;
+  action_type text;
+  actor_name text;
+BEGIN
+  -- Se è una cancellazione
+  IF TG_OP = 'DELETE' THEN
+    SELECT username INTO user_name FROM public.profiles WHERE id = OLD.user_id;
+    SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = OLD.shift_id;
+    role_name := OLD.ruolo_turno;
+    action_type := 'prenotazione_cancellata';
+    
+    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, user_name);
+    
+    msg := 'Il dipendente ' || user_name || ' ha cancellato la prenotazione per il turno del ' || 
+           to_char(shift_date, 'DD/MM/YYYY') || ' (Fascia ' || to_char(shift_time, 'HH24:MI') || ') nel ruolo "' || role_name || '".' ||
+           CASE WHEN actor_name <> user_name THEN ' (Cancellato dall''amministratore: ' || actor_name || ')' ELSE '' END;
+  ELSE
+    SELECT username INTO user_name FROM public.profiles WHERE id = NEW.user_id;
+    SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = NEW.shift_id;
+    role_name := NEW.ruolo_turno;
+    
+    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, user_name);
+
+    IF TG_OP = 'INSERT' THEN
+      action_type := 'prenotazione_creata';
+      msg := 'Il dipendente ' || user_name || ' si è prenotato per il turno del ' || 
+             to_char(shift_date, 'DD/MM/YYYY') || ' (Fascia ' || to_char(shift_time, 'HH24:MI') || ') nel ruolo "' || role_name || '".' ||
+             CASE WHEN actor_name <> user_name THEN ' (Assegnato dall''amministratore: ' || actor_name || ')' ELSE '' END;
+    ELSIF TG_OP = 'UPDATE' THEN
+      action_type := 'prenotazione_modificata';
+      msg := 'La prenotazione del dipendente ' || user_name || ' per il turno del ' || 
+             to_char(shift_date, 'DD/MM/YYYY') || ' è stata modificata (Ruolo: "' || role_name || '").' ||
+             ' (Modificato da: ' || actor_name || ')';
+    END IF;
+  END IF;
+
+  INSERT INTO public.notifications (tipo, messaggio, creato_da)
+  VALUES (action_type, msg, actor_name);
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  ELSE
+    RETURN NEW;
+  END IF;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
+CREATE TRIGGER tr_booking_change
+  AFTER INSERT OR UPDATE OR DELETE ON public.bookings
+  FOR EACH ROW EXECUTE PROCEDURE public.on_booking_change();
+
