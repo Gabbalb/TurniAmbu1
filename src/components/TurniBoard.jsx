@@ -140,8 +140,8 @@ export default function TurniBoard() {
   const renderedDates = Array.from({ length: daysCount }, (_, i) => addDays(listAnchorDate, i))
 
   // Carica i dati dal DB
-  const loadBoardData = async () => {
-    setLoading(true)
+  const loadBoardData = async (showSpinner = true) => {
+    if (showSpinner) setLoading(true)
     try {
       const startStr = format(listAnchorDate, 'yyyy-MM-dd')
       const endStr = format(addDays(listAnchorDate, daysCount - 1), 'yyyy-MM-dd')
@@ -171,13 +171,18 @@ export default function TurniBoard() {
     } catch (err) {
       console.error('Errore nel caricamento dei dati del tabellone:', err)
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
   }
 
+  const prevAnchorRef = useRef(listAnchorDate)
+
   // Carica i turni solo quando l'ancora o il numero di giorni caricati cambia
   useEffect(() => {
-    loadBoardData()
+    const shouldShowSpinner = prevAnchorRef.current.getTime() !== listAnchorDate.getTime() || shifts.length === 0
+    prevAnchorRef.current = listAnchorDate
+    
+    loadBoardData(shouldShowSpinner)
   }, [listAnchorDate, daysCount])
 
   useEffect(() => {
@@ -274,10 +279,13 @@ export default function TurniBoard() {
         const el = dayRefs.current[dateStr]
         if (!el) return
         const rect = el.getBoundingClientRect()
-        const distance = Math.abs(rect.top - parentRect.top)
         
-        // Elemento visibile nella parte superiore dello scorrimento
-        if (rect.top - parentRect.top < 120 && rect.bottom - parentRect.top > 20) {
+        // Misura la distanza del limite superiore del giorno rispetto al fondo della barra sticky (parentRect.top + 70px)
+        const baseline = parentRect.top + 70
+        const distance = Math.abs(rect.top - baseline)
+        
+        // L'elemento è attivo se copre l'area della barra sticky
+        if (rect.top < baseline + 120 && rect.bottom > baseline + 10) {
           if (distance < minDistance) {
             minDistance = distance
             activeDateStr = dateStr
@@ -288,7 +296,10 @@ export default function TurniBoard() {
       if (activeDateStr) {
         const curDateStr = format(currentDateRef.current, 'yyyy-MM-dd')
         if (activeDateStr !== curDateStr) {
-          setCurrentDate(new Date(activeDateStr))
+          // Parsing del date string sicuro rispetto al fuso orario locale
+          const [y, m, d] = activeDateStr.split('-').map(Number)
+          const parsedDate = new Date(y, m - 1, d)
+          setCurrentDate(parsedDate)
         }
       }
 
@@ -807,17 +818,15 @@ export default function TurniBoard() {
                   }}
                   className="flex flex-col gap-3.5 pb-2 scroll-mt-2"
                 >
-                  <div className="flex items-center justify-between px-1 mb-1">
-                    <div className="flex flex-col text-left">
-                      <h3 className="text-xl font-black text-white capitalize tracking-tight leading-none">
-                        {format(day, 'EEEE', { locale: it })}
-                      </h3>
-                      <span className="text-xs font-semibold text-slate-400 mt-1">
-                        {format(day, 'd MMMM yyyy', { locale: it })}
-                      </span>
-                    </div>
+                  <div className="flex flex-col items-center justify-center text-center px-1 mb-3 mt-2">
+                    <h3 className="text-2xl sm:text-3xl font-black text-white capitalize tracking-tight leading-tight">
+                      {format(day, 'EEEE', { locale: it })}
+                    </h3>
+                    <span className="text-xs sm:text-sm font-bold text-indigo-400 mt-1.5 uppercase tracking-widest">
+                      {format(day, 'd MMMM yyyy', { locale: it })}
+                    </span>
                     {isToday && (
-                      <span className="text-xs bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-3 py-1 rounded-full font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20">
+                      <span className="text-[10px] mt-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-3.5 py-1 rounded-full font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20">
                         Oggi
                       </span>
                     )}
