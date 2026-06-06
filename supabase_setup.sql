@@ -296,7 +296,7 @@ BEGIN
 END $$;
 
 -- =========================================================================
--- 5. TABELLA NOTIFICHE E TRIGGER AUDIT LOG (PER EMAIL E PANNELLO)
+-- 5. TABELLA NOTIFICHE E TRIGGER AUDIT LOG (PER TELEGRAM E PANNELLO)
 -- =========================================================================
 
 -- Tabella Notifiche per l'audit log e l'invio delle email
@@ -312,12 +312,14 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Le notifiche possono essere lette solo dagli admin
+DROP POLICY IF EXISTS "Consenti lettura notifiche solo ad admin" ON public.notifications;
 CREATE POLICY "Consenti lettura notifiche solo ad admin"
   ON public.notifications FOR SELECT
   TO authenticated
   USING (public.es_admin());
 
 -- Consenti inserimento a tutti (necessario per i trigger che girano come auth.uid)
+DROP POLICY IF EXISTS "Consenti inserimento notifiche a tutti" ON public.notifications;
 CREATE POLICY "Consenti inserimento notifiche a tutti"
   ON public.notifications FOR INSERT
   TO authenticated
@@ -334,8 +336,8 @@ BEGIN
   INSERT INTO public.notifications (tipo, messaggio, creato_da)
   VALUES (
     'registrazione',
-    'Nuovo utente registrato in piattaforma: "' || NEW.username || '" con ruolo "' || NEW.ruolo || '".',
-    NEW.username
+    concat('Nuovo utente registrato in piattaforma: "', COALESCE(NEW.username, 'Utente'), '" con ruolo "', COALESCE(NEW.ruolo, 'dipendente'), '".'),
+    COALESCE(NEW.username, 'Utente')
   );
   RETURN NEW;
 END;
@@ -358,15 +360,21 @@ DECLARE
   msg text;
 BEGIN
   IF OLD.ruolo <> NEW.ruolo OR OLD.attivo <> NEW.attivo THEN
-    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
-    actor_name := COALESCE(actor_name, 'System');
+    SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, 'Sistema');
 
-    msg := 'Profilo di ' || NEW.username || ' aggiornato: ' ||
-           CASE WHEN OLD.ruolo <> NEW.ruolo THEN 'Ruolo modificato da ' || OLD.ruolo || ' a ' || NEW.ruolo || '. ' ELSE '' END ||
-           CASE WHEN OLD.attivo <> NEW.attivo THEN 'Stato attivo cambiato da ' || OLD.attivo || ' a ' || NEW.attivo || '.' ELSE '' END;
+    msg := concat(
+      'Profilo di ', COALESCE(NEW.username, 'Utente'), ' aggiornato: ',
+      CASE WHEN OLD.ruolo <> NEW.ruolo THEN concat('Ruolo modificato da ', OLD.ruolo, ' a ', NEW.ruolo, '. ') ELSE '' END,
+      CASE WHEN OLD.attivo <> NEW.attivo THEN concat('Stato attivo cambiato da ', OLD.attivo::text, ' a ', NEW.attivo::text, '.') ELSE '' END
+    );
 
     INSERT INTO public.notifications (tipo, messaggio, creato_da)
-    VALUES ('profilo_modificato', msg, actor_name);
+    VALUES (
+      'profilo_modificato',
+      COALESCE(msg, 'Profilo utente aggiornato.'),
+      COALESCE(actor_name, 'Sistema')
+    );
   END IF;
   RETURN NEW;
 END;
@@ -395,40 +403,53 @@ DECLARE
 BEGIN
   -- Se è una cancellazione
   IF TG_OP = 'DELETE' THEN
-    SELECT username INTO user_name FROM public.profiles WHERE id = OLD.user_id;
+    SELECT COALESCE(username, 'Utente') INTO user_name FROM public.profiles WHERE id = OLD.user_id;
     SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = OLD.shift_id;
-    role_name := OLD.ruolo_turno;
+    role_name := COALESCE(OLD.ruolo_turno, 'ruolo');
     action_type := 'prenotazione_cancellata';
     
-    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
-    actor_name := COALESCE(actor_name, user_name);
+    SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, user_name, 'Sistema');
     
-    msg := 'Il dipendente ' || user_name || ' ha cancellato la prenotazione per il turno del ' || 
-           to_char(shift_date, 'DD/MM/YYYY') || ' (Fascia ' || to_char(shift_time, 'HH24:MI') || ') nel ruolo "' || role_name || '".' ||
-           CASE WHEN actor_name <> user_name THEN ' (Cancellato dall''amministratore: ' || actor_name || ')' ELSE '' END;
+    msg := concat(
+      'Il dipendente ', user_name, ' ha cancellato la prenotazione per il turno del ', 
+      to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
+      ' (Fascia ', to_char(COALESCE(shift_time, '00:00:00'::time), 'HH24:MI'), ') nel ruolo "', role_name, '".',
+      CASE WHEN actor_name <> user_name THEN concat(' (Cancellato dall''amministratore: ', actor_name, ')') ELSE '' END
+    );
   ELSE
-    SELECT username INTO user_name FROM public.profiles WHERE id = NEW.user_id;
+    SELECT COALESCE(username, 'Utente') INTO user_name FROM public.profiles WHERE id = NEW.user_id;
     SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = NEW.shift_id;
-    role_name := NEW.ruolo_turno;
+    role_name := COALESCE(NEW.ruolo_turno, 'ruolo');
     
-    SELECT username INTO actor_name FROM public.profiles WHERE id = auth.uid();
-    actor_name := COALESCE(actor_name, user_name);
+    SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
+    actor_name := COALESCE(actor_name, user_name, 'Sistema');
 
     IF TG_OP = 'INSERT' THEN
       action_type := 'prenotazione_creata';
-      msg := 'Il dipendente ' || user_name || ' si è prenotato per il turno del ' || 
-             to_char(shift_date, 'DD/MM/YYYY') || ' (Fascia ' || to_char(shift_time, 'HH24:MI') || ') nel ruolo "' || role_name || '".' ||
-             CASE WHEN actor_name <> user_name THEN ' (Assegnato dall''amministratore: ' || actor_name || ')' ELSE '' END;
+      msg := concat(
+        'Il dipendente ', user_name, ' si è prenotato per il turno del ', 
+        to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
+        ' (Fascia ', to_char(COALESCE(shift_time, '00:00:00'::time), 'HH24:MI'), ') nel ruolo "', role_name, '".',
+        CASE WHEN actor_name <> user_name THEN concat(' (Assegnato dall''amministratore: ', actor_name, ')') ELSE '' END
+      );
     ELSIF TG_OP = 'UPDATE' THEN
       action_type := 'prenotazione_modificata';
-      msg := 'La prenotazione del dipendente ' || user_name || ' per il turno del ' || 
-             to_char(shift_date, 'DD/MM/YYYY') || ' è stata modificata (Ruolo: "' || role_name || '").' ||
-             ' (Modificato da: ' || actor_name || ')';
+      msg := concat(
+        'La prenotazione del dipendente ', user_name, ' per il turno del ', 
+        to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
+        ' è stata modificata (Ruolo: "', role_name, '").',
+        ' (Modificato da: ', actor_name, ')'
+      );
     END IF;
   END IF;
 
   INSERT INTO public.notifications (tipo, messaggio, creato_da)
-  VALUES (action_type, msg, actor_name);
+  VALUES (
+    COALESCE(action_type, 'prenotazione'),
+    COALESCE(msg, 'Modifica prenotazione turno.'),
+    COALESCE(actor_name, 'Sistema')
+  );
 
   IF TG_OP = 'DELETE' THEN
     RETURN OLD;
@@ -437,9 +458,63 @@ BEGIN
   END IF;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
 CREATE TRIGGER tr_booking_change
   AFTER INSERT OR UPDATE OR DELETE ON public.bookings
   FOR EACH ROW EXECUTE PROCEDURE public.on_booking_change();
 
+-- =========================================================================
+-- 6. INVIO NOTIFICHE SU GRUPPO TELEGRAM DIRETTO DA DATABASE
+-- =========================================================================
+-- Questa funzione e trigger inviano un messaggio Telegram istantaneo a un gruppo
+-- utilizzando l'estensione pg_net (preinstallata in Supabase).
+
+CREATE OR REPLACE FUNCTION public.send_notification_telegram()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  telegram_token text := 'IL_TUO_TOKEN_BOT_TELEGRAM'; -- <-- INSERISCI IL TOKEN DEL BOT
+  telegram_chat_id text := 'IL_TUO_CHAT_ID_GRUPPO';   -- <-- INSERISCI IL CHAT ID DEL GRUPPO (es. -1001234567890 o numero negativo)
+  formatted_msg text;
+BEGIN
+  -- Se il token o il chat_id non sono inseriti, esce senza errori
+  IF telegram_token IS NULL OR telegram_token = 'IL_TUO_TOKEN_BOT_TELEGRAM' OR 
+     telegram_chat_id IS NULL OR telegram_chat_id = 'IL_TUO_CHAT_ID_GRUPPO' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Formatta il messaggio in HTML per Telegram (usando concat per sicurezza)
+  formatted_msg := concat(
+    '<b>🔔 GM Turni - Notifica</b>', chr(10), chr(10),
+    '📝 <b>Evento:</b> ', COALESCE(NEW.messaggio, 'Notifica generica'), chr(10),
+    '👤 <b>Autore:</b> ', COALESCE(NEW.creato_da, 'Sistema'), chr(10),
+    '📅 <b>Data:</b> ', to_char(COALESCE(NEW.created_at, now()), 'DD/MM/YYYY HH24:MI:SS')
+  );
+
+  -- Effettua l'HTTP POST asincrono all'API di Telegram tramite pg_net
+  PERFORM net.http_post(
+    url := 'https://api.telegram.org/bot' || telegram_token || '/sendMessage',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body := jsonb_build_object(
+      'chat_id', telegram_chat_id,
+      'text', formatted_msg,
+      'parse_mode', 'HTML'
+    )::text
+  );
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Ignora errori dell'invio HTTP per non bloccare l'azione principale del database
+  RETURN NEW;
+END;
+$$;
+
+-- Collega il trigger alla nuova funzione di Telegram
+DROP TRIGGER IF EXISTS tr_send_notification_email ON public.notifications;
+DROP TRIGGER IF EXISTS tr_send_notification_telegram ON public.notifications;
+CREATE TRIGGER tr_send_notification_telegram
+  AFTER INSERT ON public.notifications
+  FOR EACH ROW EXECUTE PROCEDURE public.send_notification_telegram();
