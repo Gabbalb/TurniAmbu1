@@ -14,7 +14,38 @@ export default function TurniBoard() {
   const [crews, setCrews] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null) // ID dello slot in fase di caricamento
-  const [bookingConfirm, setBookingConfirm] = useState(null) // { shiftId, role } per la modale di conferma
+  const [bookingConfirm, setBookingConfirm] = useState(null) // { shift, role } per la modale di conferma
+  const [profiles, setProfiles] = useState([])
+  const [assigneeId, setAssigneeId] = useState('')
+  const [isPartial, setIsPartial] = useState(false)
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [confirmError, setConfirmError] = useState(null)
+
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0
+    const [h, m] = timeStr.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  const getStandardHours = (placeholder) => {
+    const p = Number(placeholder)
+    if (p === 1) return { start: '06:00:00', end: '14:00:00' }
+    if (p === 2) return { start: '14:00:00', end: '22:00:00' }
+    return { start: '22:00:00', end: '06:00:00' }
+  }
+
+  const handleOpenBookingConfirm = (shift, role) => {
+    setBookingConfirm({ shift, role })
+    setAssigneeId(user.id)
+    setIsPartial(false)
+    
+    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const std = getStandardHours(p)
+    setStartTime(std.start.slice(0, 5))
+    setEndTime(std.end.slice(0, 5))
+    setConfirmError(null)
+  }
 
   // Calcola le date della settimana corrente
   const startOfCurrWeek = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -44,6 +75,12 @@ export default function TurniBoard() {
 
       setShifts(shiftsData || [])
       setBookings(bookingsData || [])
+
+      // Se admin, carica i profili per assegnare turni a terzi
+      if (profile?.ruolo === 'admin') {
+        const { data: profilesData } = await api.fetchProfiles()
+        setProfiles(profilesData?.filter(p => p.attivo) || [])
+      }
     } catch (err) {
       console.error('Errore nel caricamento dei dati del tabellone:', err)
     } finally {
@@ -54,6 +91,16 @@ export default function TurniBoard() {
   useEffect(() => {
     loadBoardData()
   }, [currentDate])
+
+  useEffect(() => {
+    const fetchAdminProfiles = async () => {
+      if (profile?.ruolo === 'admin' && profiles.length === 0) {
+        const { data: profilesData } = await api.fetchProfiles()
+        setProfiles(profilesData?.filter(p => p.attivo) || [])
+      }
+    }
+    fetchAdminProfiles()
+  }, [profile])
 
   const handlePrevWeek = () => {
     setCurrentDate(addDays(currentDate, -7))
@@ -70,24 +117,87 @@ export default function TurniBoard() {
   // Esegue la prenotazione di uno slot
   const handleBookSlot = async () => {
     if (!bookingConfirm) return
-    const { shiftId, role } = bookingConfirm
-    const slotIdStr = `${shiftId}-${role}`
+    const { shift, role } = bookingConfirm
+    const slotIdStr = `${shift.id}-${role}`
     setActionLoading(slotIdStr)
-    setBookingConfirm(null)
+    setConfirmError(null)
+
+    const userId = profile?.ruolo === 'admin' ? assigneeId : user.id
+    
+    // Calcola se è parziale
+    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const std = getStandardHours(p)
+    
+    let isPartialBooking = isPartial
+    let note = null
+    
+    if (isPartialBooking) {
+      const startMin = timeToMinutes(startTime)
+      const endMin = timeToMinutes(endTime)
+      const sStart = timeToMinutes(std.start.slice(0, 5))
+      const sEnd = timeToMinutes(std.end.slice(0, 5))
+      
+      if (startTime === std.start.slice(0, 5) && endTime === std.end.slice(0, 5)) {
+        isPartialBooking = false
+      } else {
+        let finalEndMin = endMin
+        if (finalEndMin <= startMin) finalEndMin += 1440
+        const finalSEnd = p === 3 ? sEnd + 1440 : sEnd
+
+        if (startMin > sStart && finalEndMin < finalSEnd) {
+          note = `Dalle ${startTime} alle ${endTime}`
+        } else if (startMin > sStart) {
+          note = `Dalle ${startTime}`
+        } else if (finalEndMin < finalSEnd) {
+          note = `Fino alle ${endTime}`
+        }
+      }
+    }
+
+    const target = {
+      date: shift.data,
+      shift_id_placeholder: p,
+      ora_inizio_effettiva: isPartialBooking ? startTime + ':00' : null,
+      ora_fine_effettiva: isPartialBooking ? endTime + ':00' : null,
+      is_partial: isPartialBooking,
+      nota_parziale: note,
+      label: shift.ora_inizio.slice(0, 5) + '–' + shift.ora_fine.slice(0, 5)
+    }
 
     try {
+      const { conflicts, error: conflictErr } = await api.checkBulkConflicts(userId, [target], role)
+      
+      if (conflictErr) {
+        setConfirmError(conflictErr.message || 'Errore durante la verifica dei conflitti.')
+        setActionLoading(null)
+        return
+      }
+
+      if (conflicts && conflicts.length > 0) {
+        setConfirmError(conflicts[0].message)
+        setActionLoading(null)
+        return
+      }
+
       const { error } = await api.bookSlot({
-        shiftId,
+        shiftId: shift.id,
         role,
-        userId: user.id
+        userId,
+        startTime: isPartialBooking ? startTime + ':00' : null,
+        endTime: isPartialBooking ? endTime + ':00' : null,
+        isPartial: isPartialBooking,
+        note
       })
+
       if (error) {
-        alert(error.message)
+        setConfirmError(error.message)
       } else {
+        setBookingConfirm(null)
         await loadBoardData()
       }
     } catch (err) {
       console.error(err)
+      setConfirmError(err.message || 'Si è verificato un errore.')
     } finally {
       setActionLoading(null)
     }
@@ -141,66 +251,95 @@ export default function TurniBoard() {
 
   // Renderizza la singola card dello slot (CE o Autista)
   const renderSlot = (shift, role, crewShifts) => {
-    // Trova se c'è una prenotazione per questo ruolo in questo turno
-    const booking = bookings.find(b => b.shift_id === shift.id && b.ruolo_turno === role)
+    // Trova tutte le prenotazioni per questo ruolo in questo turno
+    const slotBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
     const slotIdStr = `${shift.id}-${role}`
-    const isCurrentUser = booking?.user_id === user.id
-    const isLoading = actionLoading === slotIdStr || (booking && actionLoading === booking.id)
-
-    if (booking) {
-      // Slot Occupato
-      if (isCurrentUser) {
-        // Occupato dall'utente loggato (Evidenziato)
-        return (
-          <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-indigo-500 bg-indigo-500/10 shadow-indigo-500/10 shadow-lg animate-touch-ping duration-1000">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400">{role}</span>
-              <span className="text-sm font-semibold text-slate-100">Io (Prenotato)</span>
-              {booking.is_partial && (
-                <span className="text-xs text-indigo-300 mt-0.5">{booking.nota_parziale}</span>
-              )}
-            </div>
-            <button
-              onClick={(e) => handleCancelBooking(booking.id, e)}
-              disabled={isLoading}
-              className="p-2 bg-slate-900/60 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-              title="Cancella prenotazione"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        )
-      } else {
-        // Occupato da un collega (Grigio + Lucchetto)
-        return (
-          <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-400 cursor-not-allowed">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-semibold text-slate-500">{role}</span>
-              <span className="text-sm font-medium text-slate-400 truncate max-w-[85px] sm:max-w-[120px]">
-                {booking.profiles?.username || 'Collega'}
-              </span>
-              {booking.is_partial && (
-                <span className="text-xs text-slate-500 mt-0.5">{booking.nota_parziale}</span>
-              )}
-            </div>
-            <Lock className="w-3.5 h-3.5 text-slate-600 mr-2 flex-shrink-0" />
-          </div>
-        )
-      }
+    
+    if (slotBookings.length === 0) {
+      const isLoading = actionLoading === slotIdStr
+      // Slot completamente Libero
+      return (
+        <button
+          onClick={() => handleOpenBookingConfirm(shift, role)}
+          disabled={isLoading || !profile?.attivo}
+          className="flex flex-col text-left p-2 sm:p-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200"
+        >
+          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{role}</span>
+          <span className="text-sm font-medium text-indigo-400/80 mt-0.5 group-hover:text-indigo-400">
+            {isLoading ? 'Prenotazione...' : '+ Disponibile'}
+          </span>
+        </button>
+      )
     }
 
-    // Slot Libero
+    // Slot con almeno una prenotazione
     return (
-      <button
-        onClick={() => setBookingConfirm({ shiftId: shift.id, role })}
-        disabled={isLoading || !profile?.attivo}
-        className="flex flex-col text-left p-2 sm:p-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200"
-      >
-        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{role}</span>
-        <span className="text-sm font-medium text-indigo-400/80 mt-0.5 group-hover:text-indigo-400">
-          {isLoading ? 'Prenotazione...' : '+ Disponibile'}
-        </span>
-      </button>
+      <div className="flex flex-col gap-2 p-2 rounded-xl border border-slate-800/80 bg-slate-950/40">
+        <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-500 px-1">{role}</span>
+        
+        <div className="flex flex-col gap-1.5">
+          {slotBookings.map(bk => {
+            const isCurrentUser = bk.user_id === user.id
+            const isAdmin = profile?.ruolo === 'admin'
+            const isLoading = actionLoading === bk.id
+
+            if (isCurrentUser) {
+              return (
+                <div key={bk.id} className="flex items-center justify-between p-2 rounded-lg border border-indigo-500/60 bg-indigo-500/10 shadow-sm animate-touch-ping duration-1000">
+                  <div className="flex flex-col min-w-0 pr-1 text-left">
+                    <span className="text-xs font-bold text-indigo-300">Io (Prenotato)</span>
+                    {bk.is_partial && (
+                      <span className="text-[10px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => handleCancelBooking(bk.id, e)}
+                    disabled={isLoading}
+                    className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                    title="Cancella prenotazione"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            } else {
+              return (
+                <div key={bk.id} className={`flex items-center justify-between p-2 rounded-lg border border-slate-800 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
+                  <div className="flex flex-col min-w-0 pr-1 text-left">
+                    <span className="text-xs font-medium text-slate-300 truncate max-w-[80px] sm:max-w-[100px]">
+                      {bk.profiles?.username || 'Collega'}
+                    </span>
+                    {bk.is_partial && (
+                      <span className="text-[10px] text-slate-500 mt-0.5 leading-tight">{bk.nota_parziale}</span>
+                    )}
+                  </div>
+                  {isAdmin ? (
+                    <button
+                      onClick={(e) => handleCancelBooking(bk.id, e)}
+                      disabled={isLoading}
+                      className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                      title="Cancella prenotazione collega (Admin)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <Lock className="w-3 h-3 text-slate-600 mr-1 flex-shrink-0" />
+                  )}
+                </div>
+              )
+            }
+          })}
+        </div>
+
+        {/* Pulsante per aggiungere un'altra disponibilità parziale nello stesso slot */}
+        <button
+          onClick={() => handleOpenBookingConfirm(shift, role)}
+          disabled={!profile?.attivo}
+          className="text-center py-1 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[9px] font-bold text-indigo-400/80 hover:text-indigo-400 bg-slate-900/10 hover:bg-indigo-500/5 transition-all mt-0.5"
+        >
+          + Aggiungi
+        </button>
+      </div>
     )
   }
 
@@ -456,11 +595,76 @@ export default function TurniBoard() {
       {bookingConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl w-full max-w-xs flex flex-col gap-4 shadow-premium">
-            <h3 className="text-base font-bold text-slate-100">Conferma Prenotazione</h3>
+            <h3 className="text-base font-bold text-slate-100">Dettaglio Prenotazione</h3>
+            
+            {confirmError && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-2.5 rounded-xl text-[11px] font-semibold text-center leading-normal">
+                {confirmError}
+              </div>
+            )}
+
             <p className="text-xs text-slate-400 leading-relaxed">
-              Vuoi prenotare questo slot come <strong className="text-indigo-400 uppercase">{bookingConfirm.role}</strong>?
+              Vuoi prenotare lo slot come <strong className="text-indigo-400 uppercase">{bookingConfirm.role}</strong>?
             </p>
-            <div className="flex gap-2.5 mt-2">
+
+            {/* Assegnazione Utente (Solo per Admin) */}
+            {profile?.ruolo === 'admin' && profiles.length > 0 && (
+              <div className="flex flex-col gap-1 text-left">
+                <label htmlFor="assignUser" className="text-[10px] uppercase font-bold text-slate-500">Assegna a</label>
+                <select
+                  id="assignUser"
+                  value={assigneeId}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-2 py-2 text-xs font-semibold text-slate-200 outline-none"
+                >
+                  <option value={user.id}>Me stesso ({profile.username})</option>
+                  {profiles
+                    .filter(p => p.id !== user.id)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.username} ({p.ruolo})</option>
+                    ))
+                  }
+                </select>
+              </div>
+            )}
+
+            {/* Opzione Orario Parziale */}
+            <div className="flex flex-col gap-2 border-t border-slate-800/80 pt-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isPartial}
+                  onChange={(e) => setIsPartial(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                />
+                <span className="text-xs font-semibold text-slate-300">Orario parziale</span>
+              </label>
+
+              {isPartial && (
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase font-bold text-slate-500">Inizio</span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-200 outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase font-bold text-slate-500">Fine</span>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-200 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 mt-2.5 border-t border-slate-800/80 pt-3.5">
               <button
                 onClick={() => setBookingConfirm(null)}
                 className="flex-1 py-2 px-3 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
@@ -469,9 +673,10 @@ export default function TurniBoard() {
               </button>
               <button
                 onClick={handleBookSlot}
-                className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors"
+                disabled={actionLoading}
+                className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors flex items-center justify-center"
               >
-                Prenota
+                {actionLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Prenota'}
               </button>
             </div>
           </div>

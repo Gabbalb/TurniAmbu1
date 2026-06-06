@@ -43,6 +43,48 @@ const getNextId = (items) => {
   return Math.max(...items.map(item => Number(item.id))) + 1
 }
 
+// Helper per convertire un orario HH:MM:SS o HH:MM in minuti da mezzanotte
+const timeStringToMinutes = (timeStr) => {
+  if (!timeStr) return 0
+  const parts = timeStr.split(':')
+  const hours = Number(parts[0]) || 0
+  const minutes = Number(parts[1]) || 0
+  return hours * 60 + minutes
+}
+
+// Helper per ottenere l'intervallo [inizio, fine] in minuti da mezzanotte della data del turno
+const getBookingMinutesInterval = (booking, standardStart, standardEnd) => {
+  const isPartial = booking.is_partial || booking.isPartial
+  const startStr = isPartial ? (booking.ora_inizio_effettiva || booking.startTime) : standardStart
+  const endStr = isPartial ? (booking.ora_fine_effettiva || booking.endTime) : standardEnd
+
+  let startMin = timeStringToMinutes(startStr)
+  let endMin = timeStringToMinutes(endStr)
+
+  // Se è una fascia notturna (inizia alle 22:00)
+  if (standardStart.startsWith('22')) {
+    if (startMin < 720) startMin += 1440 // prima mattina del giorno dopo (es. 02:00)
+    if (endMin < 720) endMin += 1440     // prima mattina del giorno dopo (es. 06:00)
+    if (endMin <= startMin) endMin += 1440 // a cavallo della mezzanotte
+  } else {
+    // Altre fasce
+    if (endMin <= startMin) endMin += 1440
+  }
+
+  return [startMin, endMin]
+}
+
+const getStandardHours = (placeholder) => {
+  const p = Number(placeholder)
+  if (p === 1) return { start: '06:00:00', end: '14:00:00' }
+  if (p === 2) return { start: '14:00:00', end: '22:00:00' }
+  return { start: '22:00:00', end: '06:00:00' }
+}
+
+const checkIntervalsOverlap = (intA, intB) => {
+  return Math.max(intA[0], intB[0]) < Math.min(intA[1], intB[1])
+}
+
 export const api = {
   isDemoMode: () => USE_MOCK,
 
@@ -310,8 +352,8 @@ export const api = {
   checkBulkConflicts: async (userId, targetShifts, targetRole) => {
     // targetShifts è un array di oggetti: { date, shift_id_placeholder (1, 2, 3) }
     // Vogliamo verificare:
-    // 1. Se l'utente ha già una sua prenotazione in quel giorno e in quella fascia (conflitto utente).
-    // 2. Se lo slot in quel giorno, fascia, crew_id è già occupato da qualcun altro.
+    // 1. Se l'utente ha già una sua prenotazione in quel giorno e in quella fascia sovrapposta all'orario richiesto (conflitto utente).
+    // 2. Se lo slot in quel giorno, fascia, crew_id è già occupato da qualcun altro in orario sovrapposto.
     const dates = [...new Set(targetShifts.map(ts => ts.date))].sort()
     if (dates.length === 0) return { conflicts: [], error: null }
 
@@ -333,37 +375,46 @@ export const api = {
       const conflicts = []
 
       for (const target of targetShifts) {
-        // Trova lo shift corrispondente in locale
         const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
-        
-        // Cerca i turni attivi per quel giorno e orario
+        const stdHours = getStandardHours(target.shift_id_placeholder)
         const dayShifts = shifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
 
         for (const shiftObj of dayShifts) {
-          // 1. Controlla se l'utente stesso è già prenotato in un qualunque ruolo in questo shift
-          const userHasBooking = bookings.find(b => b.shift_id === shiftObj.id && b.user_id === userId)
-          if (userHasBooking) {
-            conflicts.push({
-              date: target.date,
-              shiftLabel: target.label,
-              type: 'user_conflict',
-              message: `Sei già prenotato come ${userHasBooking.ruolo_turno} in questa fascia.`,
-              bookingId: userHasBooking.id
-            })
-            continue // Se c'è già la prenotazione dell'utente stesso, non serve segnalare l'occupazione dell'altro
-          }
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
 
-          // 2. Controlla se il ruolo scelto è già occupato da un altro utente
-          const roleOccupied = bookings.find(b => b.shift_id === shiftObj.id && b.ruolo_turno === targetRole)
-          if (roleOccupied) {
-            const occupant = profiles.find(p => p.id === roleOccupied.user_id)
-            conflicts.push({
-              date: target.date,
-              shiftLabel: target.label,
-              type: 'slot_occupied',
-              message: `Lo slot ${targetRole} è già occupato da ${occupant ? occupant.username : 'un collega'}.`,
-              occupant: occupant ? occupant.username : 'collega'
-            })
+          // 1. Controlla se l'utente stesso è già prenotato in un qualunque ruolo in questo shift in orario sovrapposto
+          const userBookings = bookings.filter(b => b.shift_id === shiftObj.id && b.user_id === userId)
+          let userConflict = false
+          for (const uBk of userBookings) {
+            const uInterval = getBookingMinutesInterval(uBk, stdHours.start, stdHours.end)
+            if (checkIntervalsOverlap(targetInterval, uInterval)) {
+              conflicts.push({
+                date: target.date,
+                shiftLabel: target.label,
+                type: 'user_conflict',
+                message: `Sei già prenotato come ${uBk.ruolo_turno} in questa fascia in questo orario.`,
+                bookingId: uBk.id
+              })
+              userConflict = true
+              break
+            }
+          }
+          if (userConflict) continue
+
+          // 2. Controlla se il ruolo scelto è già occupato da un altro utente in orario sovrapposto
+          const roleBookings = bookings.filter(b => b.shift_id === shiftObj.id && b.ruolo_turno === targetRole)
+          for (const rBk of roleBookings) {
+            const rInterval = getBookingMinutesInterval(rBk, stdHours.start, stdHours.end)
+            if (checkIntervalsOverlap(targetInterval, rInterval)) {
+              const occupant = profiles.find(p => p.id === rBk.user_id)
+              conflicts.push({
+                date: target.date,
+                shiftLabel: target.label,
+                type: 'slot_occupied',
+                message: `Lo slot ${targetRole} è già occupato da ${occupant ? occupant.username : 'un collega'} in questo orario.`,
+                occupant: occupant ? occupant.username : 'collega'
+              })
+            }
           }
         }
       }
@@ -388,32 +439,44 @@ export const api = {
 
       for (const target of targetShifts) {
         const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
+        const stdHours = getStandardHours(target.shift_id_placeholder)
         const matchingShifts = dbShifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
 
         for (const shiftObj of matchingShifts) {
-          // Controlla se l'utente loggato ha già una prenotazione
-          const myBk = shiftObj.bookings.find(b => b.user_id === userId)
-          if (myBk) {
-            conflicts.push({
-              date: target.date,
-              shiftLabel: target.label,
-              type: 'user_conflict',
-              message: `Sei già prenotato come ${myBk.ruolo_turno} in questa fascia.`,
-              bookingId: myBk.id
-            })
-            continue
-          }
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
 
-          // Controlla se il ruolo nello shift è già occupato
-          const roleBk = shiftObj.bookings.find(b => b.ruolo_turno === targetRole)
-          if (roleBk) {
-            conflicts.push({
-              date: target.date,
-              shiftLabel: target.label,
-              type: 'slot_occupied',
-              message: `Lo slot ${targetRole} è già occupato da ${roleBk.profiles?.username || 'un collega'}.`,
-              occupant: roleBk.profiles?.username || 'collega'
-            })
+          // Controlla se l'utente loggato ha già una prenotazione sovrapposta
+          const myBks = shiftObj.bookings.filter(b => b.user_id === userId)
+          let userConflict = false
+          for (const myBk of myBks) {
+            const myInterval = getBookingMinutesInterval(myBk, stdHours.start, stdHours.end)
+            if (checkIntervalsOverlap(targetInterval, myInterval)) {
+              conflicts.push({
+                date: target.date,
+                shiftLabel: target.label,
+                type: 'user_conflict',
+                message: `Sei già prenotato come ${myBk.ruolo_turno} in questa fascia in questo orario.`,
+                bookingId: myBk.id
+              })
+              userConflict = true
+              break
+            }
+          }
+          if (userConflict) continue
+
+          // Controlla se il ruolo nello shift è già occupato in orario sovrapposto
+          const roleBks = shiftObj.bookings.filter(b => b.ruolo_turno === targetRole)
+          for (const roleBk of roleBks) {
+            const roleInterval = getBookingMinutesInterval(roleBk, stdHours.start, stdHours.end)
+            if (checkIntervalsOverlap(targetInterval, roleInterval)) {
+              conflicts.push({
+                date: target.date,
+                shiftLabel: target.label,
+                type: 'slot_occupied',
+                message: `Lo slot ${targetRole} è già occupato da ${roleBk.profiles?.username || 'un collega'} in questo orario.`,
+                occupant: roleBk.profiles?.username || 'collega'
+              })
+            }
           }
         }
       }
@@ -454,8 +517,20 @@ export const api = {
         const shiftObj = shifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && String(s.crew_id) === "1")
         
         if (shiftObj) {
-          // Inserisce solo se non c'è già una prenotazione per quel ruolo in quel turno
-          const isOccupied = bookings.some(b => b.shift_id === shiftObj.id && b.ruolo_turno === targetRole)
+          // Inserisce solo se non c'è già una prenotazione sovrapposta per quel ruolo in quel turno
+          const roleBookings = [...bookings, ...newBookings].filter(b => b.shift_id === shiftObj.id && b.ruolo_turno === targetRole)
+          const stdHours = getStandardHours(target.shift_id_placeholder)
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
+
+          let isOccupied = false
+          for (const rBk of roleBookings) {
+            const rInterval = getBookingMinutesInterval(rBk, stdHours.start, stdHours.end)
+            if (checkIntervalsOverlap(targetInterval, rInterval)) {
+              isOccupied = true
+              break
+            }
+          }
+
           if (!isOccupied) {
             const newBk = {
               id: getNextId([...bookings, ...newBookings]),

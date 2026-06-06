@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   is_partial boolean DEFAULT false NOT NULL,
   nota_parziale text,
   created_at timestamptz DEFAULT now() NOT NULL,
-  -- Garantisce max 1 CE e 1 Autista per equipaggio per turno
-  CONSTRAINT unique_shift_role UNIQUE (shift_id, ruolo_turno)
+  -- Garantisce max 1 CE e 1 Autista per equipaggio per turno (Rimosso per supportare turni parziali multipli)
+  -- CONSTRAINT unique_shift_role UNIQUE (shift_id, ruolo_turno)
 );
 
 -- =========================================================================
