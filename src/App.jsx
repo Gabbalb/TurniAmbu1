@@ -52,12 +52,16 @@ function AppContent() {
         <div className="w-full flex flex-col gap-8 z-10">
           {/* Logo e Titolo */}
           <div className="flex flex-col items-center text-center gap-3">
-            <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <span className="text-3xl">🚑</span>
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/10 p-1 border border-slate-700/30">
+              <img 
+                src="/logo.png" 
+                alt="GM Turni Logo" 
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
             <div>
               <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                TurniAmbu
+                GM Turni
               </h2>
               <span className="text-xs text-slate-400 font-semibold tracking-widest uppercase mt-1 block">
                 Gestione Turni Soccorso

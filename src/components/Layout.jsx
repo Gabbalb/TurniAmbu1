@@ -13,12 +13,21 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
   return (
     <div className="flex flex-col h-dvh max-h-dvh overflow-hidden bg-slate-950 text-slate-100 font-sans max-w-md mx-auto shadow-2xl border-x border-slate-800/50 relative">
       {/* TopBar */}
-      <header className="flex-shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-3 sm:px-5 flex items-center justify-between shadow-md">
-        <div className="flex flex-col">
-          <span className="text-xs text-slate-400 capitalize">{formatItalianDate()}</span>
-          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-            TurniAmbu 🚑
-          </h1>
+      <header className="flex-shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-2.5 sm:px-5 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border border-slate-800/40">
+            <img 
+              src="/logo.png" 
+              alt="GM Turni Logo" 
+              className="w-full h-full object-contain rounded-full"
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-slate-400 leading-tight capitalize">{formatItalianDate()}</span>
+            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent leading-none mt-0.5">
+              GM Turni
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

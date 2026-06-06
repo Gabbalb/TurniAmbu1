@@ -10,7 +10,7 @@ const isSupabaseConfigured = () => {
 const USE_MOCK = !isSupabaseConfigured()
 
 if (USE_MOCK) {
-  console.log("ℹ️ TurniAmbu è in esecuzione in MODALITÀ DEMO (Mock Data in localStorage)")
+  console.log("ℹ️ GM Turni è in esecuzione in MODALITÀ DEMO (Mock Data in localStorage)")
   
   // Inizializza i dati mock se non esistono
   if (!localStorage.getItem('ta_profiles')) {
