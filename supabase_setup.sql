@@ -73,7 +73,6 @@ SET search_path = public
 AS $$
 BEGIN
   NEW.email_confirmed_at = COALESCE(NEW.email_confirmed_at, now());
-  NEW.confirmed_at = COALESCE(NEW.confirmed_at, now());
   RETURN NEW;
 END;
 $$;
@@ -222,19 +221,19 @@ BEGIN
     -- Inserimento in auth.users (password: admin12345)
     INSERT INTO auth.users (
       id,
+      instance_id,
       email,
       encrypted_password,
       email_confirmed_at,
-      confirmed_at,
       raw_app_meta_data,
       raw_user_meta_data,
       aud,
       role
     ) VALUES (
       admin_uuid,
+      '00000000-0000-0000-0000-000000000000',
       'admin@app.internal',
       crypt('admin12345', gen_salt('bf')),
-      now(),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       '{"username":"admin","ruolo":"admin"}'::jsonb,
@@ -248,19 +247,19 @@ BEGIN
       user_id,
       identity_data,
       provider,
+      provider_id,
       last_sign_in_at,
       created_at,
-      updated_at,
-      email
+      updated_at
     ) VALUES (
       admin_uuid,
       admin_uuid,
       jsonb_build_object('sub', admin_uuid, 'email', 'admin@app.internal'),
       'email',
+      admin_uuid::text,
       now(),
       now(),
-      now(),
-      'admin@app.internal'
+      now()
     );
   END IF;
 END $$;
