@@ -152,7 +152,7 @@ export default function TurniBoard() {
       if (isCurrentUser) {
         // Occupato dall'utente loggato (Evidenziato)
         return (
-          <div className="flex items-center justify-between p-3 rounded-xl border-2 border-indigo-500 bg-indigo-500/10 shadow-indigo-500/10 shadow-lg animate-touch-ping duration-1000">
+          <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border-2 border-indigo-500 bg-indigo-500/10 shadow-indigo-500/10 shadow-lg animate-touch-ping duration-1000">
             <div className="flex flex-col">
               <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400">{role}</span>
               <span className="text-sm font-semibold text-slate-100">Io (Prenotato)</span>
@@ -173,10 +173,10 @@ export default function TurniBoard() {
       } else {
         // Occupato da un collega (Grigio + Lucchetto)
         return (
-          <div className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-400 cursor-not-allowed">
+          <div className="flex items-center justify-between p-2 sm:p-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-400 cursor-not-allowed">
             <div className="flex flex-col">
               <span className="text-[10px] uppercase font-semibold text-slate-500">{role}</span>
-              <span className="text-sm font-medium text-slate-400 truncate max-w-[120px]">
+              <span className="text-sm font-medium text-slate-400 truncate max-w-[85px] sm:max-w-[120px]">
                 {booking.profiles?.username || 'Collega'}
               </span>
               {booking.is_partial && (
@@ -194,7 +194,7 @@ export default function TurniBoard() {
       <button
         onClick={() => setBookingConfirm({ shiftId: shift.id, role })}
         disabled={isLoading || !profile?.attivo}
-        className="flex flex-col text-left p-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200"
+        className="flex flex-col text-left p-2 sm:p-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200"
       >
         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{role}</span>
         <span className="text-sm font-medium text-indigo-400/80 mt-0.5 group-hover:text-indigo-400">
@@ -217,9 +217,9 @@ export default function TurniBoard() {
         {matchedShifts.map((shift, idx) => {
           const crewObj = crews.find(c => String(c.id) === String(shift.crew_id))
           return (
-            <div key={shift.id} className="bg-slate-900/40 border border-slate-800/80 p-3.5 rounded-2xl shadow-inner-soft">
+            <div key={shift.id} className="bg-slate-900/40 border border-slate-800/80 p-2.5 sm:p-3.5 rounded-2xl shadow-inner-soft">
               {/* Nome Equipaggio */}
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2 sm:mb-2.5">
                 <span className="text-xs font-bold text-slate-300">
                   {crewObj ? crewObj.nome : `Equipaggio ${shift.crew_id}`}
                 </span>
@@ -231,7 +231,7 @@ export default function TurniBoard() {
               </div>
 
               {/* Grid Coppia: CE + Autista */}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 {renderSlot(shift, 'CE', matchedShifts)}
                 {renderSlot(shift, 'autista', matchedShifts)}
               </div>
@@ -256,7 +256,7 @@ export default function TurniBoard() {
         {timeSlots.map(slot => {
           const style = getShiftStyle(slot.start)
           return (
-            <div key={slot.id} className={`flex flex-col gap-3 p-4 border rounded-3xl ${style.bg} transition-all duration-300 hover:shadow-premium`}>
+            <div key={slot.id} className={`flex flex-col gap-2.5 p-3 sm:p-4 border rounded-3xl ${style.bg} transition-all duration-300 hover:shadow-premium`}>
               {/* Header Fascia */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

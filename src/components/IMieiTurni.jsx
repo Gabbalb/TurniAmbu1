@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Calendar, Clock, Trash2, ArrowRight, RefreshCw, ClipboardList } from 'lucide-react'
+import { Calendar, Clock, Trash2, ArrowRight, RefreshCw, ClipboardList, Key } from 'lucide-react'
 
 export default function IMieiTurni() {
   const { user } = useAuth()
@@ -11,6 +11,11 @@ export default function IMieiTurni() {
   const [loading, setLoading] = useState(true)
   const [cancelingId, setCancelingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null) // ID della prenotazione da confermare
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false)
+  const [newPasswordVal, setNewPasswordVal] = useState('')
+  const [changePassLoading, setChangePassLoading] = useState(false)
+  const [changePassError, setChangePassError] = useState(null)
+  const [changePassSuccess, setChangePassSuccess] = useState(null)
 
   const loadMyBookings = async () => {
     setLoading(true)
@@ -48,6 +53,36 @@ export default function IMieiTurni() {
     }
   }
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setChangePassError(null)
+    setChangePassSuccess(null)
+
+    if (newPasswordVal.length < 6) {
+      setChangePassError('La password deve contenere almeno 6 caratteri.')
+      return
+    }
+
+    setChangePassLoading(true)
+    try {
+      const { error } = await api.updateOwnPassword(newPasswordVal)
+      if (error) {
+        setChangePassError(error.message || 'Errore durante l\'aggiornamento.')
+      } else {
+        setChangePassSuccess('Password aggiornata con successo!')
+        setNewPasswordVal('')
+        setTimeout(() => {
+          setIsChangePassOpen(false)
+          setChangePassSuccess(null)
+        }, 1500)
+      }
+    } catch (err) {
+      setChangePassError(err.message || 'Errore imprevisto.')
+    } finally {
+      setChangePassLoading(false)
+    }
+  }
+
   const getShiftBadgeStyle = (ora_inizio) => {
     if (ora_inizio.startsWith('06:')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
     if (ora_inizio.startsWith('14:')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
@@ -57,14 +92,23 @@ export default function IMieiTurni() {
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Header Sezione */}
-      <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/60">
-        <div className="p-2 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 text-indigo-400">
-          <ClipboardList className="w-5 h-5" />
+      <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 text-indigo-400">
+            <ClipboardList className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-100">I Miei Turni Prenotati</h2>
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Turni futuri programmati</span>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-slate-100">I Miei Turni Prenotati</h2>
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Turni futuri programmati</span>
-        </div>
+        <button
+          onClick={() => setIsChangePassOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 rounded-xl text-xs font-semibold text-slate-300 transition-all flex-shrink-0"
+        >
+          <Key className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Password</span>
+        </button>
       </div>
 
       {loading ? (
@@ -92,7 +136,7 @@ export default function IMieiTurni() {
             return (
               <div
                 key={booking.id}
-                className="bg-slate-900/40 border border-slate-800/80 p-4 rounded-2xl flex items-center justify-between shadow-premium transition-all hover:border-slate-700/60"
+                className="bg-slate-900/40 border border-slate-800/80 p-3 sm:p-4 rounded-2xl flex items-center justify-between shadow-premium transition-all hover:border-slate-700/60"
               >
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-3">
                   {/* Data Turno */}
@@ -157,6 +201,71 @@ export default function IMieiTurni() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Dialog di cambio password */}
+      {isChangePassOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <form onSubmit={handleChangePassword} className="bg-slate-900 border border-slate-800 p-5 rounded-3xl w-full max-w-xs flex flex-col gap-4 shadow-premium">
+            <div className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-base font-bold text-slate-100">Cambia Password</h3>
+            </div>
+            
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Inserisci la nuova password per il tuo account (almeno 6 caratteri).
+            </p>
+
+            {changePassError && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-2.5 rounded-xl text-[11px] font-semibold text-center leading-normal">
+                {changePassError}
+              </div>
+            )}
+
+            {changePassSuccess && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-2.5 rounded-xl text-[11px] font-semibold text-center leading-normal">
+                {changePassSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <input
+                type="password"
+                placeholder="Nuova password"
+                value={newPasswordVal}
+                onChange={(e) => setNewPasswordVal(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none transition-colors"
+                required
+                disabled={changePassLoading}
+              />
+            </div>
+
+            <div className="flex gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChangePassOpen(false)
+                  setNewPasswordVal('')
+                  setChangePassError(null)
+                  setChangePassSuccess(null)
+                }}
+                disabled={changePassLoading}
+                className="flex-1 py-2 px-3 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                type="submit"
+                disabled={changePassLoading}
+                className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors flex items-center justify-center gap-1"
+              >
+                {changePassLoading ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : 'Salva'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

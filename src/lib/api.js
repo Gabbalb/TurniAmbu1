@@ -146,7 +146,7 @@ export const api = {
         crews.forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = existingShifts.some(
-              s => s.data === date && s.ora_inizio === slot.ora_inizio && s.crew_id === String(crew.id)
+              s => s.data === date && s.ora_inizio === slot.ora_inizio && String(s.crew_id) === String(crew.id)
             )
             if (!exists) {
               insertRows.push({
@@ -315,6 +315,16 @@ export const api = {
     const dates = [...new Set(targetShifts.map(ts => ts.date))].sort()
     if (dates.length === 0) return { conflicts: [], error: null }
 
+    // Forza la creazione degli shift del periodo se non esistono ancora
+    try {
+      const { data: crewsData } = await api.fetchCrews()
+      if (crewsData && crewsData.length > 0) {
+        await api.ensureShiftsExistForDates(dates, crewsData)
+      }
+    } catch (e) {
+      console.warn("Errore in ensureShiftsExistForDates durante checkBulkConflicts:", e)
+    }
+
     if (USE_MOCK) {
       const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
       const shifts = JSON.parse(localStorage.getItem('ta_shifts'))
@@ -419,6 +429,18 @@ export const api = {
     // targetShifts: array di { date, shift_id_placeholder, ora_inizio_effettiva, ora_fine_effettiva, is_partial, nota_parziale }
     if (targetShifts.length === 0) return { error: null }
 
+    const dates = [...new Set(targetShifts.map(ts => ts.date))].sort()
+    
+    // Forza la creazione degli shift del periodo se non esistono ancora
+    try {
+      const { data: crewsData } = await api.fetchCrews()
+      if (crewsData && crewsData.length > 0) {
+        await api.ensureShiftsExistForDates(dates, crewsData)
+      }
+    } catch (e) {
+      console.warn("Errore in ensureShiftsExistForDates durante executeBulkBooking:", e)
+    }
+
     if (USE_MOCK) {
       const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
       const shifts = JSON.parse(localStorage.getItem('ta_shifts'))
@@ -429,7 +451,7 @@ export const api = {
         const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
         
         // Trova il turno corrispondente (per default equipaggio 1)
-        const shiftObj = shifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && s.crew_id === 1)
+        const shiftObj = shifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && String(s.crew_id) === "1")
         
         if (shiftObj) {
           // Inserisce solo se non c'è già una prenotazione per quel ruolo in quel turno
@@ -475,7 +497,7 @@ export const api = {
         const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
         
         // Tenta di prenotare per l'equipaggio 1 (il default)
-        const shiftObj = dbShifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && s.crew_id === 1)
+        const shiftObj = dbShifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && String(s.crew_id) === "1")
 
         if (shiftObj) {
           insertRows.push({
@@ -513,7 +535,7 @@ export const api = {
       
       // Controlla se quel turno esiste già per quell'equipaggio
       const exists = shifts.some(
-        s => s.data === date && s.ora_inizio === ora_inizio && s.crew_id === crewId
+        s => s.data === date && s.ora_inizio === ora_inizio && String(s.crew_id) === String(crewId)
       )
 
       if (exists) {
@@ -712,5 +734,15 @@ export const api = {
       .lt('shifts.data', todayStr)
       .order('data', { foreignTable: 'shifts', ascending: false })
       .order('ora_inizio', { foreignTable: 'shifts', ascending: false })
+  },
+
+  // Consente all'utente loggato di aggiornare la propria password
+  updateOwnPassword: async (newPassword) => {
+    if (USE_MOCK) {
+      console.log(`[MOCK] Password personale aggiornata a: ${newPassword}`)
+      return { error: null }
+    }
+    return supabase.auth.updateUser({ password: newPassword })
   }
 }
+

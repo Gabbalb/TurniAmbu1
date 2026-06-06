@@ -11,9 +11,9 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans max-w-md mx-auto shadow-2xl border-x border-slate-800/50 relative">
+    <div className="flex flex-col h-dvh max-h-dvh overflow-hidden bg-slate-950 text-slate-100 font-sans max-w-md mx-auto shadow-2xl border-x border-slate-800/50 relative">
       {/* TopBar */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-md">
+      <header className="flex-shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-3 sm:px-5 flex items-center justify-between shadow-md">
         <div className="flex flex-col">
           <span className="text-xs text-slate-400 capitalize">{formatItalianDate()}</span>
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
@@ -61,12 +61,12 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-24 overflow-y-auto px-4 py-4 scroll-smooth">
+      <main className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5 scroll-smooth pb-28">
         {children}
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2 px-6 flex justify-between items-center z-40 rounded-t-2xl shadow-xl">
+      <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 sm:px-8 flex justify-between items-center z-40 rounded-t-2xl shadow-xl flex-shrink-0">
         {/* Tabellone Link */}
         <button
           onClick={() => setView('board')}
