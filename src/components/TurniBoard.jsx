@@ -9,7 +9,7 @@ export default function TurniBoard() {
   const { user, profile } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [listAnchorDate, setListAnchorDate] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
-  const [daysCount, setDaysCount] = useState(10)
+  const [daysCount, setDaysCount] = useState(14)
   const [viewType, setViewType] = useState('giorno') // 'giorno' | 'settimana'
   const [shifts, setShifts] = useState([])
   const [bookings, setBookings] = useState([])
@@ -194,14 +194,14 @@ export default function TurniBoard() {
     const newAnchor = addDays(listAnchorDate, -7)
     setListAnchorDate(newAnchor)
     setCurrentDate(newAnchor)
-    setDaysCount(10)
+    setDaysCount(14)
   }
 
   const handleNextWeek = () => {
     const newAnchor = addDays(listAnchorDate, 7)
     setListAnchorDate(newAnchor)
     setCurrentDate(newAnchor)
-    setDaysCount(10)
+    setDaysCount(14)
   }
 
   const handleToday = () => {
@@ -209,7 +209,7 @@ export default function TurniBoard() {
     const newAnchor = startOfWeek(today, { weekStartsOn: 1 })
     setListAnchorDate(newAnchor)
     setCurrentDate(today)
-    setDaysCount(10)
+    setDaysCount(14)
   }
 
   // Seleziona un giorno specifico dalle pills e lo fa scorrere in vista
@@ -223,7 +223,8 @@ export default function TurniBoard() {
       if (scrollParent) {
         const parentRect = scrollParent.getBoundingClientRect()
         const elementRect = targetEl.getBoundingClientRect()
-        const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 10
+        // Offset di 65px per allinearlo sotto la barra sticky dei giorni
+        const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 65
         scrollParent.scrollTo({ top: scrollTarget, behavior: 'smooth' })
       } else {
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -245,7 +246,7 @@ export default function TurniBoard() {
           if (scrollParent) {
             const parentRect = scrollParent.getBoundingClientRect()
             const elementRect = targetEl.getBoundingClientRect()
-            const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 10
+            const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 65
             scrollParent.scrollTo({ top: scrollTarget })
           }
         }
@@ -745,29 +746,31 @@ export default function TurniBoard() {
 
       {/* Giorno Picker Pills (Solo in vista Giorno) */}
       {viewType === 'giorno' && (
-        <div className="flex justify-between gap-1 overflow-x-auto py-1 scroll-smooth">
-          {weekDays.map(day => {
-            const isSelected = isSameDay(day, currentDate)
-            const isToday = isSameDay(day, new Date())
-            return (
-              <button
-                key={day.toString()}
-                onClick={() => handleSelectDay(day)}
-                className={`flex flex-col items-center flex-1 min-w-[46px] py-2 px-1 rounded-xl transition-all duration-200 ${
-                  isSelected
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105 font-bold'
-                    : 'bg-slate-900/30 text-slate-400 hover:bg-slate-800/60'
-                }`}
-              >
-                <span className="text-[9px] uppercase tracking-wider">
-                  {format(day, 'eee', { locale: it }).replace('.', '')}
-                </span>
-                <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
-                  {format(day, 'd')}
-                </span>
-              </button>
-            )
-          })}
+        <div className="sticky -top-4 sm:-top-5 z-30 bg-slate-950/95 backdrop-blur-md py-2 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-800/80 scroll-smooth">
+          <div className="flex justify-between gap-1 overflow-x-auto scroll-smooth">
+            {weekDays.map(day => {
+              const isSelected = isSameDay(day, currentDate)
+              const isToday = isSameDay(day, new Date())
+              return (
+                <button
+                  key={day.toString()}
+                  onClick={() => handleSelectDay(day)}
+                  className={`flex flex-col items-center flex-1 min-w-[46px] py-2 px-1 rounded-xl transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20 scale-105 font-bold'
+                      : 'bg-slate-900/30 text-slate-400 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span className="text-[9px] uppercase tracking-wider">
+                    {format(day, 'eee', { locale: it }).replace('.', '')}
+                  </span>
+                  <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
+                    {format(day, 'd')}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -778,35 +781,50 @@ export default function TurniBoard() {
           <span className="text-sm italic">Caricamento turni in corso...</span>
         </div>
       ) : viewType === 'giorno' ? (
-        <div ref={containerRef} className="flex flex-col gap-8">
-          {renderedDates.map(day => {
+        <div ref={containerRef} className="flex flex-col gap-6">
+          {renderedDates.map((day, idx) => {
             const dateStr = format(day, 'yyyy-MM-dd')
             const isToday = isSameDay(day, new Date())
             return (
-              <div
-                key={dateStr}
-                data-date={dateStr}
-                ref={(el) => {
-                  if (el) {
-                    dayRefs.current[dateStr] = el
-                  } else {
-                    delete dayRefs.current[dateStr]
-                  }
-                }}
-                className="flex flex-col gap-3.5 border-b border-slate-800/40 pb-8 last:border-0 last:pb-0 scroll-mt-2"
-              >
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-base font-extrabold capitalize text-indigo-400">
-                    {format(day, 'EEEE d MMMM yyyy', { locale: it })}
-                  </h3>
-                  {isToday && (
-                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                      Oggi
-                    </span>
-                  )}
+              <React.Fragment key={dateStr}>
+                {/* Bright gradient division line between days */}
+                {idx > 0 && (
+                  <div className="w-full pt-4 pb-2 flex items-center gap-3">
+                    <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-indigo-500/70 to-purple-500/70 rounded-full"></div>
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_#6366f1]"></div>
+                    <div className="h-[2px] flex-1 bg-gradient-to-r from-purple-500/70 via-indigo-500/70 to-transparent rounded-full"></div>
+                  </div>
+                )}
+
+                <div
+                  data-date={dateStr}
+                  ref={(el) => {
+                    if (el) {
+                      dayRefs.current[dateStr] = el
+                    } else {
+                      delete dayRefs.current[dateStr]
+                    }
+                  }}
+                  className="flex flex-col gap-3.5 pb-2 scroll-mt-2"
+                >
+                  <div className="flex items-center justify-between px-1 mb-1">
+                    <div className="flex flex-col text-left">
+                      <h3 className="text-xl font-black text-white capitalize tracking-tight leading-none">
+                        {format(day, 'EEEE', { locale: it })}
+                      </h3>
+                      <span className="text-xs font-semibold text-slate-400 mt-1">
+                        {format(day, 'd MMMM yyyy', { locale: it })}
+                      </span>
+                    </div>
+                    {isToday && (
+                      <span className="text-xs bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-3 py-1 rounded-full font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20">
+                        Oggi
+                      </span>
+                    )}
+                  </div>
+                  {renderDailyShifts(day)}
                 </div>
-                {renderDailyShifts(day)}
-              </div>
+              </React.Fragment>
             )
           })}
         </div>
