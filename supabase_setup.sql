@@ -386,6 +386,14 @@ CREATE TRIGGER tr_profile_update
   FOR EACH ROW EXECUTE PROCEDURE public.on_profile_update();
 
 -- Trigger 3: Creazione, Modifica o Cancellazione di prenotazioni turni
+-- Rimuoviamo prima tutti i trigger esistenti (sia row-level che statement-level) per evitare errori di dipendenza
+DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
+DROP TRIGGER IF EXISTS tr_booking_insert ON public.bookings;
+DROP TRIGGER IF EXISTS tr_booking_update ON public.bookings;
+DROP TRIGGER IF EXISTS tr_booking_delete ON public.bookings;
+DROP FUNCTION IF EXISTS public.on_booking_change();
+
+-- Sostituito da trigger statement-level con transition tables. Definiamo la funzione:
 CREATE OR REPLACE FUNCTION public.on_booking_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -393,75 +401,247 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  inserted_count int;
+  deleted_count int;
+  updated_count int;
+  actor_name text;
+  msg text;
+  action_type text;
+  r RECORD;
   user_name text;
   shift_date date;
   shift_time time;
+  shift_end_time time;
   role_name text;
-  msg text;
-  action_type text;
-  actor_name text;
+  booking_user_id uuid;
 BEGIN
-  -- Se è una cancellazione
-  IF TG_OP = 'DELETE' THEN
-    SELECT COALESCE(username, 'Utente') INTO user_name FROM public.profiles WHERE id = OLD.user_id;
-    SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = OLD.shift_id;
-    role_name := COALESCE(OLD.ruolo_turno, 'ruolo');
-    action_type := 'prenotazione_cancellata';
-    
-    SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
-    actor_name := COALESCE(actor_name, user_name, 'Sistema');
-    
-    msg := concat(
-      'Il dipendente ', user_name, ' ha cancellato la prenotazione per il turno del ', 
-      to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
-      ' (Fascia ', to_char(COALESCE(shift_time, '00:00:00'::time), 'HH24:MI'), ') nel ruolo "', role_name, '".',
-      CASE WHEN actor_name <> user_name THEN concat(' (Cancellato dall''amministratore: ', actor_name, ')') ELSE '' END
-    );
-  ELSE
-    SELECT COALESCE(username, 'Utente') INTO user_name FROM public.profiles WHERE id = NEW.user_id;
-    SELECT data, ora_inizio INTO shift_date, shift_time FROM public.shifts WHERE id = NEW.shift_id;
-    role_name := COALESCE(NEW.ruolo_turno, 'ruolo');
-    
-    SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
-    actor_name := COALESCE(actor_name, user_name, 'Sistema');
+  -- Trova l'username di chi sta effettuando l'operazione (auth.uid())
+  SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
+  actor_name := COALESCE(actor_name, 'Sistema');
 
-    IF TG_OP = 'INSERT' THEN
+  IF TG_OP = 'INSERT' THEN
+    -- Controlla il numero di righe inserite tramite la transition table "new_table"
+    SELECT COUNT(*) INTO inserted_count FROM new_table;
+    
+    IF inserted_count = 1 THEN
+      -- Singolo inserimento: mantieni la notifica dettagliata esistente
+      SELECT * INTO r FROM new_table LIMIT 1;
+      SELECT COALESCE(username, 'Utente'), id INTO user_name, booking_user_id FROM public.profiles WHERE id = r.user_id;
+      SELECT data, ora_inizio, ora_fine INTO shift_date, shift_time, shift_end_time FROM public.shifts WHERE id = r.shift_id;
+      role_name := COALESCE(r.ruolo_turno, 'ruolo');
       action_type := 'prenotazione_creata';
+      
       msg := concat(
         'Il dipendente ', user_name, ' si è prenotato per il turno del ', 
         to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
-        ' (Fascia ', to_char(COALESCE(shift_time, '00:00:00'::time), 'HH24:MI'), ') nel ruolo "', role_name, '".',
+        ' (', 
+        CASE 
+          WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+          ELSE concat(to_char(shift_time, 'HH24:MI'), '-', to_char(shift_end_time, 'HH24:MI'))
+        END,
+        ') nel ruolo "', role_name, '".',
         CASE WHEN actor_name <> user_name THEN concat(' (Assegnato dall''amministratore: ', actor_name, ')') ELSE '' END
       );
-    ELSIF TG_OP = 'UPDATE' THEN
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES (action_type, msg, actor_name);
+      
+    ELSIF inserted_count > 1 THEN
+      -- Inserimento multiplo (Bulk): genera una singola notifica riassuntiva
+      SELECT COUNT(DISTINCT user_id) INTO inserted_count FROM new_table;
+      
+      IF inserted_count = 1 THEN
+        SELECT COALESCE(p.username, 'Utente') INTO user_name 
+        FROM new_table n 
+        JOIN public.profiles p ON p.id = n.user_id 
+        LIMIT 1;
+        
+        msg := concat('Il dipendente ', user_name, ' ha inserito prenotazioni multiple (bulk):');
+      ELSE
+        msg := 'Inserite prenotazioni multiple (bulk) per più utenti:';
+      END IF;
+      
+      FOR r IN (
+        SELECT n.*, s.data, s.ora_inizio, s.ora_fine, p.username 
+        FROM new_table n
+        JOIN public.shifts s ON s.id = n.shift_id
+        LEFT JOIN public.profiles p ON p.id = n.user_id
+        ORDER BY s.data, s.ora_inizio
+      ) LOOP
+        msg := concat(
+          msg, chr(10), 
+          '- ', to_char(r.data, 'DD/MM/YYYY'), 
+          ' (',
+          CASE 
+            WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+            ELSE concat(to_char(r.ora_inizio, 'HH24:MI'), '-', to_char(r.ora_fine, 'HH24:MI'))
+          END,
+          ') come "', r.ruolo_turno, '"',
+          CASE WHEN inserted_count > 1 THEN concat(' per ', r.username) ELSE '' END
+        );
+      END LOOP;
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES ('prenotazione_creata_bulk', msg, actor_name);
+    END IF;
+
+  ELSIF TG_OP = 'DELETE' THEN
+    -- Controlla il numero di righe eliminate tramite la transition table "old_table"
+    SELECT COUNT(*) INTO deleted_count FROM old_table;
+    
+    IF deleted_count = 1 THEN
+      -- Singola cancellazione: mantieni la notifica dettagliata esistente
+      SELECT * INTO r FROM old_table LIMIT 1;
+      SELECT COALESCE(username, 'Utente'), id INTO user_name, booking_user_id FROM public.profiles WHERE id = r.user_id;
+      SELECT data, ora_inizio, ora_fine INTO shift_date, shift_time, shift_end_time FROM public.shifts WHERE id = r.shift_id;
+      role_name := COALESCE(r.ruolo_turno, 'ruolo');
+      action_type := 'prenotazione_cancellata';
+      
+      msg := concat(
+        'Il dipendente ', user_name, ' ha cancellato la prenotazione per il turno del ', 
+        to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
+        ' (', 
+        CASE 
+          WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+          ELSE concat(to_char(shift_time, 'HH24:MI'), '-', to_char(shift_end_time, 'HH24:MI'))
+        END,
+        ') nel ruolo "', role_name, '".',
+        CASE WHEN actor_name <> user_name THEN concat(' (Cancellato dall''amministratore: ', actor_name, ')') ELSE '' END
+      );
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES (action_type, msg, actor_name);
+      
+    ELSIF deleted_count > 1 THEN
+      -- Cancellazione multipla (Bulk): genera una singola notifica riassuntiva
+      SELECT COUNT(DISTINCT user_id) INTO deleted_count FROM old_table;
+      
+      IF deleted_count = 1 THEN
+        SELECT COALESCE(p.username, 'Utente') INTO user_name 
+        FROM old_table o 
+        JOIN public.profiles p ON p.id = o.user_id 
+        LIMIT 1;
+        
+        msg := concat('Il dipendente ', user_name, ' ha cancellato prenotazioni multiple (bulk):');
+      ELSE
+        msg := 'Cancellate prenotazioni multiple (bulk) per più utenti:';
+      END IF;
+      
+      FOR r IN (
+        SELECT o.*, s.data, s.ora_inizio, s.ora_fine, p.username 
+        FROM old_table o
+        JOIN public.shifts s ON s.id = o.shift_id
+        LEFT JOIN public.profiles p ON p.id = o.user_id
+        ORDER BY s.data, s.ora_inizio
+      ) LOOP
+        msg := concat(
+          msg, chr(10), 
+          '- ', to_char(r.data, 'DD/MM/YYYY'), 
+          ' (',
+          CASE 
+            WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+            ELSE concat(to_char(r.ora_inizio, 'HH24:MI'), '-', to_char(r.ora_fine, 'HH24:MI'))
+          END,
+          ') come "', r.ruolo_turno, '"',
+          CASE WHEN deleted_count > 1 THEN concat(' per ', r.username) ELSE '' END
+        );
+      END LOOP;
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES ('prenotazione_cancellata_bulk', msg, actor_name);
+    END IF;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- Controlla il numero di righe modificate tramite la transition table "new_table"
+    SELECT COUNT(*) INTO updated_count FROM new_table;
+    
+    IF updated_count = 1 THEN
+      -- Singola modifica
+      SELECT * INTO r FROM new_table LIMIT 1;
+      SELECT COALESCE(username, 'Utente') INTO user_name FROM public.profiles WHERE id = r.user_id;
+      SELECT data, ora_inizio, ora_fine INTO shift_date, shift_time, shift_end_time FROM public.shifts WHERE id = r.shift_id;
+      role_name := COALESCE(r.ruolo_turno, 'ruolo');
       action_type := 'prenotazione_modificata';
+      
       msg := concat(
         'La prenotazione del dipendente ', user_name, ' per il turno del ', 
         to_char(COALESCE(shift_date, CURRENT_DATE), 'DD/MM/YYYY'), 
-        ' è stata modificata (Ruolo: "', role_name, '").',
+        ' è stata modificata (Ruolo: "', role_name, '", Fascia: ',
+        CASE 
+          WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+          ELSE concat(to_char(shift_time, 'HH24:MI'), '-', to_char(shift_end_time, 'HH24:MI'))
+        END,
+        ').',
         ' (Modificato da: ', actor_name, ')'
       );
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES (action_type, msg, actor_name);
+      
+    ELSIF updated_count > 1 THEN
+      -- Modifica multipla (Bulk)
+      SELECT COUNT(DISTINCT user_id) INTO updated_count FROM new_table;
+      
+      IF updated_count = 1 THEN
+        SELECT COALESCE(p.username, 'Utente') INTO user_name 
+        FROM new_table n 
+        JOIN public.profiles p ON p.id = n.user_id 
+        LIMIT 1;
+        
+        msg := concat('Le prenotazioni del dipendente ', user_name, ' sono state modificate in bulk:');
+      ELSE
+        msg := 'Modificate prenotazioni multiple (bulk) per più utenti:';
+      END IF;
+      
+      FOR r IN (
+        SELECT n.*, s.data, s.ora_inizio, s.ora_fine, p.username 
+        FROM new_table n
+        JOIN public.shifts s ON s.id = n.shift_id
+        LEFT JOIN public.profiles p ON p.id = n.user_id
+        ORDER BY s.data, s.ora_inizio
+      ) LOOP
+        msg := concat(
+          msg, chr(10), 
+          '- ', to_char(r.data, 'DD/MM/YYYY'), 
+          ' (',
+          CASE 
+            WHEN r.is_partial = true THEN concat(to_char(r.ora_inizio_effettiva, 'HH24:MI'), '-', to_char(r.ora_fine_effettiva, 'HH24:MI'), ' [Parziale]')
+            ELSE concat(to_char(r.ora_inizio, 'HH24:MI'), '-', to_char(r.ora_fine, 'HH24:MI'))
+          END,
+          ') come "', r.ruolo_turno, '"',
+          CASE WHEN updated_count > 1 THEN concat(' per ', r.username) ELSE '' END
+        );
+      END LOOP;
+      
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES ('prenotazione_modificata_bulk', msg, actor_name);
     END IF;
   END IF;
-
-  INSERT INTO public.notifications (tipo, messaggio, creato_da)
-  VALUES (
-    COALESCE(action_type, 'prenotazione'),
-    COALESCE(msg, 'Modifica prenotazione turno.'),
-    COALESCE(actor_name, 'Sistema')
-  );
-
-  IF TG_OP = 'DELETE' THEN
-    RETURN OLD;
-  ELSE
-    RETURN NEW;
-  END IF;
+  
+  RETURN NULL; -- Per i trigger AFTER STATEMENT il valore di ritorno è ignorato
 END;
 $$;
+
+-- Collega i trigger di livello STATEMENT su public.bookings con transition tables
 DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
-CREATE TRIGGER tr_booking_change
-  AFTER INSERT OR UPDATE OR DELETE ON public.bookings
-  FOR EACH ROW EXECUTE PROCEDURE public.on_booking_change();
+
+DROP TRIGGER IF EXISTS tr_booking_insert ON public.bookings;
+CREATE TRIGGER tr_booking_insert
+  AFTER INSERT ON public.bookings
+  REFERENCING NEW TABLE AS new_table
+  FOR EACH STATEMENT EXECUTE PROCEDURE public.on_booking_change();
+
+DROP TRIGGER IF EXISTS tr_booking_update ON public.bookings;
+CREATE TRIGGER tr_booking_update
+  AFTER UPDATE ON public.bookings
+  REFERENCING NEW TABLE AS new_table OLD TABLE AS old_table
+  FOR EACH STATEMENT EXECUTE PROCEDURE public.on_booking_change();
+
+DROP TRIGGER IF EXISTS tr_booking_delete ON public.bookings;
+CREATE TRIGGER tr_booking_delete
+  AFTER DELETE ON public.bookings
+  REFERENCING OLD TABLE AS old_table
+  FOR EACH STATEMENT EXECUTE PROCEDURE public.on_booking_change();
 
 -- =========================================================================
 -- 6. INVIO NOTIFICHE SU GRUPPO TELEGRAM DIRETTO DA DATABASE
@@ -478,6 +658,7 @@ AS $$
 DECLARE
   telegram_token text := 'IL_TUO_TOKEN_BOT_TELEGRAM'; -- <-- INSERISCI IL TOKEN DEL BOT
   telegram_chat_id text := 'IL_TUO_CHAT_ID_GRUPPO';   -- <-- INSERISCI IL CHAT ID DEL GRUPPO (es. -1001234567890 o numero negativo)
+  title_text text;
   formatted_msg text;
 BEGIN
   -- Se il token o il chat_id non sono inseriti, esce senza errori
@@ -486,10 +667,32 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Determina il titolo del messaggio in base al tipo di notifica
+  CASE NEW.tipo
+    WHEN 'registrazione' THEN
+      title_text := '🆕 <b>Registrazione Nuovo Utente</b>';
+    WHEN 'prenotazione_creata' THEN
+      title_text := '✅ <b>Nuova Prenotazione Turno</b>';
+    WHEN 'prenotazione_creata_bulk' THEN
+      title_text := '✅ <b>Prenotazioni Multiple Inserite (Bulk)</b>';
+    WHEN 'prenotazione_cancellata' THEN
+      title_text := '❌ <b>Prenotazione Cancellata</b>';
+    WHEN 'prenotazione_cancellata_bulk' THEN
+      title_text := '❌ <b>Prenotazioni Multiple Cancellate (Bulk)</b>';
+    WHEN 'prenotazione_modificata' THEN
+      title_text := '🔄 <b>Prenotazione Modificata</b>';
+    WHEN 'prenotazione_modificata_bulk' THEN
+      title_text := '🔄 <b>Prenotazioni Multiple Modificate (Bulk)</b>';
+    WHEN 'profilo_modificato' THEN
+      title_text := '👤 <b>Profilo Modificato</b>';
+    ELSE
+      title_text := '🔔 <b>GM Turni - Notifica</b>';
+  END CASE;
+
   -- Formatta il messaggio in HTML per Telegram (usando concat per sicurezza)
   formatted_msg := concat(
-    '<b>🔔 GM Turni - Notifica</b>', chr(10), chr(10),
-    '📝 <b>Evento:</b> ', COALESCE(NEW.messaggio, 'Notifica generica'), chr(10),
+    title_text, chr(10), chr(10),
+    '📝 <b>Dettaglio:</b> ', COALESCE(NEW.messaggio, 'Notifica generica'), chr(10),
     '👤 <b>Autore:</b> ', COALESCE(NEW.creato_da, 'Sistema'), chr(10),
     '📅 <b>Data:</b> ', to_char(COALESCE(NEW.created_at, now()), 'DD/MM/YYYY HH24:MI:SS')
   );
@@ -502,7 +705,7 @@ BEGIN
       'chat_id', telegram_chat_id,
       'text', formatted_msg,
       'parse_mode', 'HTML'
-    )::text
+    )
   );
 
   RETURN NEW;

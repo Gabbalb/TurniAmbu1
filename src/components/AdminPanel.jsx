@@ -272,56 +272,67 @@ export default function AdminPanel() {
           {/* Lista Utenti */}
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Membri del Roster ({profiles.length})</h3>
-            <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1">
               {profiles.map(prof => (
                 <div
                   key={prof.id}
-                  className={`p-3 rounded-2xl border flex items-center justify-between transition-colors ${
+                  className={`p-3.5 rounded-2xl border flex flex-col gap-3 transition-colors ${
                     prof.attivo ? 'border-slate-800 bg-slate-900/20' : 'border-slate-800 bg-slate-950/60 opacity-60'
                   }`}
                 >
-                  <div className="flex flex-col min-w-0 pr-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-slate-100 truncate">{prof.username}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                        prof.ruolo === 'admin' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        {prof.ruolo}
-                      </span>
+                  {/* Nome utente [ruolo] - Ben visibile */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-100 break-all">{prof.username}</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                          prof.ruolo === 'admin' 
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                            : 'bg-slate-800 text-slate-400 border border-slate-700/30'
+                        }`}>
+                          {prof.ruolo}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono mt-0.5">{prof.username.toLowerCase()}@app.internal</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono mt-0.5">{prof.username.toLowerCase()}@app.internal</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Pulsante Reset Password */}
-                    <button
-                      onClick={() => setResetPassUser(prof)}
-                      className="p-2 bg-slate-950 border border-slate-800 text-slate-400 hover:text-indigo-400 rounded-lg hover:border-indigo-500/20 transition-all"
-                      title="Reimposta Password"
-                    >
-                      <Key className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Pulsanti vari - A capo */}
+                  <div className="flex items-center gap-2 pt-2.5 border-t border-slate-800/40 justify-between">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Pulsante Reset Password */}
+                      <button
+                        onClick={() => setResetPassUser(prof)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 text-slate-400 hover:text-indigo-400 rounded-xl hover:border-indigo-500/20 transition-all text-[11px] font-semibold flex-1"
+                        title="Reimposta Password"
+                      >
+                        <Key className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Password</span>
+                      </button>
 
-                    {/* Toggle Ruolo */}
-                    <select
-                      value={prof.ruolo}
-                      onChange={(e) => handleChangeRole(prof.id, e.target.value)}
-                      className="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 font-bold px-2 py-1 rounded-lg outline-none"
-                    >
-                      <option value="dipendente">Dipendente</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                      {/* Toggle Ruolo */}
+                      <div className="flex-1 min-w-0">
+                        <select
+                          value={prof.ruolo}
+                          onChange={(e) => handleChangeRole(prof.id, e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-bold px-2 py-2 rounded-xl outline-none cursor-pointer"
+                        >
+                          <option value="dipendente">Dipendente</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                    </div>
 
                     {/* Toggle Attivo/Inattivo */}
                     <button
                       onClick={() => handleToggleUserStatus(prof)}
-                      className="p-1 rounded-lg"
+                      className="p-1 rounded-xl hover:bg-slate-800/20 transition-colors flex-shrink-0"
                       title={prof.attivo ? 'Disattiva Account' : 'Attiva Account'}
                     >
                       {prof.attivo ? (
-                        <ToggleRight className="w-7 h-7 text-emerald-500" />
+                        <ToggleRight className="w-8 h-8 text-emerald-500" />
                       ) : (
-                        <ToggleLeft className="w-7 h-7 text-slate-600" />
+                        <ToggleLeft className="w-8 h-8 text-slate-600" />
                       )}
                     </button>
                   </div>
