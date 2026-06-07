@@ -689,20 +689,21 @@ export const api = {
 
   // Crea un nuovo utente (admin-only)
   adminCreateUser: async (username, password, role) => {
-    const email = `${username.trim().toLowerCase()}@app.internal`
+    const cleanUsername = username.trim().toLowerCase()
+    const email = `${cleanUsername}@app.internal`
 
     if (USE_MOCK) {
       const profiles = JSON.parse(localStorage.getItem('ta_profiles'))
-      const usernameExists = profiles.some(p => p.username.toLowerCase() === username.trim().toLowerCase())
+      const usernameExists = profiles.some(p => p.username.toLowerCase() === cleanUsername)
       
       if (usernameExists) {
-        return { error: { message: `Lo username '${username}' è già in uso.` } }
+        return { error: { message: `Lo username '${cleanUsername}' è già in uso.` } }
       }
 
       const newId = `00000000-0000-0000-0000-00000000000${getNextId(profiles)}`
       const newProfile = {
         id: newId,
-        username: username.trim(),
+        username: cleanUsername,
         ruolo: role,
         attivo: true
       }
@@ -721,7 +722,7 @@ export const api = {
         password,
         options: {
           data: {
-            username: username.trim(),
+            username: cleanUsername,
             ruolo: role
           }
         }

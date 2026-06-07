@@ -70,11 +70,12 @@ export default function AdminPanel() {
     }
 
     try {
-      const { error } = await api.adminCreateUser(newUsername, newPassword, newRole)
+      const cleanName = newUsername.trim().toLowerCase()
+      const { error } = await api.adminCreateUser(cleanName, newPassword, newRole)
       if (error) {
         setUserActionError(error.message || 'Errore durante la creazione.')
       } else {
-        setUserActionSuccess(`Utente '${newUsername}' creato con successo!`)
+        setUserActionSuccess(`Utente '${cleanName}' creato con successo!`)
         setNewUsername('')
         setNewPassword('')
         setNewRole('dipendente')
