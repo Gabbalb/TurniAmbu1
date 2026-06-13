@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, History } from 'lucide-react'
 
 export default function Layout({ children, currentView, setView, onOpenBulkModal }) {
   const { profile, logout } = useAuth()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const formatItalianDate = () => {
     const options = { weekday: 'long', day: 'numeric', month: 'long' }
@@ -13,7 +14,7 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
   return (
     <div className="flex flex-col h-dvh max-h-dvh overflow-hidden bg-slate-950 text-slate-100 font-sans max-w-md mx-auto shadow-2xl border-x border-slate-800/50 relative">
       {/* TopBar */}
-      <header className="flex-shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-2.5 sm:px-5 flex items-center justify-between shadow-md">
+      <header className="flex-shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border border-slate-800/40">
             <img 
@@ -30,42 +31,9 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Admin panel access button - only visible to admins */}
-          {profile?.ruolo === 'admin' && (
-            <button
-              onClick={() => setView(currentView === 'admin' ? 'board' : 'admin')}
-              className={`p-2 rounded-xl transition-all duration-300 ${
-                currentView === 'admin'
-                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
-              }`}
-              title="Pannello Amministratore"
-              aria-label="Pannello Amministratore"
-            >
-              {currentView === 'admin' ? (
-                <ShieldAlert className="w-5 h-5" />
-              ) : (
-                <ShieldCheck className="w-5 h-5" />
-              )}
-            </button>
-          )}
-
-          {/* User profile username pill */}
-          <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700/60 px-3 py-1.5 rounded-full text-xs font-medium max-w-[120px] truncate">
-            <User className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-            <span className="truncate text-slate-300">{profile?.username || 'Utente'}</span>
-          </div>
-
-          {/* Logout button */}
-          <button
-            onClick={logout}
-            className="p-2 bg-slate-800 border border-slate-700/60 rounded-full text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-            title="Sconnetti"
-            aria-label="Sconnetti"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-1.5 bg-slate-800/40 border border-slate-800/80 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+          <span>Roster Attivo</span>
         </div>
       </header>
 
@@ -74,26 +42,201 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
         {children}
       </main>
 
-      {/* Bottom Navigation Bar */}
-      <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 sm:px-8 flex justify-between items-center z-40 rounded-t-2xl shadow-xl flex-shrink-0">
-        {/* Tabellone Link */}
-        <button
-          onClick={() => setView('board')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
-            currentView === 'board'
-              ? 'text-indigo-400 scale-105'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Calendar className="w-6 h-6" />
-          <span className="text-[10px] font-semibold">Tabellone</span>
-        </button>
+      {/* Sidebar Overlay */}
+      <div 
+        className={`absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-[80] transition-opacity duration-300 ${
+          isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
 
-        {/* Central Add (+) button for bulk scheduling */}
-        <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
+      {/* Sidebar Drawer */}
+      <div className={`absolute top-0 right-0 bottom-0 w-[280px] max-w-[85vw] bg-slate-900 border-l border-slate-800/80 shadow-2xl z-[90] flex flex-col transition-transform duration-300 ease-out transform ${
+        isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        {/* Header */}
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border border-slate-800/40">
+              <img 
+                src="/logo.png" 
+                alt="GM Turni Logo" 
+                className="w-full h-full object-contain rounded-full"
+              />
+            </div>
+            <span className="text-base font-extrabold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              GM Turni
+            </span>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="text-slate-400 hover:text-slate-200 p-1.5 bg-slate-800/60 hover:bg-slate-800 rounded-xl border border-slate-700/40 transition-colors"
+            aria-label="Chiudi menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Profilo utente */}
+        <div className="p-4 border-b border-slate-800/80 bg-slate-900/50 text-left">
+          <div className="bg-slate-800/40 border border-slate-800/80 p-3 rounded-2xl flex flex-col gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 border border-indigo-500/20 font-bold text-sm">
+                {(profile?.username || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-slate-200 truncate">{profile?.username || 'Utente'}</span>
+                <span className="text-[10px] text-slate-400 capitalize truncate">{profile?.ruolo === 'admin' ? 'Amministratore' : 'Soccorritore'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigazione */}
+        <div className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1 text-left">
+          {/* Home */}
+          <button
+            onClick={() => {
+              setView('my-shifts')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'my-shifts'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <Home className="w-4.5 h-4.5" />
+            <span>Home</span>
+          </button>
+
+          {/* Tabellone */}
+          <button
+            onClick={() => {
+              setView('board')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'board'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <Calendar className="w-4.5 h-4.5" />
+            <span>Tabellone</span>
+          </button>
+
+          {/* Dati personali */}
+          <button
+            onClick={() => {
+              setView('profile')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'profile'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <User className="w-4.5 h-4.5" />
+            <span>Dati Personali</span>
+          </button>
+
+          {/* Pannello Admin */}
+          <button
+            onClick={() => {
+              setView('admin')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'admin'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            {profile?.ruolo === 'admin' ? (
+              <ShieldCheck className="w-4.5 h-4.5 text-emerald-400" />
+            ) : (
+              <ShieldAlert className="w-4.5 h-4.5 text-slate-400" />
+            )}
+            <span>Pannello Admin</span>
+          </button>
+
+          {/* Inserisci Disponibilità (Bulk Modal) */}
+          <button
+            onClick={() => {
+              setIsSidebarOpen(false)
+              setTimeout(() => {
+                onOpenBulkModal()
+              }, 150)
+            }}
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent transition-all"
+          >
+            <PlusCircle className="w-4.5 h-4.5" />
+            <span>Inserisci Disponibilità</span>
+          </button>
+
+          {/* Storico Turni (Coming Soon) */}
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-500 border border-transparent select-none">
+            <div className="flex items-center gap-3">
+              <History className="w-4.5 h-4.5" />
+              <span>Storico Turni</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded-md font-bold uppercase tracking-wider">Soon</span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">
+          <button
+            onClick={() => {
+              setIsSidebarOpen(false)
+              logout()
+            }}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-800 hover:bg-rose-950/30 text-slate-300 hover:text-rose-400 border border-slate-700/60 hover:border-rose-900/50 rounded-2xl text-xs font-bold transition-all duration-200"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Effettua Log Out</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 z-40 rounded-t-2xl shadow-xl flex-shrink-0 grid grid-cols-3 items-center">
+        {/* Left column: Home & Tabellone */}
+        <div className="flex justify-around items-center">
+          {/* Home Link */}
+          <button
+            onClick={() => setView('my-shifts')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+              currentView === 'my-shifts'
+                ? 'text-indigo-400 scale-105 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-[10px] font-semibold">Home</span>
+          </button>
+
+          {/* Tabellone Link */}
+          <button
+            onClick={() => setView('board')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+              currentView === 'board'
+                ? 'text-indigo-400 scale-105 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Calendar className="w-6 h-6" />
+            <span className="text-[10px] font-semibold">Tabellone</span>
+          </button>
+        </div>
+
+        {/* Center column: Raised + button */}
+        <div className="relative flex justify-center h-8">
           <button
             onClick={onOpenBulkModal}
-            className="w-14 h-14 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 hover:scale-110 hover:shadow-cyan-500/30 active:scale-95 transition-all duration-200 border-4 border-slate-950"
+            className="absolute -top-8 w-14 h-14 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 hover:scale-115 hover:shadow-cyan-500/30 active:scale-95 transition-all duration-200 border-4 border-slate-950 z-10"
             title="Aggiungi Disponibilità"
             aria-label="Aggiungi Disponibilità"
           >
@@ -101,21 +244,20 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </button>
         </div>
 
-        {/* Space for the middle button */}
-        <div className="w-12 h-6 pointer-events-none" />
-
-        {/* I Miei Turni Link */}
-        <button
-          onClick={() => setView('my-shifts')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
-            currentView === 'my-shifts'
-              ? 'text-indigo-400 scale-105'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <User className="w-6 h-6" />
-          <span className="text-[10px] font-semibold">I Miei Turni</span>
-        </button>
+        {/* Right column: Hamburger Menu */}
+        <div className="flex justify-center items-center">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+              isSidebarOpen
+                ? 'text-indigo-400 scale-105 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Menu className="w-6 h-6" />
+            <span className="text-[10px] font-semibold">Menu</span>
+          </button>
+        </div>
       </nav>
     </div>
   )

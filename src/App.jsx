@@ -4,8 +4,9 @@ import Layout from './components/Layout'
 import TurniBoard from './components/TurniBoard'
 import IMieiTurni from './components/IMieiTurni'
 import AdminPanel from './components/AdminPanel'
+import DatiPersonali from './components/DatiPersonali'
 import DisponibilitaModal from './components/DisponibilitaModal'
-import { ShieldCheck, RefreshCw, Key, User } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, RefreshCw, Key, User } from 'lucide-react'
 
 function AppContent() {
   const { user, profile, loading, login, error: authError } = useAuth()
@@ -183,8 +184,23 @@ function AppContent() {
           }}
         />
       )}
-      {view === 'admin' && profile?.ruolo === 'admin' && (
-        <AdminPanel />
+      {view === 'profile' && (
+        <DatiPersonali />
+      )}
+      {view === 'admin' && (
+        profile?.ruolo === 'admin' ? (
+          <AdminPanel />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-3 animate-fade-in">
+            <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center shadow-lg">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-100 mt-2">Accesso Negato</h2>
+            <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+              Questa sezione è riservata esclusivamente agli amministratori del sistema. Contatta un responsabile per richiedere i permessi.
+            </p>
+          </div>
+        )
       )}
 
       {/* Modal Disponibilità Bulk */}
