@@ -56,6 +56,7 @@ export default function TurniBoard() {
   const containerRef = useRef(null)
   const dayRefs = useRef({})
   const isScrollingToDaySelect = useRef(false)
+  const pendingScrollDateRef = useRef(null)
   const currentDateRef = useRef(currentDate)
   currentDateRef.current = currentDate
 
@@ -266,12 +267,13 @@ export default function TurniBoard() {
     setDaysCount(14)
   }
 
-  // Seleziona un giorno specifico dalle pills e lo fa scorrere in vista
+  // Seleziona un giorno specifico dalle pills e lo fa scorrere in vista (caricando date future on-demand se necessario)
   const handleSelectDay = (day) => {
     setCurrentDate(day)
     setCurrentMonthDate(day)
     const dateStr = format(day, 'yyyy-MM-dd')
     const targetEl = dayRefs.current[dateStr]
+    
     if (targetEl) {
       isScrollingToDaySelect.current = true
       const scrollParent = targetEl.closest('main')
@@ -284,11 +286,33 @@ export default function TurniBoard() {
       } else {
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
+      
+      // Timeout allungato per coprire tutta la durata dello scorrimento fluido
       setTimeout(() => {
         isScrollingToDaySelect.current = false
-      }, 800)
+      }, 1200)
+    } else {
+      // Il giorno selezionato è nel futuro e non ancora caricato sul tabellone
+      const diffTime = day.getTime() - listAnchorDate.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      if (diffDays > daysCount) {
+        pendingScrollDateRef.current = day
+        setDaysCount(diffDays + 5) // Carica fino al giorno richiesto + un piccolo margine
+      }
     }
   }
+
+  // Esegue lo scorrimento verso il giorno caricato on-demand non appena il caricamento è completato
+  useEffect(() => {
+    if (!loading && pendingScrollDateRef.current) {
+      const targetDay = pendingScrollDateRef.current
+      pendingScrollDateRef.current = null
+      const timer = setTimeout(() => {
+        handleSelectDay(targetDay)
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
 
   // Allinea lo scorrimento all'avvio, al cambio visualizzazione o al termine del caricamento dati
   useEffect(() => {
