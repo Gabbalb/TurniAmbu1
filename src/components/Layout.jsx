@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, History } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle } from 'lucide-react'
 
 export default function Layout({ children, currentView, setView, onOpenBulkModal }) {
   const { profile, logout } = useAuth()
@@ -179,15 +179,6 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
             <PlusCircle className="w-4.5 h-4.5" />
             <span>Inserisci Disponibilità</span>
           </button>
-
-          {/* Storico Turni (Coming Soon) */}
-          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-500 border border-transparent select-none">
-            <div className="flex items-center gap-3">
-              <History className="w-4.5 h-4.5" />
-              <span>Storico Turni</span>
-            </div>
-            <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded-md font-bold uppercase tracking-wider">Soon</span>
-          </div>
         </div>
 
         {/* Footer */}
