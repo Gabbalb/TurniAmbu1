@@ -15,7 +15,7 @@ export default function AdminPanel() {
   const [newNome, setNewNome] = useState('')
   const [newCognome, setNewCognome] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [newStato, setNewStato] = useState('dipendente') // 'admin' | 'dipendente' | 'volontario'
+  const [newStato, setNewStato] = useState('volontario') // 'admin' | 'dipendente' | 'volontario'
   const [newQualifica, setNewQualifica] = useState('CE') // 'autista' | 'CE'
   const [newCodiceFiscale, setNewCodiceFiscale] = useState('')
   const [newEmail, setNewEmail] = useState('')
@@ -24,6 +24,7 @@ export default function AdminPanel() {
   const [newPagaOraria, setNewPagaOraria] = useState('')
   const [userActionError, setUserActionError] = useState(null)
   const [userActionSuccess, setUserActionSuccess] = useState(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
 
   // Stati Form Modifica Utente (Editing)
   const [editingProfile, setEditingProfile] = useState(null)
@@ -106,10 +107,11 @@ export default function AdminPanel() {
         setUserActionError(error.message || 'Errore durante la creazione.')
       } else {
         setUserActionSuccess(`Utente creato con successo!`)
+        setShowCreateForm(false)
         setNewNome('')
         setNewCognome('')
         setNewPassword('')
-        setNewStato('dipendente')
+        setNewStato('volontario')
         setNewQualifica('CE')
         setNewCodiceFiscale('')
         setNewEmail('')
@@ -476,140 +478,175 @@ export default function AdminPanel() {
           {/* CONTENUTO TAB: UTENTI */}
           {activeTab === 'utenti' && (
             <div className="flex flex-col gap-6">
-              {/* Form Creazione Utente */}
-              <form onSubmit={handleCreateUser} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Crea Nuovo Account</h3>
-                
-                {userActionError && <span className="text-xs text-rose-400 font-semibold">{userActionError}</span>}
-                {userActionSuccess && <span className="text-xs text-emerald-400 font-semibold">{userActionSuccess}</span>}
+              {/* Notifica Successo Creazione (esterna al form) */}
+              {userActionSuccess && (
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-400 font-semibold flex items-center justify-between animate-fade-in text-left">
+                  <span>{userActionSuccess}</span>
+                  <button 
+                    onClick={() => setUserActionSuccess(null)} 
+                    className="text-slate-400 hover:text-slate-200 font-bold ml-2 text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-3 text-left">
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
-                    <input
-                      type="text"
-                      placeholder="Nome"
-                      value={newNome}
-                      onChange={(e) => setNewNome(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
-                    <input
-                      type="text"
-                      placeholder="Cognome"
-                      value={newCognome}
-                      onChange={(e) => setNewCognome(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password *</label>
-                    <input
-                      type="password"
-                      placeholder="Password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
-                    <select
-                      value={newStato}
-                      onChange={(e) => setNewStato(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+              {/* Pulsante Aggiungi Utente / Form Toggle */}
+              {!showCreateForm ? (
+                <button
+                  onClick={() => {
+                    setShowCreateForm(true)
+                    setUserActionError(null)
+                    setUserActionSuccess(null)
+                  }}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Aggiungi Nuovo Utente
+                </button>
+              ) : (
+                /* Form Creazione Utente */
+                <form onSubmit={handleCreateUser} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4 animate-fade-in">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800/40">
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Crea Nuovo Account</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateForm(false)}
+                      className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-[10px] font-bold transition-all"
                     >
-                      <option value="dipendente">Dipendente</option>
-                      <option value="volontario">Volontario</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                      Annulla
+                    </button>
                   </div>
+                  
+                  {userActionError && <span className="text-xs text-rose-400 font-semibold text-left">{userActionError}</span>}
 
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
-                    <select
-                      value={newQualifica}
-                      onChange={(e) => setNewQualifica(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                    >
-                      <option value="CE">Capo Equipaggio (CE)</option>
-                      <option value="autista">Autista</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
-                    <input
-                      type="text"
-                      placeholder="Codice Fiscale"
-                      value={newCodiceFiscale}
-                      onChange={(e) => setNewCodiceFiscale(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
-                    <input
-                      type="tel"
-                      placeholder="Telefono"
-                      value={newTelefono}
-                      onChange={(e) => setNewTelefono(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
-                    <input
-                      type="date"
-                      value={newDataNascita}
-                      onChange={(e) => setNewDataNascita(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                    />
-                  </div>
-
-                  {newStato === 'dipendente' && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
+                  <div className="grid grid-cols-2 gap-3 text-left">
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Paga Oraria (facoltativo)"
-                        value={newPagaOraria}
-                        onChange={(e) => setNewPagaOraria(e.target.value)}
+                        type="text"
+                        placeholder="Nome"
+                        value={newNome}
+                        onChange={(e) => setNewNome(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
+                      <input
+                        type="text"
+                        placeholder="Cognome"
+                        value={newCognome}
+                        onChange={(e) => setNewCognome(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password *</label>
+                      <input
+                        type="password"
+                        placeholder="Password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
+                      <select
+                        value={newStato}
+                        onChange={(e) => setNewStato(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                      >
+                        <option value="dipendente">Dipendente</option>
+                        <option value="volontario">Volontario</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
+                      <select
+                        value={newQualifica}
+                        onChange={(e) => setNewQualifica(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                      >
+                        <option value="CE">Capo Equipaggio (CE)</option>
+                        <option value="autista">Autista</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
+                      <input
+                        type="text"
+                        placeholder="Codice Fiscale"
+                        value={newCodiceFiscale}
+                        onChange={(e) => setNewCodiceFiscale(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
                         className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                       />
                     </div>
-                  )}
-                </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
-                >
-                  Crea Account
-                </button>
-              </form>
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
+                      <input
+                        type="tel"
+                        placeholder="Telefono"
+                        value={newTelefono}
+                        onChange={(e) => setNewTelefono(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
+                      <input
+                        type="date"
+                        value={newDataNascita}
+                        onChange={(e) => setNewDataNascita(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      />
+                    </div>
+
+                    {newStato === 'dipendente' && (
+                      <div className="flex flex-col gap-1 col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Paga Oraria (facoltativo)"
+                          value={newPagaOraria}
+                          onChange={(e) => setNewPagaOraria(e.target.value)}
+                          className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
+                  >
+                    Crea Account
+                  </button>
+                </form>
+              )}
 
               {/* Lista Utenti */}
               <div className="flex flex-col gap-3">

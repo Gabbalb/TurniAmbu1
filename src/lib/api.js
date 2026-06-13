@@ -308,7 +308,7 @@ export const api = {
         const profileObj = profiles.find(p => p.id === b.user_id)
         return {
           ...b,
-          profiles: profileObj ? { username: profileObj.username, ruolo: profileObj.ruolo } : null,
+          profiles: profileObj ? { username: profileObj.username, ruolo: profileObj.ruolo, nome: profileObj.nome, cognome: profileObj.cognome } : null,
           shifts: shiftObj
         }
       })
@@ -318,7 +318,7 @@ export const api = {
 
     return supabase
       .from('bookings')
-      .select('*, profiles(username, ruolo), shifts(*)')
+      .select('*, profiles(username, ruolo, nome, cognome), shifts(*)')
       .gte('shifts.data', startDate)
       .lte('shifts.data', endDate)
   },
@@ -499,7 +499,7 @@ export const api = {
       // Carica tutti i turni e prenotazioni in quel range
       const { data: dbShifts, error: shErr } = await supabase
         .from('shifts')
-        .select('*, bookings(*, profiles(username))')
+        .select('*, bookings(*, profiles(username, nome, cognome))')
         .gte('data', minDate)
         .lte('data', maxDate)
 
@@ -913,7 +913,7 @@ export const api = {
         const profileObj = profiles.find(p => p.id === b.user_id)
         return {
           ...b,
-          profiles: profileObj ? { username: profileObj.username, ruolo: profileObj.ruolo } : null,
+          profiles: profileObj ? { username: profileObj.username, ruolo: profileObj.ruolo, nome: profileObj.nome, cognome: profileObj.cognome } : null,
           shifts: shiftObj
         }
       })
@@ -930,7 +930,7 @@ export const api = {
 
     return supabase
       .from('bookings')
-      .select('*, profiles(username, ruolo), shifts!inner(*)')
+      .select('*, profiles(username, ruolo, nome, cognome), shifts!inner(*)')
       .lt('shifts.data', todayStr)
       .order('data', { foreignTable: 'shifts', ascending: false })
       .order('ora_inizio', { foreignTable: 'shifts', ascending: false })

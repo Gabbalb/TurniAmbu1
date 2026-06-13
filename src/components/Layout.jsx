@@ -31,9 +31,9 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-800/40 border border-slate-800/80 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-          <span>Roster Attivo</span>
+        <div className="flex items-center gap-1.5 bg-slate-800/40 border border-slate-800/80 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+          <span>Ciao, {profile?.nome || profile?.username || 'Utente'}</span>
         </div>
       </header>
 
@@ -88,11 +88,15 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           <div className="bg-slate-800/40 hover:bg-slate-800/70 border border-slate-800/80 p-3 rounded-2xl flex flex-col gap-2 transition-colors">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 border border-indigo-500/20 font-bold text-sm">
-                {(profile?.username || 'U').charAt(0).toUpperCase()}
+                {(profile?.nome ? profile.nome : (profile?.username || 'U')).charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-slate-200 truncate">{profile?.username || 'Utente'}</span>
-                <span className="text-[10px] text-slate-400 capitalize truncate">{profile?.ruolo === 'admin' ? 'Amministratore' : 'Dipendente'}</span>
+                <span className="text-xs font-bold text-slate-200 truncate">
+                  {profile?.nome && profile?.cognome ? `${profile.nome} ${profile.cognome}` : (profile?.username || 'Utente')}
+                </span>
+                <span className="text-[10px] text-slate-400 capitalize truncate">
+                  {profile?.ruolo === 'admin' ? 'Amministratore' : (profile?.stato || profile?.ruolo || 'Dipendente')}
+                </span>
               </div>
             </div>
           </div>

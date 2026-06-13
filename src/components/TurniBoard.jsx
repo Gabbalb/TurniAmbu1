@@ -5,6 +5,14 @@ import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X } from 'lucide-react'
 
+const getUserDisplayName = (prof) => {
+  if (!prof) return ''
+  if (prof.nome && prof.cognome) {
+    return `${prof.nome} ${prof.cognome}`
+  }
+  return prof.username || ''
+}
+
 export default function TurniBoard({ initialDate, initialSlot, onDateChange, onClearSlotHighlight }) {
   const { user, profile } = useAuth()
 
@@ -579,7 +587,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     if (role === 'autista') {
       const hasAutistaQual = targetProfile?.qualifica === 'autista';
       if (!hasAutistaQual) {
-        setConfirmError(`Operazione non consentita: l'utente selezionato (${targetProfile?.username || 'selezionato'}) non ha la qualifica di Autista.`);
+        setConfirmError(`Operazione non consentita: l'utente selezionato (${getUserDisplayName(targetProfile) || 'selezionato'}) non ha la qualifica di Autista.`);
         setActionLoading(null);
         return;
       }
@@ -773,7 +781,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                 <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
                   <div className="flex flex-col min-w-0 pr-2 text-left">
                     <span className="text-sm sm:text-base font-bold text-slate-200 break-all">
-                      {bk.profiles?.username || 'Collega'}
+                      {getUserDisplayName(bk.profiles) || 'Collega'}
                     </span>
                     {bk.is_partial && (
                       <span className="text-[11px] text-slate-500 mt-0.5 leading-tight">{bk.nota_parziale}</span>
@@ -874,7 +882,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     <div key={b.id} className="flex items-baseline gap-2">
                       <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
                       <span className="text-sm sm:text-base font-bold text-slate-100">
-                        {b.profiles?.username || 'Collega'}
+                        {getUserDisplayName(b.profiles) || 'Collega'}
                         {b.is_partial && b.nota_parziale && (
                           <span className="text-xs sm:text-sm font-medium text-amber-400/90 ml-1.5">
                             - {b.nota_parziale.toLowerCase()}
@@ -896,7 +904,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     <div key={b.id} className="flex items-baseline gap-2">
                       <span className="text-sm font-black text-amber-400 w-8 flex-shrink-0">AS:</span>
                       <span className="text-sm sm:text-base font-bold text-slate-100">
-                        {b.profiles?.username || 'Collega'}
+                        {getUserDisplayName(b.profiles) || 'Collega'}
                         {b.is_partial && b.nota_parziale && (
                           <span className="text-xs sm:text-sm font-medium text-amber-400/90 ml-1.5">
                             - {b.nota_parziale.toLowerCase()}
@@ -1015,7 +1023,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                         key={b.id}
                         className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold ${style.badge}`}
                       >
-                        {b.profiles?.username || 'Dipendente'}{' '}
+                        {getUserDisplayName(b.profiles) || 'Dipendente'}{' '}
                         <span className={b.ruolo_turno === 'CE' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
                           ({b.ruolo_turno === 'CE' ? 'CE' : 'Aut.'})
                         </span>
@@ -1301,11 +1309,11 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                   onChange={(e) => setAssigneeId(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-2 py-2 text-xs font-semibold text-slate-200 outline-none"
                 >
-                  <option value={user.id}>Me stesso ({profile.username})</option>
+                  <option value={user.id}>Me stesso ({getUserDisplayName(profile)})</option>
                   {profiles
                     .filter(p => p.id !== user.id)
                     .map(p => (
-                      <option key={p.id} value={p.id}>{p.username} ({p.ruolo})</option>
+                      <option key={p.id} value={p.id}>{getUserDisplayName(p)} ({p.ruolo})</option>
                     ))
                   }
                 </select>
