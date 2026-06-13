@@ -256,20 +256,29 @@ export default function IMieiTurni({ onJumpToShift }) {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {myBookings.map(booking => {
+          {myBookings.map((booking, idx) => {
             const shift = booking.shifts
             if (!shift) return null
             const isCanceling = cancelingId === booking.id
+            const isClosest = idx === 0
+            const cardStyle = isClosest
+              ? 'border-2 border-slate-100 shadow-[0_0_15px_rgba(255,255,255,0.08)] bg-slate-900/50 hover:bg-slate-900/75'
+              : 'border border-slate-800/80 bg-slate-900/40 hover:bg-slate-900/60'
 
             return (
               <div
                 key={booking.id}
                 onClick={() => onJumpToShift(parseISO(shift.data), booking.p)}
-                className="bg-slate-900/40 border border-slate-800/80 p-4 sm:p-5 rounded-3xl flex items-center justify-between shadow-premium hover:border-indigo-500/40 hover:bg-slate-900/60 transition-all duration-200 cursor-pointer group text-left"
+                className={`p-4 sm:p-5 rounded-3xl flex items-center justify-between shadow-premium hover:border-indigo-500/40 transition-all duration-200 cursor-pointer group text-left ${cardStyle}`}
               >
                 <div className="flex flex-col gap-2 flex-1 min-w-0 pr-4">
                   {/* Data Turno Ingrandita */}
                   <div className="flex flex-col">
+                    {isClosest && (
+                      <span className="text-[9px] bg-white text-slate-950 font-black px-2 py-0.5 rounded-full uppercase tracking-widest self-start mb-2 shadow-sm">
+                        Prossimo turno
+                      </span>
+                    )}
                     <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400 leading-none">
                       {format(parseISO(shift.data), 'EEEE', { locale: it })}
                     </span>
