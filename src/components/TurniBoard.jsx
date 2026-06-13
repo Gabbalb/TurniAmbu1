@@ -31,6 +31,7 @@ export default function TurniBoard() {
   const calendarDays = getCalendarDays()
 
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentMonthDate, setCurrentMonthDate] = useState(new Date())
   const [listAnchorDate, setListAnchorDate] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -268,6 +269,7 @@ export default function TurniBoard() {
   // Seleziona un giorno specifico dalle pills e lo fa scorrere in vista
   const handleSelectDay = (day) => {
     setCurrentDate(day)
+    setCurrentMonthDate(day)
     const dateStr = format(day, 'yyyy-MM-dd')
     const targetEl = dayRefs.current[dateStr]
     if (targetEl) {
@@ -324,6 +326,9 @@ export default function TurniBoard() {
       let activeDateStr = null
       let minDistance = Infinity
 
+      let bottomDateStr = null
+      let maxBottom = -Infinity
+
       Object.keys(dayRefs.current).forEach(dateStr => {
         const el = dayRefs.current[dateStr]
         if (!el) return
@@ -340,6 +345,14 @@ export default function TurniBoard() {
             activeDateStr = dateStr
           }
         }
+
+        // Rileva quale giorno è visibile più in basso (al fondo dello schermo)
+        if (rect.top < parentRect.bottom && rect.bottom > parentRect.top) {
+          if (rect.bottom > maxBottom) {
+            maxBottom = rect.bottom
+            bottomDateStr = dateStr
+          }
+        }
       })
 
       if (activeDateStr) {
@@ -350,6 +363,12 @@ export default function TurniBoard() {
           const parsedDate = new Date(y, m - 1, d)
           setCurrentDate(parsedDate)
         }
+      }
+
+      if (bottomDateStr) {
+        const [y, m, d] = bottomDateStr.split('-').map(Number)
+        const parsedBottomDate = new Date(y, m - 1, d)
+        setCurrentMonthDate(parsedBottomDate)
       }
 
       // Rileva se l'utente è vicino alla fine dello scorrimento per aggiungere altri giorni (infinite scroll)
@@ -963,7 +982,7 @@ export default function TurniBoard() {
           
           {/* Month Indicator Flag on the Right */}
           <div className="flex-shrink-0 bg-indigo-600/90 text-white font-extrabold uppercase text-[10px] tracking-widest px-3.5 py-3 rounded-xl shadow-md border border-indigo-500/30 flex items-center justify-center capitalize min-w-[80px]">
-            {format(currentDate, 'MMMM', { locale: it })}
+            {format(currentMonthDate, 'MMMM', { locale: it })}
           </div>
         </div>
       )}
@@ -981,13 +1000,23 @@ export default function TurniBoard() {
             const isToday = isSameDay(day, new Date())
             return (
               <React.Fragment key={dateStr}>
-                {/* Bright gradient division line between days */}
+                {/* Month transition separator or standard division line */}
                 {idx > 0 && (
-                  <div className="w-full pt-4 pb-2 flex items-center gap-3">
-                    <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-indigo-500/70 to-purple-500/70 rounded-full"></div>
-                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_#6366f1]"></div>
-                    <div className="h-[2px] flex-1 bg-gradient-to-r from-purple-500/70 via-indigo-500/70 to-transparent rounded-full"></div>
-                  </div>
+                  day.getDate() === 1 ? (
+                    <div className="w-full pt-6 pb-4 flex items-center gap-4">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-indigo-500/80 to-purple-500/80 rounded-full"></div>
+                      <div className="bg-slate-900 border border-indigo-500/30 text-indigo-400 px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                        {format(day, 'MMM yyyy', { locale: it }).replace('.', '').toUpperCase()}
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-purple-500/80 via-indigo-500/80 to-transparent rounded-full"></div>
+                    </div>
+                  ) : (
+                    <div className="w-full pt-4 pb-2 flex items-center gap-3">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-indigo-500/70 to-purple-500/70 rounded-full"></div>
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_#6366f1]"></div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-purple-500/70 via-indigo-500/70 to-transparent rounded-full"></div>
+                    </div>
+                  )
                 )}
 
                 <div
