@@ -193,6 +193,26 @@ export default function AdminPanel() {
     }
   }
 
+  // Elimina Utente Definitivamente
+  const handleDeleteUser = async () => {
+    if (!editingProfile) return
+    const confirmDelete = window.confirm(`Sei sicuro di voler eliminare definitivamente l'utente ${editingProfile.username}? Questa azione è IRREVERSIBILE e cancellerà tutte le sue prenotazioni.`);
+    if (!confirmDelete) return
+
+    try {
+      const { error } = await api.adminDeleteUser(editingProfile.id)
+      if (error) {
+        alert(error.message || 'Errore durante l\'eliminazione dell\'utente.')
+      } else {
+        alert('Utente eliminato con successo!')
+        setEditingProfile(null)
+        await loadData()
+      }
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   // Aggiunta Secondo Equipaggio ad un Turno
   const handleAddCrewToShift = async (e) => {
     e.preventDefault()
@@ -428,20 +448,29 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800/40">
+          <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800/40 justify-between items-center">
             <button
               type="button"
-              onClick={() => setEditingProfile(null)}
-              className="flex-1 py-2 px-3 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
+              onClick={handleDeleteUser}
+              className="py-2 px-3 bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl text-[11px] font-bold transition-all"
             >
-              Annulla
+              Elimina Utente
             </button>
-            <button
-              type="submit"
-              className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors"
-            >
-              Salva Modifiche
-            </button>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditingProfile(null)}
+                className="py-2 px-3.5 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-[11px] font-semibold text-slate-300 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                type="submit"
+                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold shadow-md shadow-indigo-600/20 transition-colors"
+              >
+                Salva Modifiche
+              </button>
+            </div>
           </div>
         </form>
       ) : (

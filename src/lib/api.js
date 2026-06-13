@@ -899,6 +899,24 @@ export const api = {
     })
   },
 
+  adminDeleteUser: async (userId) => {
+    if (USE_MOCK) {
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+      const updatedProfiles = profiles.filter(p => p.id !== userId)
+      localStorage.setItem('ta_profiles', JSON.stringify(updatedProfiles))
+
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+      const updatedBookings = bookings.filter(b => b.user_id !== userId)
+      localStorage.setItem('ta_bookings', JSON.stringify(updatedBookings))
+
+      return { error: null }
+    }
+
+    return supabase.rpc('admin_delete_user', {
+      target_user_id: userId
+    })
+  },
+
   // Storico turni passati (solo admin)
   fetchPastBookings: async () => {
     const todayStr = new Date().toISOString().split('T')[0]

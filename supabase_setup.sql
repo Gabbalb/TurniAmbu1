@@ -129,6 +129,25 @@ BEGIN
 END;
 $$;
 
+-- Funzione RPC per consentire all'admin di eliminare definitivamente un utente
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+BEGIN
+  -- Controlla se il chiamante è admin
+  IF NOT public.es_admin() THEN
+    RAISE EXCEPTION 'Non autorizzato: Solo gli amministratori possono eliminare utenti.';
+  END IF;
+
+  -- Elimina l'utente da auth.users
+  DELETE FROM auth.users
+  WHERE id = target_user_id;
+END;
+$$;
+
 -- =========================================================================
 -- 3. ROW LEVEL SECURITY (RLS) POLICIES
 -- =========================================================================
@@ -336,7 +355,7 @@ BEGIN
   INSERT INTO public.notifications (tipo, messaggio, creato_da)
   VALUES (
     'registrazione',
-    concat('Nuovo utente registrato in piattaforma: "', COALESCE(NEW.username, 'Utente'), '" con ruolo "', COALESCE(NEW.ruolo, 'dipendente'), '".'),
+    concat('Nuovo utente registrato in piattaforma: "', COALESCE(NEW.username, 'Utente'), '" con stato "', COALESCE(NEW.stato, 'volontario'), '".'),
     COALESCE(NEW.username, 'Utente')
   );
   RETURN NEW;
@@ -348,7 +367,7 @@ CREATE TRIGGER tr_profile_created
   AFTER INSERT ON public.profiles
   FOR EACH ROW EXECUTE PROCEDURE public.on_profile_created();
 
--- Trigger 2: Modifica di un profilo (attivo/disattivo o ruolo)
+-- Trigger 2: Modifica di un profilo (attivo/disattivo o stato)
 CREATE OR REPLACE FUNCTION public.on_profile_update()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -359,13 +378,13 @@ DECLARE
   actor_name text;
   msg text;
 BEGIN
-  IF OLD.ruolo <> NEW.ruolo OR OLD.attivo <> NEW.attivo THEN
+  IF OLD.stato <> NEW.stato OR OLD.attivo <> NEW.attivo THEN
     SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
     actor_name := COALESCE(actor_name, 'Sistema');
 
     msg := concat(
       'Profilo di ', COALESCE(NEW.username, 'Utente'), ' aggiornato: ',
-      CASE WHEN OLD.ruolo <> NEW.ruolo THEN concat('Ruolo modificato da ', OLD.ruolo, ' a ', NEW.ruolo, '. ') ELSE '' END,
+      CASE WHEN OLD.stato <> NEW.stato THEN concat('Stato modificato da ', OLD.stato, ' a ', NEW.stato, '. ') ELSE '' END,
       CASE WHEN OLD.attivo <> NEW.attivo THEN concat('Stato attivo cambiato da ', OLD.attivo::text, ' a ', NEW.attivo::text, '.') ELSE '' END
     );
 

@@ -31,10 +31,13 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-800/40 border border-slate-800/80 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="flex items-center gap-1.5 bg-slate-800/45 border border-slate-800/80 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 hover:border-indigo-500/30 active:scale-95 transition-all cursor-pointer uppercase tracking-wider"
+        >
           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
           <span>Ciao, {profile?.nome || profile?.username || 'Utente'}</span>
-        </div>
+        </button>
       </header>
 
       {/* Main Content Area */}
