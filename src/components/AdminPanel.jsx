@@ -12,9 +12,16 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true)
 
   // Stati Form Creazione Utente
-  const [newUsername, setNewUsername] = useState('')
+  const [newNome, setNewNome] = useState('')
+  const [newCognome, setNewCognome] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [newRole, setNewRole] = useState('dipendente')
+  const [newStato, setNewStato] = useState('dipendente') // 'admin' | 'dipendente' | 'volontario'
+  const [newQualifica, setNewQualifica] = useState('CE') // 'autista' | 'CE'
+  const [newCodiceFiscale, setNewCodiceFiscale] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newTelefono, setNewTelefono] = useState('')
+  const [newDataNascita, setNewDataNascita] = useState('')
+  const [newPagaOraria, setNewPagaOraria] = useState('')
   const [userActionError, setUserActionError] = useState(null)
   const [userActionSuccess, setUserActionSuccess] = useState(null)
 
@@ -64,21 +71,40 @@ export default function AdminPanel() {
     setUserActionError(null)
     setUserActionSuccess(null)
 
-    if (!newUsername || !newPassword) {
-      setUserActionError('Inserisci tutti i campi richiesti.')
+    if (!newNome || !newCognome || !newPassword) {
+      setUserActionError('Inserisci tutti i campi obbligatori (*).')
       return
     }
 
     try {
-      const cleanName = newUsername.trim().toLowerCase()
-      const { error } = await api.adminCreateUser(cleanName, newPassword, newRole)
+      const userData = {
+        nome: newNome.trim(),
+        cognome: newCognome.trim(),
+        password: newPassword,
+        stato: newStato,
+        qualifica: newQualifica,
+        codice_fiscale: newCodiceFiscale.trim(),
+        email: newEmail.trim(),
+        telefono: newTelefono.trim(),
+        data_nascita: newDataNascita || null,
+        paga_oraria: newPagaOraria || null
+      }
+
+      const { data, error } = await api.adminCreateUser(userData)
       if (error) {
         setUserActionError(error.message || 'Errore durante la creazione.')
       } else {
-        setUserActionSuccess(`Utente '${cleanName}' creato con successo!`)
-        setNewUsername('')
+        setUserActionSuccess(`Utente creato con successo!`)
+        setNewNome('')
+        setNewCognome('')
         setNewPassword('')
-        setNewRole('dipendente')
+        setNewStato('dipendente')
+        setNewQualifica('CE')
+        setNewCodiceFiscale('')
+        setNewEmail('')
+        setNewTelefono('')
+        setNewDataNascita('')
+        setNewPagaOraria('')
         await loadData()
       }
     } catch (err) {
@@ -101,10 +127,27 @@ export default function AdminPanel() {
     }
   }
 
-  // Cambio Ruolo
-  const handleChangeRole = async (userId, newRuolo) => {
+  // Cambio Stato
+  const handleChangeStato = async (userId, newStato) => {
     try {
-      const { error } = await api.adminUpdateProfile(userId, { ruolo: newRuolo })
+      const { error } = await api.adminUpdateProfile(userId, { 
+        stato: newStato,
+        ruolo: newStato === 'admin' ? 'admin' : 'dipendente'
+      })
+      if (error) {
+        alert(error.message)
+      } else {
+        await loadData()
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Cambio Qualifica
+  const handleChangeQualifica = async (userId, newQualifica) => {
+    try {
+      const { error } = await api.adminUpdateProfile(userId, { qualifica: newQualifica })
       if (error) {
         alert(error.message)
       } else {
@@ -229,18 +272,33 @@ export default function AdminPanel() {
             {userActionError && <span className="text-xs text-rose-400 font-semibold">{userActionError}</span>}
             {userActionSuccess && <span className="text-xs text-emerald-400 font-semibold">{userActionSuccess}</span>}
 
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-2 gap-3 text-left">
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
                 <input
                   type="text"
-                  placeholder="Username (es. mrossi)"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Nome"
+                  value={newNome}
+                  onChange={(e) => setNewNome(e.target.value)}
                   className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                   required
                 />
               </div>
-              <div className="flex flex-col gap-1">
+
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
+                <input
+                  type="text"
+                  placeholder="Cognome"
+                  value={newCognome}
+                  onChange={(e) => setNewCognome(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password *</label>
                 <input
                   type="password"
                   placeholder="Password"
@@ -250,15 +308,85 @@ export default function AdminPanel() {
                   required
                 />
               </div>
+
               <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
                 <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
+                  value={newStato}
+                  onChange={(e) => setNewStato(e.target.value)}
                   className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
                 >
                   <option value="dipendente">Dipendente</option>
+                  <option value="volontario">Volontario</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
+                <select
+                  value={newQualifica}
+                  onChange={(e) => setNewQualifica(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                >
+                  <option value="CE">Capo Equipaggio (CE)</option>
+                  <option value="autista">Autista</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
+                <input
+                  type="text"
+                  placeholder="Codice Fiscale"
+                  value={newCodiceFiscale}
+                  onChange={(e) => setNewCodiceFiscale(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
+                <input
+                  type="tel"
+                  placeholder="Telefono"
+                  value={newTelefono}
+                  onChange={(e) => setNewTelefono(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
+                <input
+                  type="date"
+                  value={newDataNascita}
+                  onChange={(e) => setNewDataNascita(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 col-span-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Paga Oraria (facoltativo)"
+                  value={newPagaOraria}
+                  onChange={(e) => setNewPagaOraria(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                />
               </div>
             </div>
 
@@ -281,61 +409,107 @@ export default function AdminPanel() {
                     prof.attivo ? 'border-slate-800 bg-slate-900/20' : 'border-slate-800 bg-slate-950/60 opacity-60'
                   }`}
                 >
-                  {/* Nome utente [ruolo] - Ben visibile */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-col min-w-0">
+                  {/* Nome utente [stato] [qualifica] - Ben visibile */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-slate-100 break-all">{prof.username}</span>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                          prof.ruolo === 'admin' 
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
-                            : 'bg-slate-800 text-slate-400 border border-slate-700/30'
-                        }`}>
-                          {prof.ruolo}
-                        </span>
+                        <span className="text-sm font-extrabold text-slate-100">{prof.nome && prof.cognome ? `${prof.nome} ${prof.cognome}` : prof.username}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({prof.username})</span>
                       </div>
-                      <span className="text-[10px] text-slate-500 font-mono mt-0.5">{prof.username.toLowerCase()}@app.internal</span>
+                      
+                      {/* Toggle Stato Attivo / Inattivo */}
+                      <button
+                        onClick={() => handleToggleUserStatus(prof)}
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
+                          prof.attivo
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35'
+                            : 'bg-slate-800 text-slate-500 border-slate-700/50'
+                        }`}
+                      >
+                        {prof.attivo ? 'Attivo' : 'Disattivo'}
+                      </button>
+                    </div>
+
+                    {/* Badge Ruoli / Qualifiche */}
+                    <div className="flex gap-1.5 flex-wrap mt-0.5">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
+                        prof.stato === 'admin'
+                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          : prof.stato === 'volontario'
+                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      }`}>
+                        {prof.stato || prof.ruolo}
+                      </span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
+                        prof.qualifica === 'autista'
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-slate-800 text-slate-400 border-slate-700/60'
+                      }`}>
+                        {prof.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
+                      </span>
+                      {prof.paga_oraria && (
+                        <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold border border-emerald-500/20">
+                          {Number(prof.paga_oraria).toFixed(2)} €/h
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dettagli anagrafici */}
+                    <div className="grid grid-cols-1 gap-y-1 mt-1.5 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
+                      {prof.codice_fiscale && (
+                        <div>CF: <span className="font-semibold text-slate-300 uppercase">{prof.codice_fiscale}</span></div>
+                      )}
+                      {prof.email && (
+                        <div className="truncate">Mail: <span className="font-semibold text-slate-300">{prof.email}</span></div>
+                      )}
+                      {prof.telefono && (
+                        <div>Tel: <span className="font-semibold text-slate-300">{prof.telefono}</span></div>
+                      )}
+                      {prof.data_nascita && (
+                        <div>Nato il: <span className="font-semibold text-slate-300">{format(parseISO(prof.data_nascita), 'dd/MM/yyyy')}</span></div>
+                      )}
                     </div>
                   </div>
 
                   {/* Pulsanti vari - A capo */}
                   <div className="flex items-center gap-2 pt-2.5 border-t border-slate-800/40 justify-between">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 flex-1">
                       {/* Pulsante Reset Password */}
                       <button
                         onClick={() => setResetPassUser(prof)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 text-slate-400 hover:text-indigo-400 rounded-xl hover:border-indigo-500/20 transition-all text-[11px] font-semibold flex-1"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 text-slate-400 hover:text-indigo-400 rounded-xl hover:border-indigo-500/20 transition-all text-[11px] font-semibold"
                         title="Reimposta Password"
                       >
                         <Key className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Password</span>
+                        <span>Pass</span>
                       </button>
 
-                      {/* Toggle Ruolo */}
-                      <div className="flex-1 min-w-0">
+                      {/* Select Stato */}
+                      <div className="flex-1 min-w-[90px]">
                         <select
-                          value={prof.ruolo}
-                          onChange={(e) => handleChangeRole(prof.id, e.target.value)}
+                          value={prof.stato || prof.ruolo}
+                          onChange={(e) => handleChangeStato(prof.id, e.target.value)}
                           className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-bold px-2 py-2 rounded-xl outline-none cursor-pointer"
                         >
                           <option value="dipendente">Dipendente</option>
+                          <option value="volontario">Volontario</option>
                           <option value="admin">Admin</option>
                         </select>
                       </div>
-                    </div>
 
-                    {/* Toggle Attivo/Inattivo */}
-                    <button
-                      onClick={() => handleToggleUserStatus(prof)}
-                      className="p-1 rounded-xl hover:bg-slate-800/20 transition-colors flex-shrink-0"
-                      title={prof.attivo ? 'Disattiva Account' : 'Attiva Account'}
-                    >
-                      {prof.attivo ? (
-                        <ToggleRight className="w-8 h-8 text-emerald-500" />
-                      ) : (
-                        <ToggleLeft className="w-8 h-8 text-slate-600" />
-                      )}
-                    </button>
+                      {/* Select Qualifica */}
+                      <div className="flex-1 min-w-[90px]">
+                        <select
+                          value={prof.qualifica || 'CE'}
+                          onChange={(e) => handleChangeQualifica(prof.id, e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-bold px-2 py-2 rounded-xl outline-none cursor-pointer"
+                        >
+                          <option value="CE">Qualifica: CE</option>
+                          <option value="autista">Qualifica: Autista</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

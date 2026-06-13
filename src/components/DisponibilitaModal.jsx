@@ -7,7 +7,7 @@ import { it } from 'date-fns/locale'
 import { Calendar, Clock, UserCheck, AlertTriangle, X, CheckCircle } from 'lucide-react'
 
 export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   
   // Campi del Form
   const [startDate, setStartDate] = useState('')
@@ -46,6 +46,13 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
     setFormErrors([])
     setSuccessMsg(null)
     setLoading(true)
+
+    // Verifica qualifica autista
+    if (role === 'autista' && profile?.qualifica !== 'autista') {
+      setFormErrors(["Operazione non consentita: non hai la qualifica di Autista."])
+      setLoading(false)
+      return
+    }
 
     try {
       // Validazione date

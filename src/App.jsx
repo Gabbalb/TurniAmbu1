@@ -149,8 +149,8 @@ function AppContent() {
               <span className="font-bold text-slate-400">✨ MODALITÀ DEMO RILEVATA</span>
               <span>Credenziali predefinite per provare l'app:</span>
               <div className="flex justify-center gap-3 mt-1 text-indigo-400/90 font-bold">
-                <span>admin / admin12345</span>
-                <span>mario_ce / password</span>
+                <span>admin.system / admin12345</span>
+                <span>mario.rossi / password</span>
               </div>
             </div>
           )}

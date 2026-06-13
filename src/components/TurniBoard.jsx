@@ -574,6 +574,17 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
       label: shift.ora_inizio.slice(0, 5) + '–' + shift.ora_fine.slice(0, 5)
     }
 
+    // Verifica qualifica dell'utente prima della prenotazione
+    const targetProfile = profiles.find(p => p.id === userId) || (userId === profile?.id ? profile : null);
+    if (role === 'autista') {
+      const hasAutistaQual = targetProfile?.qualifica === 'autista';
+      if (!hasAutistaQual) {
+        setConfirmError(`Operazione non consentita: l'utente selezionato (${targetProfile?.username || 'selezionato'}) non ha la qualifica di Autista.`);
+        setActionLoading(null);
+        return;
+      }
+    }
+
     try {
       const { conflicts, error: conflictErr } = await api.checkBulkConflicts(userId, [target], role)
       

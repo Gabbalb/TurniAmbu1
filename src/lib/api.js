@@ -15,11 +15,81 @@ if (USE_MOCK) {
   // Inizializza i dati mock se non esistono
   if (!localStorage.getItem('ta_profiles')) {
     localStorage.setItem('ta_profiles', JSON.stringify([
-      { id: '00000000-0000-0000-0000-000000000001', username: 'admin', ruolo: 'admin', attivo: true },
-      { id: '00000000-0000-0000-0000-000000000002', username: 'mario_ce', ruolo: 'dipendente', attivo: true },
-      { id: '00000000-0000-0000-0000-000000000003', username: 'luca_autista', ruolo: 'dipendente', attivo: true },
-      { id: '00000000-0000-0000-0000-000000000004', username: 'giulia_ce', ruolo: 'dipendente', attivo: true },
-      { id: '00000000-0000-0000-0000-000000000005', username: 'matteo_autista', ruolo: 'dipendente', attivo: false } // Utente inattivo
+      { 
+        id: '00000000-0000-0000-0000-000000000001', 
+        username: 'admin.system', 
+        ruolo: 'admin', 
+        attivo: true,
+        nome: 'Admin',
+        cognome: 'System',
+        codice_fiscale: 'ADMSRV90A01H501Z',
+        email: 'admin@system.it',
+        telefono: '3331234567',
+        data_nascita: '1990-01-01',
+        stato: 'admin',
+        qualifica: 'CE',
+        paga_oraria: null
+      },
+      { 
+        id: '00000000-0000-0000-0000-000000000002', 
+        username: 'mario.rossi', 
+        ruolo: 'dipendente', 
+        attivo: true,
+        nome: 'Mario',
+        cognome: 'Rossi',
+        codice_fiscale: 'RSSMRA85M01H501F',
+        email: 'mario.rossi@gmail.com',
+        telefono: '3339876543',
+        data_nascita: '1985-05-01',
+        stato: 'dipendente',
+        qualifica: 'CE',
+        paga_oraria: 12.50
+      },
+      { 
+        id: '00000000-0000-0000-0000-000000000003', 
+        username: 'luca.bianchi', 
+        ruolo: 'dipendente', 
+        attivo: true,
+        nome: 'Luca',
+        cognome: 'Bianchi',
+        codice_fiscale: 'BNCLCU80A01H501D',
+        email: 'luca.bianchi@gmail.com',
+        telefono: '3335556667',
+        data_nascita: '1980-01-01',
+        stato: 'dipendente',
+        qualifica: 'autista',
+        paga_oraria: 14.00
+      },
+      { 
+        id: '00000000-0000-0000-0000-000000000004', 
+        username: 'giulia.verdi', 
+        ruolo: 'dipendente', 
+        attivo: true,
+        nome: 'Giulia',
+        cognome: 'Verdi',
+        codice_fiscale: 'VRDGLI92E01H501Q',
+        email: 'giulia.verdi@gmail.com',
+        telefono: '3338889990',
+        data_nascita: '1992-05-01',
+        stato: 'volontario',
+        qualifica: 'CE',
+        paga_oraria: null
+      },
+      { 
+        id: '00000000-0000-0000-0000-000000000005', 
+        username: 'matteo.neri', 
+        ruolo: 'dipendente', 
+        attivo: false,
+        nome: 'Matteo',
+        cognome: 'Neri',
+        codice_fiscale: 'NREMTT88H01H501O',
+        email: 'matteo.neri@gmail.com',
+        telefono: '3332223334',
+        data_nascita: '1988-08-08',
+        stato: 'dipendente',
+        qualifica: 'autista',
+        paga_oraria: 13.50
+      }
     ]))
   }
   if (!localStorage.getItem('ta_crews')) {
@@ -687,51 +757,105 @@ export const api = {
     })
   },
 
+  // Genera uno username univoco in formato nome.cognome
+  generateUniqueUsername: async (nome, cognome) => {
+    const cleanNome = nome.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanCognome = cognome.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseUsername = `${cleanNome}.${cleanCognome}`;
+
+    let existingUsernames = [];
+    if (USE_MOCK) {
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || [];
+      existingUsernames = profiles.map(p => p.username.toLowerCase());
+    } else {
+      const { data, error } = await supabase.from('profiles').select('username');
+      if (!error && data) {
+        existingUsernames = data.map(p => p.username.toLowerCase());
+      }
+    }
+
+    if (!existingUsernames.includes(baseUsername)) {
+      return baseUsername;
+    }
+
+    let counter = 1;
+    while (true) {
+      const suffix = counter < 10 ? `0${counter}` : `${counter}`;
+      const candidate = `${baseUsername}${suffix}`;
+      if (!existingUsernames.includes(candidate)) {
+        return candidate;
+      }
+      counter++;
+    }
+  },
+
   // Crea un nuovo utente (admin-only)
-  adminCreateUser: async (username, password, role) => {
-    const cleanUsername = username.trim().toLowerCase()
-    const email = `${cleanUsername}@app.internal`
+  adminCreateUser: async (userData) => {
+    const { 
+      nome, 
+      cognome, 
+      password, 
+      stato, 
+      qualifica, 
+      codice_fiscale, 
+      email, 
+      telefono, 
+      data_nascita, 
+      paga_oraria 
+    } = userData;
+
+    // Genera username univoco
+    const generatedUsername = await api.generateUniqueUsername(nome, cognome);
+    const authEmail = `${generatedUsername}@app.internal`;
 
     if (USE_MOCK) {
-      const profiles = JSON.parse(localStorage.getItem('ta_profiles'))
-      const usernameExists = profiles.some(p => p.username.toLowerCase() === cleanUsername)
-      
-      if (usernameExists) {
-        return { error: { message: `Lo username '${cleanUsername}' è già in uso.` } }
-      }
-
-      const newId = `00000000-0000-0000-0000-00000000000${getNextId(profiles)}`
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || [];
+      const newId = `00000000-0000-0000-0000-00000000000${getNextId(profiles)}`;
       const newProfile = {
         id: newId,
-        username: cleanUsername,
-        ruolo: role,
-        attivo: true
-      }
+        username: generatedUsername,
+        ruolo: stato === 'admin' ? 'admin' : 'dipendente', // compatibilità legacy
+        attivo: true,
+        nome,
+        cognome,
+        codice_fiscale: codice_fiscale || null,
+        email: email || null,
+        telefono: telefono || null,
+        data_nascita: data_nascita || null,
+        stato,
+        qualifica,
+        paga_oraria: paga_oraria ? Number(paga_oraria) : null
+      };
 
-      profiles.push(newProfile)
-      localStorage.setItem('ta_profiles', JSON.stringify(profiles))
-      return { data: newProfile, error: null }
+      profiles.push(newProfile);
+      localStorage.setItem('ta_profiles', JSON.stringify(profiles));
+      return { data: newProfile, error: null };
     }
 
     // Per Supabase Auth reale:
-    // Utilizza un client temporaneo senza persistenza di sessione per non disconnettere l'admin corrente!
     const tempClient = createTempClient()
     try {
       const { data, error: signUpError } = await tempClient.auth.signUp({
-        email,
+        email: authEmail,
         password,
         options: {
           data: {
-            username: cleanUsername,
-            ruolo: role
+            username: generatedUsername,
+            ruolo: stato === 'admin' ? 'admin' : 'dipendente', // compatibilità legacy
+            nome,
+            cognome,
+            codice_fiscale,
+            email, // email di contatto
+            telefono,
+            data_nascita,
+            stato,
+            qualifica,
+            paga_oraria: paga_oraria ? Number(paga_oraria) : null
           }
         }
       })
 
       if (signUpError) throw signUpError
-
-      // Il trigger DB autoconferma il profilo e lo inserisce in public.profiles.
-      // Dobbiamo solo restituire i dati.
       return { data: data.user, error: null }
     } catch (err) {
       console.error('Errore nella registrazione dell\'utente:', err)
