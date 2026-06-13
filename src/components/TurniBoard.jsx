@@ -606,27 +606,49 @@ export default function TurniBoard() {
 
               {/* CE and AS - Large and Clear */}
               <div className="flex flex-col gap-1.5 pt-1">
-                {/* CE Role */}
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
-                  <span className={`text-sm sm:text-base font-bold ${ceBookings.length > 0 ? 'text-slate-100' : 'text-slate-500 italic'}`}>
-                    {ceBookings.length > 0 
-                      ? ceBookings.map(b => b.profiles?.username || 'Collega').join(', ') 
-                      : 'Libero'
-                    }
-                  </span>
-                </div>
+                {/* CE Role(s) */}
+                {ceBookings.length === 0 ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
+                    <span className="text-sm sm:text-base font-bold text-slate-500 italic">Libero</span>
+                  </div>
+                ) : (
+                  ceBookings.map(b => (
+                    <div key={b.id} className="flex items-baseline gap-2">
+                      <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
+                      <span className="text-sm sm:text-base font-bold text-slate-100">
+                        {b.profiles?.username || 'Collega'}
+                        {b.is_partial && b.nota_parziale && (
+                          <span className="text-xs sm:text-sm font-medium text-amber-400/90 ml-1.5">
+                            - {b.nota_parziale.toLowerCase()}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))
+                )}
 
-                {/* AS Role */}
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-black text-amber-400 w-8 flex-shrink-0">AS:</span>
-                  <span className={`text-sm sm:text-base font-bold ${asBookings.length > 0 ? 'text-slate-100' : 'text-slate-500 italic'}`}>
-                    {asBookings.length > 0 
-                      ? asBookings.map(b => b.profiles?.username || 'Collega').join(', ') 
-                      : 'Libero'
-                    }
-                  </span>
-                </div>
+                {/* AS Role(s) */}
+                {asBookings.length === 0 ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-black text-amber-400 w-8 flex-shrink-0">AS:</span>
+                    <span className="text-sm sm:text-base font-bold text-slate-500 italic">Libero</span>
+                  </div>
+                ) : (
+                  asBookings.map(b => (
+                    <div key={b.id} className="flex items-baseline gap-2">
+                      <span className="text-sm font-black text-amber-400 w-8 flex-shrink-0">AS:</span>
+                      <span className="text-sm sm:text-base font-bold text-slate-100">
+                        {b.profiles?.username || 'Collega'}
+                        {b.is_partial && b.nota_parziale && (
+                          <span className="text-xs sm:text-sm font-medium text-amber-400/90 ml-1.5">
+                            - {b.nota_parziale.toLowerCase()}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </button>
           )
