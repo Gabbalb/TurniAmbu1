@@ -227,8 +227,7 @@ export default function IMieiTurni({ onJumpToShift }) {
             <ClipboardList className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100">I Miei Turni Prenotati</h2>
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Turni futuri programmati</span>
+            <h2 className="text-lg font-bold text-slate-100">I Miei Turni</h2>
           </div>
         </div>
         <button
@@ -265,7 +264,7 @@ export default function IMieiTurni({ onJumpToShift }) {
             return (
               <div
                 key={booking.id}
-                onClick={() => onJumpToShift(parseISO(shift.data))}
+                onClick={() => onJumpToShift(parseISO(shift.data), booking.p)}
                 className="bg-slate-900/40 border border-slate-800/80 p-4 sm:p-5 rounded-3xl flex items-center justify-between shadow-premium hover:border-indigo-500/40 hover:bg-slate-900/60 transition-all duration-200 cursor-pointer group text-left"
               >
                 <div className="flex flex-col gap-2 flex-1 min-w-0 pr-4">

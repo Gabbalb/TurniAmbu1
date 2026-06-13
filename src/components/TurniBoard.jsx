@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X } from 'lucide-react'
 
-export default function TurniBoard({ initialDate, onDateChange }) {
+export default function TurniBoard({ initialDate, initialSlot, onDateChange, onClearSlotHighlight }) {
   const { user, profile } = useAuth()
 
   const getBookingLimitDate = () => {
@@ -92,6 +92,16 @@ export default function TurniBoard({ initialDate, onDateChange }) {
       onDateChange(currentDate)
     }
   }, [currentDate, onDateChange])
+ 
+  // Rimuove l'evidenziazione dello slot dopo 3 secondi
+  useEffect(() => {
+    if (initialSlot && onClearSlotHighlight) {
+      const timer = setTimeout(() => {
+        onClearSlotHighlight()
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [initialSlot, onClearSlotHighlight])
  
   // Auto-scorrimento della pillola attiva nella barra in alto (iOS safe con offset e scrollTo)
   useEffect(() => {
@@ -906,8 +916,10 @@ export default function TurniBoard({ initialDate, onDateChange }) {
       <div className="flex flex-col gap-5">
         {timeSlots.map(slot => {
           const style = getShiftStyle(slot.start)
+          const isHighlighted = isSameDay(targetDate, currentDate) && Number(initialSlot) === slot.id
+          const highlightClass = isHighlighted ? 'animate-card-bounce border-indigo-500 shadow-premium shadow-indigo-500/10' : ''
           return (
-            <div key={slot.id} className={`flex flex-col gap-2.5 p-3 sm:p-4 border rounded-3xl ${style.bg} transition-all duration-300 hover:shadow-premium`}>
+            <div key={slot.id} className={`flex flex-col gap-2.5 p-3 sm:p-4 border rounded-3xl ${style.bg} transition-all duration-300 hover:shadow-premium ${highlightClass}`}>
               {/* Header Fascia */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

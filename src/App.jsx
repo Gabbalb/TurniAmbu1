@@ -15,6 +15,7 @@ function AppContent() {
     d.setHours(0, 0, 0, 0)
     return d
   })
+  const [selectedBoardSlot, setSelectedBoardSlot] = useState(null)
   const [isBulkOpen, setIsBulkOpen] = useState(false)
   const [boardRefreshKey, setBoardRefreshKey] = useState(0)
 
@@ -32,7 +33,7 @@ function AppContent() {
     setLoginLoading(false)
 
     if (res?.success) {
-      setView('board')
+      setView('my-shifts')
     }
   }
 
@@ -168,13 +169,16 @@ function AppContent() {
         <TurniBoard
           key={boardRefreshKey}
           initialDate={selectedBoardDate}
+          initialSlot={selectedBoardSlot}
           onDateChange={setSelectedBoardDate}
+          onClearSlotHighlight={() => setSelectedBoardSlot(null)}
         />
       )}
       {view === 'my-shifts' && (
         <IMieiTurni
-          onJumpToShift={(date) => {
+          onJumpToShift={(date, slotId) => {
             setSelectedBoardDate(date)
+            setSelectedBoardSlot(slotId)
             setView('board')
           }}
         />

@@ -96,3 +96,20 @@
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Card jump highlight animation (bounces a few times and stops) */
+@keyframes card-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-12px);
+  }
+  60% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-card-bounce {
+  animation: card-bounce 1.5s ease-in-out 2;
+}
