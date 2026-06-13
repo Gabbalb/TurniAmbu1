@@ -7,8 +7,35 @@ import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw 
 
 export default function TurniBoard() {
   const { user, profile } = useAuth()
+
+  const getBookingLimitDate = () => {
+    const today = new Date()
+    return new Date(today.getFullYear(), today.getMonth() + 2, 0)
+  }
+
+  const getCalendarDays = () => {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    const limit = getBookingLimitDate()
+    
+    const days = []
+    let current = start
+    while (current <= limit) {
+      days.push(current)
+      current = addDays(current, 1)
+    }
+    return days
+  }
+
+  const limitDate = getBookingLimitDate()
+  const calendarDays = getCalendarDays()
+
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [listAnchorDate, setListAnchorDate] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [listAnchorDate, setListAnchorDate] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
   const [daysCount, setDaysCount] = useState(14)
   const [viewType, setViewType] = useState('giorno') // 'giorno' | 'settimana'
   const [shifts, setShifts] = useState([])
@@ -30,6 +57,17 @@ export default function TurniBoard() {
   const isScrollingToDaySelect = useRef(false)
   const currentDateRef = useRef(currentDate)
   currentDateRef.current = currentDate
+
+  // Auto-scorrimento della pillola attiva nella barra in alto
+  useEffect(() => {
+    if (viewType === 'giorno') {
+      const dateStr = format(currentDate, 'yyyy-MM-dd')
+      const activePill = document.getElementById(`pill-${dateStr}`)
+      if (activePill) {
+        activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+      }
+    }
+  }, [currentDate, viewType])
 
   const timeToMinutes = (timeStr) => {
     if (!timeStr) return 0
@@ -137,15 +175,23 @@ export default function TurniBoard() {
   const endOfCurrWeek = endOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrWeek, i))
 
-  // Calcola i giorni totali da renderizzare nella vista scorrimento infinito
-  const renderedDates = Array.from({ length: daysCount }, (_, i) => addDays(listAnchorDate, i))
+  // Calcola i giorni totali da renderizzare nella vista scorrimento infinito (fino al limite del mese prossimo)
+  const renderedDates = []
+  let tempDate = listAnchorDate
+  for (let i = 0; i < daysCount; i++) {
+    if (tempDate > limitDate) break
+    renderedDates.push(tempDate)
+    tempDate = addDays(tempDate, 1)
+  }
 
   // Carica i dati dal DB
   const loadBoardData = async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
     try {
       const startStr = format(listAnchorDate, 'yyyy-MM-dd')
-      const endStr = format(addDays(listAnchorDate, daysCount - 1), 'yyyy-MM-dd')
+      const potentialEndDate = addDays(listAnchorDate, daysCount - 1)
+      const actualEndDate = potentialEndDate > limitDate ? limitDate : potentialEndDate
+      const endStr = format(actualEndDate, 'yyyy-MM-dd')
 
       // Carica equipaggi attivi
       const { data: crewsData } = await api.fetchCrews()
@@ -205,6 +251,7 @@ export default function TurniBoard() {
 
   const handleNextWeek = () => {
     const newAnchor = addDays(listAnchorDate, 7)
+    if (newAnchor > limitDate) return // Non navigare oltre il limite consentito
     setListAnchorDate(newAnchor)
     setCurrentDate(newAnchor)
     setDaysCount(14)
@@ -212,8 +259,8 @@ export default function TurniBoard() {
 
   const handleToday = () => {
     const today = new Date()
-    const newAnchor = startOfWeek(today, { weekStartsOn: 1 })
-    setListAnchorDate(newAnchor)
+    today.setHours(0, 0, 0, 0)
+    setListAnchorDate(today)
     setCurrentDate(today)
     setDaysCount(14)
   }
@@ -309,7 +356,10 @@ export default function TurniBoard() {
       const threshold = 300
       const isCloseToBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < threshold
       if (isCloseToBottom) {
-        setDaysCount(prev => prev + 7)
+        const potentialEndDate = addDays(listAnchorDate, daysCount - 1)
+        if (potentialEndDate < limitDate) {
+          setDaysCount(prev => prev + 7)
+        }
       }
     }
 
@@ -324,6 +374,15 @@ export default function TurniBoard() {
   const handleBookSlot = async () => {
     if (!bookingConfirm) return
     const { shift, role } = bookingConfirm
+
+    // Blocco delle prenotazioni oltre il mese prossimo
+    const [sy, sm, sd] = shift.data.split('-').map(Number)
+    const shiftDate = new Date(sy, sm - 1, sd)
+    if (shiftDate > limitDate) {
+      setConfirmError("Non è possibile prenotare turni oltre il mese prossimo.")
+      return
+    }
+
     const slotIdStr = `${shift.id}-${role}`
     setActionLoading(slotIdStr)
     setConfirmError(null)
@@ -874,16 +933,18 @@ export default function TurniBoard() {
 
       {/* Giorno Picker Pills (Solo in vista Giorno) */}
       {viewType === 'giorno' && (
-        <div className="sticky -top-4 sm:-top-5 z-30 bg-slate-950/95 backdrop-blur-md py-2 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-800/80 scroll-smooth">
-          <div className="flex justify-between gap-1 overflow-x-auto scroll-smooth">
-            {weekDays.map(day => {
+        <div className="sticky -top-4 sm:-top-5 z-30 bg-slate-950/95 backdrop-blur-md py-2.5 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-800/80 flex items-center gap-3">
+          {/* Horizontally scrollable calendar */}
+          <div className="flex-1 overflow-x-auto scroll-smooth flex gap-2 py-0.5 pr-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {calendarDays.map(day => {
               const isSelected = isSameDay(day, currentDate)
               const isToday = isSameDay(day, new Date())
               return (
                 <button
                   key={day.toString()}
+                  id={`pill-${format(day, 'yyyy-MM-dd')}`}
                   onClick={() => handleSelectDay(day)}
-                  className={`flex flex-col items-center flex-1 min-w-[46px] py-2 px-1 rounded-xl transition-all duration-200 ${
+                  className={`flex flex-col items-center justify-center flex-shrink-0 w-11 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
                     isSelected
                       ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20 scale-105 font-bold'
                       : 'bg-slate-900/30 text-slate-400 hover:bg-slate-800/60'
@@ -898,6 +959,11 @@ export default function TurniBoard() {
                 </button>
               )
             })}
+          </div>
+          
+          {/* Month Indicator Flag on the Right */}
+          <div className="flex-shrink-0 bg-indigo-600/90 text-white font-extrabold uppercase text-[10px] tracking-widest px-3.5 py-3 rounded-xl shadow-md border border-indigo-500/30 flex items-center justify-center capitalize min-w-[80px]">
+            {format(currentDate, 'MMMM', { locale: it })}
           </div>
         </div>
       )}
