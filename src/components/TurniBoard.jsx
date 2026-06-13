@@ -52,21 +52,26 @@ export default function TurniBoard() {
   const [endTime, setEndTime] = useState('')
   const [confirmError, setConfirmError] = useState(null)
   const [selectedCrewShift, setSelectedCrewShift] = useState(null) // { shift, matchedShifts }
-
+  const [isFetching, setIsFetching] = useState(false)
+ 
   const containerRef = useRef(null)
   const dayRefs = useRef({})
   const isScrollingToDaySelect = useRef(false)
   const pendingScrollDateRef = useRef(null)
+  const scrollStopTimerRef = useRef(null)
+  const calendarScrollRef = useRef(null)
   const currentDateRef = useRef(currentDate)
   currentDateRef.current = currentDate
-
-  // Auto-scorrimento della pillola attiva nella barra in alto
+ 
+  // Auto-scorrimento della pillola attiva nella barra in alto (iOS safe con offset e scrollTo)
   useEffect(() => {
-    if (viewType === 'giorno') {
+    if (viewType === 'giorno' && calendarScrollRef.current) {
       const dateStr = format(currentDate, 'yyyy-MM-dd')
       const activePill = document.getElementById(`pill-${dateStr}`)
       if (activePill) {
-        activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+        const container = calendarScrollRef.current
+        const targetScrollLeft = activePill.offsetLeft - (container.clientWidth / 2) + (activePill.clientWidth / 2)
+        container.scrollTo({ left: targetScrollLeft, behavior: 'smooth' })
       }
     }
   }, [currentDate, viewType])
@@ -189,6 +194,7 @@ export default function TurniBoard() {
   // Carica i dati dal DB
   const loadBoardData = async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
+    setIsFetching(true)
     try {
       const startStr = format(listAnchorDate, 'yyyy-MM-dd')
       const potentialEndDate = addDays(listAnchorDate, daysCount - 1)
@@ -221,6 +227,7 @@ export default function TurniBoard() {
       console.error('Errore nel caricamento dei dati del tabellone:', err)
     } finally {
       if (showSpinner) setLoading(false)
+      setIsFetching(false)
     }
   }
 
@@ -276,21 +283,22 @@ export default function TurniBoard() {
     
     if (targetEl) {
       isScrollingToDaySelect.current = true
-      const scrollParent = targetEl.closest('main')
-      if (scrollParent) {
-        const parentRect = scrollParent.getBoundingClientRect()
-        const elementRect = targetEl.getBoundingClientRect()
-        // Offset di 65px per allinearlo sotto la barra sticky dei giorni
-        const scrollTarget = scrollParent.scrollTop + (elementRect.top - parentRect.top) - 65
-        scrollParent.scrollTo({ top: scrollTarget, behavior: 'smooth' })
-      } else {
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
       
-      // Timeout allungato per coprire tutta la durata dello scorrimento fluido
-      setTimeout(() => {
+      // Timer di fallback nel caso in cui non si attivi l'evento di scroll
+      clearTimeout(scrollStopTimerRef.current)
+      scrollStopTimerRef.current = setTimeout(() => {
         isScrollingToDaySelect.current = false
       }, 1200)
+
+      const scrollParent = targetEl.closest('main') || document.documentElement || document.body
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect ? scrollParent.getBoundingClientRect() : { top: 0 }
+        const elementRect = targetEl.getBoundingClientRect()
+        // Offset di 65px per allinearlo sotto la barra sticky dei giorni
+        const scrollTarget = (scrollParent.scrollTop || 0) + (elementRect.top - parentRect.top) - 65
+        
+        scrollParent.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+      }
     } else {
       // Il giorno selezionato è nel futuro e non ancora caricato sul tabellone
       const diffTime = day.getTime() - listAnchorDate.getTime()
@@ -302,9 +310,9 @@ export default function TurniBoard() {
     }
   }
 
-  // Esegue lo scorrimento verso il giorno caricato on-demand non appena il caricamento è completato
+  // Esegue lo scorrimento verso il giorno caricato on-demand non appena il caricamento dei dati (isFetching) è completato
   useEffect(() => {
-    if (!loading && pendingScrollDateRef.current) {
+    if (!isFetching && pendingScrollDateRef.current) {
       const targetDay = pendingScrollDateRef.current
       pendingScrollDateRef.current = null
       const timer = setTimeout(() => {
@@ -312,7 +320,7 @@ export default function TurniBoard() {
       }, 150)
       return () => clearTimeout(timer)
     }
-  }, [loading])
+  }, [isFetching])
 
   // Allinea lo scorrimento all'avvio, al cambio visualizzazione o al termine del caricamento dati
   useEffect(() => {
@@ -342,7 +350,14 @@ export default function TurniBoard() {
     if (!scrollParent) return
 
     const handleScroll = () => {
-      if (isScrollingToDaySelect.current) return
+      // Rilevamento di fine scorrimento per sbloccare la sincronizzazione
+      if (isScrollingToDaySelect.current) {
+        clearTimeout(scrollStopTimerRef.current)
+        scrollStopTimerRef.current = setTimeout(() => {
+          isScrollingToDaySelect.current = false
+        }, 150)
+        return
+      }
       if (loading) return
 
       const parentRect = scrollParent.getBoundingClientRect()
@@ -978,7 +993,7 @@ export default function TurniBoard() {
       {viewType === 'giorno' && (
         <div className="sticky -top-4 sm:-top-5 z-30 bg-slate-950/95 backdrop-blur-md py-2.5 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-800/80 flex items-center gap-3">
           {/* Horizontally scrollable calendar */}
-          <div className="flex-1 overflow-x-auto scroll-smooth flex gap-2 py-0.5 pr-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div ref={calendarScrollRef} className="flex-1 overflow-x-auto scroll-smooth flex gap-2 py-0.5 pr-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {calendarDays.map((day, dIdx) => {
               const isSelected = isSameDay(day, currentDate)
               const isToday = isSameDay(day, new Date())
