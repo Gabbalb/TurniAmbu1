@@ -396,7 +396,7 @@ export default function AdminPanel() {
                           {b.shifts?.ora_inizio ? b.shifts.ora_inizio.slice(0, 5) : 'N/D'}–{b.shifts?.ora_fine ? b.shifts.ora_fine.slice(0, 5) : 'N/D'}
                         </span>
                         <span>&bull;</span>
-                        <span className="font-bold text-indigo-400 uppercase">{b.ruolo_turno}</span>
+                        <span className={`font-bold uppercase ${b.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{b.ruolo_turno === 'autista' ? 'Autista' : b.ruolo_turno}</span>
                       </div>
                       {b.is_partial && <span className="text-[10px] text-amber-400">{b.nota_parziale}</span>}
                     </div>

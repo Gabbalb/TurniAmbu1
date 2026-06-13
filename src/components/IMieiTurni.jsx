@@ -150,7 +150,7 @@ export default function IMieiTurni() {
                       {shift.ora_inizio.slice(0, 5)}–{shift.ora_fine.slice(0, 5)}
                     </span>
                     <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
-                      Ruolo: <strong className="text-indigo-400 uppercase">{booking.ruolo_turno}</strong>
+                      Ruolo: <strong className={`uppercase ${booking.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{booking.ruolo_turno === 'autista' ? 'Autista' : booking.ruolo_turno}</strong>
                     </span>
                   </div>
 

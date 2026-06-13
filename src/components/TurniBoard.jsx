@@ -459,76 +459,105 @@ export default function TurniBoard() {
     // Trova tutte le prenotazioni per questo ruolo in questo turno
     const slotBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
     const slotIdStr = `${shift.id}-${role}`
-    
+    const isLoading = actionLoading === slotIdStr
+
+    // Configura i dettagli grafici in base al ruolo
+    const isCE = role === 'CE'
+    const roleLabel = isCE ? 'CE' : 'Autista'
+    const roleColorClass = isCE 
+      ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
+      : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+
+    // Elemento per il badge del Ruolo
+    const roleBadge = (
+      <div className={`flex-shrink-0 flex items-center justify-center rounded-xl border px-3 py-1.5 text-center font-black uppercase text-base sm:text-lg tracking-wide ${roleColorClass} min-w-[80px] sm:min-w-[95px]`}>
+        {roleLabel}
+      </div>
+    )
+
     if (slotBookings.length === 0) {
-      const isLoading = actionLoading === slotIdStr
       // Slot completamente Libero
       return (
-        <button
-          onClick={() => handleOpenBookingConfirm(shift, role)}
-          disabled={isLoading || !profile?.attivo}
-          className="flex flex-col text-left p-2 sm:p-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200"
-        >
-          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{role}</span>
-          <span className="text-sm font-medium text-indigo-400/80 mt-0.5 group-hover:text-indigo-400">
-            {isLoading ? 'Prenotazione...' : '+ Disponibile'}
-          </span>
-        </button>
+        <div className="flex items-center gap-3 p-3 rounded-2xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-950/60 transition-colors">
+          {roleBadge}
+          <button
+            onClick={() => handleOpenBookingConfirm(shift, role)}
+            disabled={isLoading || !profile?.attivo}
+            className="flex-1 flex items-center justify-between p-2.5 rounded-xl border border-dashed border-slate-700/60 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200 text-left"
+          >
+            <span className="text-xs sm:text-sm font-medium text-slate-500">Posto libero</span>
+            <span className="text-xs sm:text-sm font-bold text-indigo-400/80 hover:text-indigo-400">
+              {isLoading ? 'Prenotazione...' : '+ Disponibile'}
+            </span>
+          </button>
+        </div>
       )
     }
 
     // Slot con almeno una prenotazione
     return (
-      <div className="flex flex-col gap-2 p-2 rounded-xl border border-slate-800/80 bg-slate-950/40">
-        <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-500 px-1">{role}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border border-slate-800/80 bg-slate-950/40">
+        {/* Mostra il badge del ruolo */}
+        <div className="flex items-center justify-between sm:justify-start gap-2">
+          {roleBadge}
+          {/* Su mobile, se c'è un pulsante per aggiungere un'altra disponibilità parziale, lo mettiamo di fianco al badge per risparmiare spazio */}
+          <button
+            onClick={() => handleOpenBookingConfirm(shift, role)}
+            disabled={!profile?.attivo}
+            className="sm:hidden px-2.5 py-1 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all"
+          >
+            + Aggiungi
+          </button>
+        </div>
         
-        <div className="flex flex-col gap-1.5">
+        {/* Lista prenotati */}
+        <div className="flex-1 flex flex-col gap-2">
           {slotBookings.map(bk => {
             const isCurrentUser = bk.user_id === user.id
             const isAdmin = profile?.ruolo === 'admin'
-            const isLoading = actionLoading === bk.id
+            const isBkLoading = actionLoading === bk.id
 
             if (isCurrentUser) {
               return (
-                <div key={bk.id} className="flex items-center justify-between p-2 rounded-lg border border-indigo-500/60 bg-indigo-500/10 shadow-sm animate-touch-ping duration-1000">
+                <div key={bk.id} className="flex items-center justify-between p-2.5 rounded-xl border border-indigo-500/60 bg-indigo-500/10 shadow-sm animate-touch-ping duration-1000">
                   <div className="flex flex-col min-w-0 pr-1 text-left">
-                    <span className="text-xs font-bold text-indigo-300">Io (Prenotato)</span>
+                    <span className="text-sm sm:text-base font-black text-indigo-300">Io (Prenotato)</span>
                     {bk.is_partial && (
-                      <span className="text-[10px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
+                      <span className="text-[11px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
                     )}
                   </div>
                   <button
                     onClick={(e) => handleCancelBooking(bk.id, e)}
-                    disabled={isLoading}
-                    className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                    disabled={isBkLoading}
+                    className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
                     title="Cancella prenotazione"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               )
             } else {
               return (
-                <div key={bk.id} className={`flex items-center justify-between p-2 rounded-lg border border-slate-800 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
+                <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
                   <div className="flex flex-col min-w-0 pr-1 text-left">
-                    <span className="text-xs font-medium text-slate-300 truncate max-w-[80px] sm:max-w-[100px]">
+                    <span className="text-sm sm:text-base font-bold text-slate-200 truncate">
                       {bk.profiles?.username || 'Collega'}
                     </span>
                     {bk.is_partial && (
-                      <span className="text-[10px] text-slate-500 mt-0.5 leading-tight">{bk.nota_parziale}</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5 leading-tight">{bk.nota_parziale}</span>
                     )}
                   </div>
                   {isAdmin ? (
                     <button
                       onClick={(e) => handleCancelBooking(bk.id, e)}
-                      disabled={isLoading}
-                      className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                      disabled={isBkLoading}
+                      className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
                       title="Cancella prenotazione collega (Admin)"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   ) : (
-                    <Lock className="w-3 h-3 text-slate-600 mr-1 flex-shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-slate-600 mr-1 flex-shrink-0" />
                   )}
                 </div>
               )
@@ -536,11 +565,11 @@ export default function TurniBoard() {
           })}
         </div>
 
-        {/* Pulsante per aggiungere un'altra disponibilità parziale nello stesso slot */}
+        {/* Pulsante desktop per aggiungere un'altra disponibilità parziale nello stesso slot */}
         <button
           onClick={() => handleOpenBookingConfirm(shift, role)}
           disabled={!profile?.attivo}
-          className="text-center py-1 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[9px] font-bold text-indigo-400/80 hover:text-indigo-400 bg-slate-900/10 hover:bg-indigo-500/5 transition-all mt-0.5"
+          className="hidden sm:block px-3 py-2 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all self-stretch flex items-center justify-center"
         >
           + Aggiungi
         </button>
@@ -574,8 +603,8 @@ export default function TurniBoard() {
                 )}
               </div>
 
-              {/* Grid Coppia: CE + Autista */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+              {/* List: CE + Autista */}
+              <div className="flex flex-col gap-3">
                 {renderSlot(shift, 'CE', matchedShifts)}
                 {renderSlot(shift, 'autista', matchedShifts)}
               </div>
@@ -685,7 +714,10 @@ export default function TurniBoard() {
                         key={b.id}
                         className={`text-[9px] px-2 py-0.5 rounded-md border font-semibold ${style.badge}`}
                       >
-                        {b.profiles?.username || 'Dipendente'} ({b.ruolo_turno === 'CE' ? 'CE' : 'Aut.'})
+                        {b.profiles?.username || 'Dipendente'}{' '}
+                        <span className={b.ruolo_turno === 'CE' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                          ({b.ruolo_turno === 'CE' ? 'CE' : 'Aut.'})
+                        </span>
                       </span>
                     )
                   })}
@@ -855,7 +887,7 @@ export default function TurniBoard() {
             )}
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Vuoi prenotare lo slot come <strong className="text-indigo-400 uppercase">{bookingConfirm.role}</strong>?
+              Vuoi prenotare lo slot come <strong className={`uppercase ${bookingConfirm.role === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{bookingConfirm.role === 'autista' ? 'Autista' : bookingConfirm.role}</strong>?
             </p>
 
             {/* Assegnazione Utente (Solo per Admin) */}
