@@ -955,27 +955,39 @@ export default function TurniBoard() {
         <div className="sticky -top-4 sm:-top-5 z-30 bg-slate-950/95 backdrop-blur-md py-2.5 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-800/80 flex items-center gap-3">
           {/* Horizontally scrollable calendar */}
           <div className="flex-1 overflow-x-auto scroll-smooth flex gap-2 py-0.5 pr-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {calendarDays.map(day => {
+            {calendarDays.map((day, dIdx) => {
               const isSelected = isSameDay(day, currentDate)
               const isToday = isSameDay(day, new Date())
+              const showMonthSeparator = dIdx > 0 && day.getMonth() !== calendarDays[dIdx - 1].getMonth()
+
               return (
-                <button
-                  key={day.toString()}
-                  id={`pill-${format(day, 'yyyy-MM-dd')}`}
-                  onClick={() => handleSelectDay(day)}
-                  className={`flex flex-col items-center justify-center flex-shrink-0 w-11 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20 scale-105 font-bold'
-                      : 'bg-slate-900/30 text-slate-400 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <span className="text-[9px] uppercase tracking-wider">
-                    {format(day, 'eee', { locale: it }).replace('.', '')}
-                  </span>
-                  <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
-                    {format(day, 'd')}
-                  </span>
-                </button>
+                <React.Fragment key={day.toString()}>
+                  {showMonthSeparator && (
+                    <div className="flex-shrink-0 flex flex-col justify-center items-center px-2 border border-indigo-500/30 bg-indigo-950/60 rounded-xl mx-0.5 self-stretch min-w-[20px]">
+                      <span className="text-[9px] font-black text-indigo-400 flex flex-col items-center leading-none uppercase">
+                        {format(day, 'MMM', { locale: it }).slice(0, 3).toUpperCase().split('').map((char, charIdx) => (
+                          <span key={charIdx} className={charIdx > 0 ? 'mt-1.5' : ''}>{char}</span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    id={`pill-${format(day, 'yyyy-MM-dd')}`}
+                    onClick={() => handleSelectDay(day)}
+                    className={`flex flex-col items-center justify-center flex-shrink-0 w-11 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                      isSelected
+                        ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20 scale-105 font-bold'
+                        : 'bg-slate-900/30 text-slate-400 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase tracking-wider">
+                      {format(day, 'eee', { locale: it }).replace('.', '')}
+                    </span>
+                    <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
+                      {format(day, 'd')}
+                    </span>
+                  </button>
+                </React.Fragment>
               )
             })}
           </div>
