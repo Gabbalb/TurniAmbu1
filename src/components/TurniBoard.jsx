@@ -1161,36 +1161,41 @@ export default function TurniBoard() {
       {selectedCrewShift && (
         <div
           onClick={() => setSelectedCrewShift(null)}
-          className="fixed inset-0 z-45 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-slate-900 border border-slate-800 p-5 rounded-3xl w-full max-w-md flex flex-col gap-4 shadow-premium max-h-[90vh] overflow-y-auto relative"
           >
-            {/* Header Modale */}
-            <div className="flex justify-between items-start border-b border-slate-800/80 pb-3">
-              <div className="flex flex-col text-left">
-                <h3 className="text-lg font-bold text-slate-100">
-                  {crews.find(c => String(c.id) === String(selectedCrewShift.shift.crew_id))?.nome || `Equipaggio ${selectedCrewShift.shift.crew_id}`}
-                </h3>
-                <span className="text-xs text-indigo-400 font-semibold mt-0.5 capitalize">
-                  {(() => {
-                    const [y, m, d] = selectedCrewShift.shift.data.split('-').map(Number)
-                    const parsedDate = new Date(y, m - 1, d)
-                    return format(parsedDate, 'EEEE d MMMM yyyy', { locale: it })
-                  })()}
-                </span>
-                <span className="text-xs text-slate-400 mt-0.5">
-                  Fascia Oraria: {selectedCrewShift.shift.ora_inizio.slice(0, 5)}–{selectedCrewShift.shift.ora_fine.slice(0, 5)}
-                </span>
-              </div>
+            {/* Header Modale Centrato */}
+            <div className="flex flex-col items-center text-center pb-4 border-b border-slate-800/80 relative">
+              {/* Pulsante X in alto a destra */}
               <button 
                 onClick={() => setSelectedCrewShift(null)}
-                className="text-slate-400 hover:text-slate-200 p-1.5 bg-slate-800 hover:bg-slate-750 rounded-full border border-slate-700 transition-colors flex items-center justify-center"
+                className="absolute top-0 right-0 text-slate-400 hover:text-slate-200 p-1.5 bg-slate-800 hover:bg-slate-750 rounded-full border border-slate-700 transition-colors flex items-center justify-center"
                 aria-label="Chiudi"
               >
                 <X className="w-4 h-4" />
               </button>
+
+              {/* Data scritta grande */}
+              <h3 className="text-xl sm:text-2xl font-black text-slate-100 capitalize tracking-tight mt-2 px-6">
+                {(() => {
+                  const [y, m, d] = selectedCrewShift.shift.data.split('-').map(Number)
+                  const parsedDate = new Date(y, m - 1, d)
+                  return format(parsedDate, 'EEEE, d MMMM yyyy', { locale: it })
+                })()}
+              </h3>
+
+              {/* Orario del turno */}
+              <span className="text-sm sm:text-base font-bold text-indigo-400 mt-1">
+                Dalle {selectedCrewShift.shift.ora_inizio.slice(0, 5)} alle {selectedCrewShift.shift.ora_fine.slice(0, 5)}
+              </span>
+
+              {/* Nome Equipaggio */}
+              <span className="text-xs font-black text-slate-500 uppercase tracking-widest mt-3">
+                {crews.find(c => String(c.id) === String(selectedCrewShift.shift.crew_id))?.nome || `Equipaggio ${selectedCrewShift.shift.crew_id}`}
+              </span>
             </div>
 
             {/* Slot Espansi */}
@@ -1206,7 +1211,7 @@ export default function TurniBoard() {
       {bookingConfirm && (
         <div
           onClick={() => setBookingConfirm(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
