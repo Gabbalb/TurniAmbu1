@@ -23,6 +23,7 @@ export default function TurniBoard() {
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [confirmError, setConfirmError] = useState(null)
+  const [selectedCrewShift, setSelectedCrewShift] = useState(null) // { shift, matchedShifts }
 
   const containerRef = useRef(null)
   const dayRefs = useRef({})
@@ -582,26 +583,52 @@ export default function TurniBoard() {
       <div className="flex flex-col gap-3.5">
         {matchedShifts.map((shift, idx) => {
           const crewObj = crews.find(c => String(c.id) === String(shift.crew_id))
+          const ceBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'CE')
+          const asBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'autista')
+          
           return (
-            <div key={shift.id} className="bg-slate-900/40 border border-slate-800/80 p-2.5 sm:p-3.5 rounded-2xl shadow-inner-soft">
+            <button
+              key={shift.id}
+              onClick={() => setSelectedCrewShift({ shift, matchedShifts })}
+              className="w-full text-left bg-slate-900/40 border border-slate-800/80 hover:border-indigo-500/40 hover:bg-slate-900/60 p-3.5 rounded-2xl shadow-inner-soft transition-all duration-200 flex flex-col gap-2 cursor-pointer"
+            >
               {/* Nome Equipaggio */}
-              <div className="flex items-center justify-between mb-2 sm:mb-2.5">
-                <span className="text-xs font-bold text-slate-300">
+              <div className="flex items-center justify-between w-full pb-1 border-b border-slate-800/40">
+                <span className="text-xs font-extrabold text-indigo-400 uppercase tracking-widest">
                   {crewObj ? crewObj.nome : `Equipaggio ${shift.crew_id}`}
                 </span>
                 {idx > 0 && (
                   <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-semibold">
-                    Equipaggio Rinforzo
+                    Rinforzo
                   </span>
                 )}
               </div>
 
-              {/* List: CE + Autista */}
-              <div className="flex flex-col gap-3">
-                {renderSlot(shift, 'CE', matchedShifts)}
-                {renderSlot(shift, 'autista', matchedShifts)}
+              {/* CE and AS - Large and Clear */}
+              <div className="flex flex-col gap-1.5 pt-1">
+                {/* CE Role */}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
+                  <span className={`text-sm sm:text-base font-bold ${ceBookings.length > 0 ? 'text-slate-100' : 'text-slate-500 italic'}`}>
+                    {ceBookings.length > 0 
+                      ? ceBookings.map(b => b.profiles?.username || 'Collega').join(', ') 
+                      : 'Libero'
+                    }
+                  </span>
+                </div>
+
+                {/* AS Role */}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-black text-amber-400 w-8 flex-shrink-0">AS:</span>
+                  <span className={`text-sm sm:text-base font-bold ${asBookings.length > 0 ? 'text-slate-100' : 'text-slate-500 italic'}`}>
+                    {asBookings.length > 0 
+                      ? asBookings.map(b => b.profiles?.username || 'Collega').join(', ') 
+                      : 'Libero'
+                    }
+                  </span>
+                </div>
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -865,6 +892,44 @@ export default function TurniBoard() {
         </div>
       ) : (
         renderWeeklySummary()
+      )}
+
+      {/* Modale Equipaggio Espanso */}
+      {selectedCrewShift && (
+        <div className="fixed inset-0 z-45 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl w-full max-w-md flex flex-col gap-4 shadow-premium max-h-[90vh] overflow-y-auto">
+            {/* Header Modale */}
+            <div className="flex justify-between items-start border-b border-slate-800/80 pb-3">
+              <div className="flex flex-col text-left">
+                <h3 className="text-lg font-bold text-slate-100">
+                  {crews.find(c => String(c.id) === String(selectedCrewShift.shift.crew_id))?.nome || `Equipaggio ${selectedCrewShift.shift.crew_id}`}
+                </h3>
+                <span className="text-xs text-indigo-400 font-semibold mt-0.5 capitalize">
+                  {(() => {
+                    const [y, m, d] = selectedCrewShift.shift.data.split('-').map(Number)
+                    const parsedDate = new Date(y, m - 1, d)
+                    return format(parsedDate, 'EEEE d MMMM yyyy', { locale: it })
+                  })()}
+                </span>
+                <span className="text-xs text-slate-400 mt-0.5">
+                  Fascia Oraria: {selectedCrewShift.shift.ora_inizio.slice(0, 5)}–{selectedCrewShift.shift.ora_fine.slice(0, 5)}
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedCrewShift(null)}
+                className="text-slate-400 hover:text-slate-200 text-xs font-bold bg-slate-800 hover:bg-slate-750 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            {/* Slot Espansi */}
+            <div className="flex flex-col gap-4 text-left">
+              {renderSlot(selectedCrewShift.shift, 'CE')}
+              {renderSlot(selectedCrewShift.shift, 'autista')}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modale di Conferma Prenotazione (Inline-Popup) */}
