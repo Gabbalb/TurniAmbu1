@@ -464,29 +464,29 @@ export default function TurniBoard() {
     // Configura i dettagli grafici in base al ruolo
     const isCE = role === 'CE'
     const roleLabel = isCE ? 'CE' : 'Autista'
-    const roleColorClass = isCE 
-      ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-      : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-
-    // Elemento per il badge del Ruolo
-    const roleBadge = (
-      <div className={`flex-shrink-0 flex items-center justify-center rounded-xl border px-3 py-1.5 text-center font-black uppercase text-base sm:text-lg tracking-wide ${roleColorClass} min-w-[80px] sm:min-w-[95px]`}>
-        {roleLabel}
-      </div>
-    )
+    const containerStyle = isCE 
+      ? 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-500/50' 
+      : 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50'
+    const roleTextClass = isCE ? 'text-emerald-400' : 'text-amber-400'
 
     if (slotBookings.length === 0) {
       // Slot completamente Libero
       return (
-        <div className="flex items-center gap-3 p-3 rounded-2xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-950/60 transition-colors">
-          {roleBadge}
+        <div className={`flex flex-col gap-2.5 p-3 rounded-2xl border transition-all duration-200 ${containerStyle}`}>
+          <div className="flex justify-between items-center w-full">
+            <span className={`text-[10px] font-extrabold tracking-widest uppercase ${roleTextClass}`}>
+              {roleLabel}
+            </span>
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Libero</span>
+          </div>
+          
           <button
             onClick={() => handleOpenBookingConfirm(shift, role)}
             disabled={isLoading || !profile?.attivo}
-            className="flex-1 flex items-center justify-between p-2.5 rounded-xl border border-dashed border-slate-700/60 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200 text-left"
+            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-dashed border-slate-700/60 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200 text-left"
           >
-            <span className="text-xs sm:text-sm font-medium text-slate-500">Posto libero</span>
-            <span className="text-xs sm:text-sm font-bold text-indigo-400/80 hover:text-indigo-400">
+            <span className="text-xs sm:text-sm font-medium text-slate-400">Posto libero</span>
+            <span className="text-xs sm:text-sm font-bold text-indigo-400/90 hover:text-indigo-300">
               {isLoading ? 'Prenotazione...' : '+ Disponibile'}
             </span>
           </button>
@@ -496,22 +496,24 @@ export default function TurniBoard() {
 
     // Slot con almeno una prenotazione
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border border-slate-800/80 bg-slate-950/40">
-        {/* Mostra il badge del ruolo */}
-        <div className="flex items-center justify-between sm:justify-start gap-2">
-          {roleBadge}
-          {/* Su mobile, se c'è un pulsante per aggiungere un'altra disponibilità parziale, lo mettiamo di fianco al badge per risparmiare spazio */}
+      <div className={`flex flex-col gap-2.5 p-3 rounded-2xl border transition-all duration-200 ${containerStyle}`}>
+        {/* Intestazione del Ruolo con Pulsante Aggiungi (tutto allineato in cima) */}
+        <div className="flex justify-between items-center w-full">
+          <span className={`text-[10px] font-extrabold tracking-widest uppercase ${roleTextClass}`}>
+            {roleLabel}
+          </span>
+          
           <button
             onClick={() => handleOpenBookingConfirm(shift, role)}
             disabled={!profile?.attivo}
-            className="sm:hidden px-2.5 py-1 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all"
+            className="px-2 py-0.5 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all"
           >
             + Aggiungi
           </button>
         </div>
         
         {/* Lista prenotati */}
-        <div className="flex-1 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {slotBookings.map(bk => {
             const isCurrentUser = bk.user_id === user.id
             const isAdmin = profile?.ruolo === 'admin'
@@ -520,7 +522,7 @@ export default function TurniBoard() {
             if (isCurrentUser) {
               return (
                 <div key={bk.id} className="flex items-center justify-between p-2.5 rounded-xl border border-indigo-500/60 bg-indigo-500/10 shadow-sm animate-touch-ping duration-1000">
-                  <div className="flex flex-col min-w-0 pr-1 text-left">
+                  <div className="flex flex-col min-w-0 pr-2 text-left">
                     <span className="text-sm sm:text-base font-black text-indigo-300">Io (Prenotato)</span>
                     {bk.is_partial && (
                       <span className="text-[11px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
@@ -538,9 +540,9 @@ export default function TurniBoard() {
               )
             } else {
               return (
-                <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
-                  <div className="flex flex-col min-w-0 pr-1 text-left">
-                    <span className="text-sm sm:text-base font-bold text-slate-200 truncate">
+                <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
+                  <div className="flex flex-col min-w-0 pr-2 text-left">
+                    <span className="text-sm sm:text-base font-bold text-slate-200 break-all">
                       {bk.profiles?.username || 'Collega'}
                     </span>
                     {bk.is_partial && (
@@ -557,22 +559,13 @@ export default function TurniBoard() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   ) : (
-                    <Lock className="w-3.5 h-3.5 text-slate-600 mr-1 flex-shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-slate-500 mr-1 flex-shrink-0" />
                   )}
                 </div>
               )
             }
           })}
         </div>
-
-        {/* Pulsante desktop per aggiungere un'altra disponibilità parziale nello stesso slot */}
-        <button
-          onClick={() => handleOpenBookingConfirm(shift, role)}
-          disabled={!profile?.attivo}
-          className="hidden sm:block px-3 py-2 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all self-stretch flex items-center justify-center"
-        >
-          + Aggiungi
-        </button>
       </div>
     )
   }
