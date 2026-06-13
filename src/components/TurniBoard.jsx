@@ -152,6 +152,31 @@ export default function TurniBoard() {
     return gaps
   }
 
+  const getShiftCoverageStatus = (day, slotId) => {
+    const dateStr = format(day, 'yyyy-MM-dd')
+    const startTimes = {
+      1: '06:00:00',
+      2: '14:00:00',
+      3: '22:00:00'
+    }
+    const startTime = startTimes[slotId]
+
+    const dayShifts = shifts.filter(s => s.data === dateStr && s.ora_inizio === startTime)
+    if (dayShifts.length === 0) return 'bg-transparent' // Trasparente se nessun turno creato
+
+    for (const shift of dayShifts) {
+      const ceBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'CE')
+      const ceGaps = getUncoveredGaps(shift, ceBookings)
+      if (ceGaps.length > 0) return 'bg-rose-500' // Rosso per gap scoperto
+
+      const asBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'autista')
+      const asGaps = getUncoveredGaps(shift, asBookings)
+      if (asGaps.length > 0) return 'bg-rose-500' // Rosso per gap scoperto
+    }
+
+    return 'bg-emerald-500' // Verde se completo
+  }
+
   const handleOpenBookingConfirm = (shift, role) => {
     setBookingConfirm({ shift, role })
     setAssigneeId(user.id)
@@ -197,18 +222,21 @@ export default function TurniBoard() {
     setIsFetching(true)
     try {
       const startStr = format(listAnchorDate, 'yyyy-MM-dd')
-      const potentialEndDate = addDays(listAnchorDate, daysCount - 1)
-      const actualEndDate = potentialEndDate > limitDate ? limitDate : potentialEndDate
-      const endStr = format(actualEndDate, 'yyyy-MM-dd')
+      const endStr = format(limitDate, 'yyyy-MM-dd')
 
       // Carica equipaggi attivi
       const { data: crewsData } = await api.fetchCrews()
       setCrews(crewsData || [])
 
       // Assicurati che esistano i turni di default (per default equipaggio 1) in queste date
-      const datesStr = renderedDates.map(d => format(d, 'yyyy-MM-dd'))
+      // Unione di calendarDays (barra in alto) e renderedDates (lista) per garantire che siano tutti inizializzati
+      const allUniqueDatesStr = Array.from(new Set([
+        ...calendarDays.map(d => format(d, 'yyyy-MM-dd')),
+        ...renderedDates.map(d => format(d, 'yyyy-MM-dd'))
+      ])).sort()
+
       if (crewsData && crewsData.length > 0) {
-        await api.ensureShiftsExistForDates(datesStr, crewsData)
+        await api.ensureShiftsExistForDates(allUniqueDatesStr, crewsData)
       }
 
       // Carica turni e prenotazioni del periodo
@@ -1025,6 +1053,12 @@ export default function TurniBoard() {
                     <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
                       {format(day, 'd')}
                     </span>
+                    {/* I 3 pallini di copertura dei turni */}
+                    <div className="flex gap-1 mt-1 justify-center">
+                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 1)}`} title="Mattina"></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 2)}`} title="Pomeriggio"></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 3)}`} title="Notte"></span>
+                    </div>
                   </button>
                 </React.Fragment>
               )
