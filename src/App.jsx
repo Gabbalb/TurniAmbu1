@@ -9,7 +9,12 @@ import { ShieldCheck, RefreshCw, Key, User } from 'lucide-react'
 
 function AppContent() {
   const { user, profile, loading, login, error: authError } = useAuth()
-  const [view, setView] = useState('board') // 'board' | 'my-shifts' | 'admin'
+  const [view, setView] = useState('my-shifts') // 'board' | 'my-shifts' | 'admin'
+  const [selectedBoardDate, setSelectedBoardDate] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
   const [isBulkOpen, setIsBulkOpen] = useState(false)
   const [boardRefreshKey, setBoardRefreshKey] = useState(0)
 
@@ -160,10 +165,19 @@ function AppContent() {
       onOpenBulkModal={() => setIsBulkOpen(true)}
     >
       {view === 'board' && (
-        <TurniBoard key={boardRefreshKey} />
+        <TurniBoard
+          key={boardRefreshKey}
+          initialDate={selectedBoardDate}
+          onDateChange={setSelectedBoardDate}
+        />
       )}
       {view === 'my-shifts' && (
-        <IMieiTurni />
+        <IMieiTurni
+          onJumpToShift={(date) => {
+            setSelectedBoardDate(date)
+            setView('board')
+          }}
+        />
       )}
       {view === 'admin' && profile?.ruolo === 'admin' && (
         <AdminPanel />

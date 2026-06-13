@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X } from 'lucide-react'
 
-export default function TurniBoard() {
+export default function TurniBoard({ initialDate, onDateChange }) {
   const { user, profile } = useAuth()
 
   const getBookingLimitDate = () => {
@@ -30,9 +30,32 @@ export default function TurniBoard() {
   const limitDate = getBookingLimitDate()
   const calendarDays = getCalendarDays()
 
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [currentMonthDate, setCurrentMonthDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (initialDate) {
+      const d = new Date(initialDate)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+  const [currentMonthDate, setCurrentMonthDate] = useState(() => {
+    if (initialDate) {
+      const d = new Date(initialDate)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
   const [listAnchorDate, setListAnchorDate] = useState(() => {
+    if (initialDate) {
+      const d = new Date(initialDate)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d
@@ -62,6 +85,13 @@ export default function TurniBoard() {
   const calendarScrollRef = useRef(null)
   const currentDateRef = useRef(currentDate)
   currentDateRef.current = currentDate
+ 
+  // Sincronizza la data del tabellone con lo stato globale di App.jsx
+  useEffect(() => {
+    if (onDateChange && currentDate) {
+      onDateChange(currentDate)
+    }
+  }, [currentDate, onDateChange])
  
   // Auto-scorrimento della pillola attiva nella barra in alto (iOS safe con offset e scrollTo)
   useEffect(() => {
