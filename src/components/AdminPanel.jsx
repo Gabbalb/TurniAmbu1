@@ -25,9 +25,20 @@ export default function AdminPanel() {
   const [userActionError, setUserActionError] = useState(null)
   const [userActionSuccess, setUserActionSuccess] = useState(null)
 
-  // Stati Reset Password Modal
-  const [resetPassUser, setResetPassUser] = useState(null) // profile object
-  const [resetPasswordVal, setResetPasswordVal] = useState('')
+  // Stati Form Modifica Utente (Editing)
+  const [editingProfile, setEditingProfile] = useState(null)
+  const [editNome, setEditNome] = useState('')
+  const [editCognome, setEditCognome] = useState('')
+  const [editStato, setEditStato] = useState('dipendente')
+  const [editQualifica, setEditQualifica] = useState('CE')
+  const [editCodiceFiscale, setEditCodiceFiscale] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editTelefono, setEditTelefono] = useState('')
+  const [editDataNascita, setEditDataNascita] = useState('')
+  const [editPagaOraria, setEditPagaOraria] = useState('')
+  const [editAttivo, setEditAttivo] = useState(true)
+  const [editPassword, setEditPassword] = useState('')
+  const [editConfirmPassword, setEditConfirmPassword] = useState('')
 
   // Stati Form Equipaggio Aggiuntivo
   const [crewDate, setCrewDate] = useState('')
@@ -87,7 +98,7 @@ export default function AdminPanel() {
         email: newEmail.trim(),
         telefono: newTelefono.trim(),
         data_nascita: newDataNascita || null,
-        paga_oraria: newPagaOraria || null
+        paga_oraria: newStato === 'dipendente' ? (newPagaOraria || null) : null
       }
 
       const { data, error } = await api.adminCreateUser(userData)
@@ -112,68 +123,71 @@ export default function AdminPanel() {
     }
   }
 
-  // Abilita/Disabilita Account
-  const handleToggleUserStatus = async (userProfile) => {
-    const newStatus = !userProfile.attivo
-    try {
-      const { error } = await api.adminUpdateProfile(userProfile.id, { attivo: newStatus })
-      if (error) {
-        alert(error.message)
-      } else {
-        await loadData()
-      }
-    } catch (err) {
-      console.error(err)
-    }
+  // Avvia modifica profilo
+  const startEditing = (prof) => {
+    setEditingProfile(prof)
+    setEditNome(prof.nome || '')
+    setEditCognome(prof.cognome || '')
+    setEditStato(prof.stato || prof.ruolo || 'dipendente')
+    setEditQualifica(prof.qualifica || 'CE')
+    setEditCodiceFiscale(prof.codice_fiscale || '')
+    setEditEmail(prof.email || '')
+    setEditTelefono(prof.telefono || '')
+    setEditDataNascita(prof.data_nascita || '')
+    setEditPagaOraria(prof.paga_oraria !== null && prof.paga_oraria !== undefined ? String(prof.paga_oraria) : '')
+    setEditAttivo(prof.attivo !== false)
+    setEditPassword('')
+    setEditConfirmPassword('')
   }
 
-  // Cambio Stato
-  const handleChangeStato = async (userId, newStato) => {
-    try {
-      const { error } = await api.adminUpdateProfile(userId, { 
-        stato: newStato,
-        ruolo: newStato === 'admin' ? 'admin' : 'dipendente'
-      })
-      if (error) {
-        alert(error.message)
-      } else {
-        await loadData()
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  // Cambio Qualifica
-  const handleChangeQualifica = async (userId, newQualifica) => {
-    try {
-      const { error } = await api.adminUpdateProfile(userId, { qualifica: newQualifica })
-      if (error) {
-        alert(error.message)
-      } else {
-        await loadData()
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  // Modifica Password Utente
-  const handleResetPassword = async (e) => {
+  // Salva modifiche profilo ed eventuale reset password
+  const handleSaveEditProfile = async (e) => {
     e.preventDefault()
-    if (!resetPasswordVal) return
+
+    if (editPassword && editPassword !== editConfirmPassword) {
+      alert('Le nuove password inserite non coincidono.')
+      return
+    }
+
+    if (editPassword && editPassword.length < 6) {
+      alert('La nuova password deve contenere almeno 6 caratteri.')
+      return
+    }
 
     try {
-      const { error } = await api.adminSetPassword(resetPassUser.id, resetPasswordVal)
-      if (error) {
-        alert(error.message || 'Errore nel cambio password.')
-      } else {
-        alert(`Password di ${resetPassUser.username} aggiornata con successo.`)
-        setResetPassUser(null)
-        setResetPasswordVal('')
+      const updates = {
+        nome: editNome.trim(),
+        cognome: editCognome.trim(),
+        stato: editStato,
+        ruolo: editStato === 'admin' ? 'admin' : 'dipendente',
+        qualifica: editQualifica,
+        codice_fiscale: editCodiceFiscale.trim(),
+        email: editEmail.trim(),
+        telefono: editTelefono.trim(),
+        data_nascita: editDataNascita || null,
+        paga_oraria: editStato === 'dipendente' ? (editPagaOraria || null) : null,
+        attivo: editAttivo
       }
+
+      const { error: profileError } = await api.adminUpdateProfile(editingProfile.id, updates)
+      if (profileError) {
+        alert(profileError.message || 'Errore durante l\'aggiornamento del profilo.')
+        return
+      }
+
+      if (editPassword) {
+        const { error: passError } = await api.adminSetPassword(editingProfile.id, editPassword)
+        if (passError) {
+          alert(passError.message || 'Profilo salvato, ma errore nel cambio password.')
+          return
+        }
+      }
+
+      alert('Profilo aggiornato con successo!')
+      setEditingProfile(null)
+      await loadData()
     } catch (err) {
-      console.error(err)
+      alert(err.message)
     }
   }
 
@@ -230,464 +244,580 @@ export default function AdminPanel() {
         </div>
         <div>
           <h2 className="text-lg font-bold text-slate-100">Pannello Amministratore</h2>
-          <span className="text-[10px] text-rose-400 uppercase tracking-wider font-semibold">Area Amministrazione</span>
+          <span className="text-[10px] text-rose-400 uppercase tracking-wider font-semibold">
+            {editingProfile ? `Modifica Profilo: ${editingProfile.username}` : 'Area Amministrazione'}
+          </span>
         </div>
       </div>
 
-      {/* Tabs di navigazione interna */}
-      <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
-        <button
-          onClick={() => setActiveTab('utenti')}
-          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'utenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" /> Utenti
-        </button>
-        <button
-          onClick={() => setActiveTab('storico')}
-          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'storico' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <History className="w-3.5 h-3.5" /> Storico
-        </button>
-        <button
-          onClick={() => setActiveTab('equipaggi')}
-          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'equipaggi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5" /> Equipaggi
-        </button>
-      </div>
+      {editingProfile ? (
+        /* VISTA MODIFICA UTENTE DEDICATA */
+        <form onSubmit={handleSaveEditProfile} className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex flex-col gap-4 text-left animate-fade-in">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800/40">
+            <div>
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Modifica Informazioni Utente</h3>
+              <p className="text-[10px] text-slate-500">I campi contrassegnati con * sono obbligatori</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditingProfile(null)}
+              className="px-3 py-1 bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-bold transition-all"
+            >
+              Annulla
+            </button>
+          </div>
 
-      {/* CONTENUTO TAB: UTENTI */}
-      {activeTab === 'utenti' && (
-        <div className="flex flex-col gap-6">
-          {/* Form Creazione Utente */}
-          <form onSubmit={handleCreateUser} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Crea Nuovo Account</h3>
-            
-            {userActionError && <span className="text-xs text-rose-400 font-semibold">{userActionError}</span>}
-            {userActionSuccess && <span className="text-xs text-emerald-400 font-semibold">{userActionSuccess}</span>}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
+              <input
+                type="text"
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                required
+              />
+            </div>
 
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
-                <input
-                  type="text"
-                  placeholder="Nome"
-                  value={newNome}
-                  onChange={(e) => setNewNome(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                  required
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
+              <input
+                type="text"
+                value={editCognome}
+                onChange={(e) => setEditCognome(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                required
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
-                <input
-                  type="text"
-                  placeholder="Cognome"
-                  value={newCognome}
-                  onChange={(e) => setNewCognome(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                  required
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nome Utente (Sola Lettura)</label>
+              <input
+                type="text"
+                value={editingProfile.username}
+                disabled
+                className="bg-slate-950/40 border border-slate-900 text-slate-500 rounded-xl px-3 py-2 text-xs outline-none cursor-not-allowed font-mono"
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password *</label>
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                  required
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
+              <select
+                value={editStato}
+                onChange={(e) => setEditStato(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+              >
+                <option value="dipendente">Dipendente</option>
+                <option value="volontario">Volontario</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
-                <select
-                  value={newStato}
-                  onChange={(e) => setNewStato(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                >
-                  <option value="dipendente">Dipendente</option>
-                  <option value="volontario">Volontario</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
+              <select
+                value={editQualifica}
+                onChange={(e) => setEditQualifica(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+              >
+                <option value="CE">Capo Equipaggio (CE)</option>
+                <option value="autista">Autista</option>
+              </select>
+            </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
-                <select
-                  value={newQualifica}
-                  onChange={(e) => setNewQualifica(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                >
-                  <option value="CE">Capo Equipaggio (CE)</option>
-                  <option value="autista">Autista</option>
-                </select>
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
+              <input
+                type="text"
+                placeholder="Codice Fiscale"
+                value={editCodiceFiscale}
+                onChange={(e) => setEditCodiceFiscale(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
-                <input
-                  type="text"
-                  placeholder="Codice Fiscale"
-                  value={newCodiceFiscale}
-                  onChange={(e) => setNewCodiceFiscale(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
+              <input
+                type="email"
+                placeholder="Email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
+              <input
+                type="tel"
+                placeholder="Telefono"
+                value={editTelefono}
+                onChange={(e) => setEditTelefono(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
-                <input
-                  type="tel"
-                  placeholder="Telefono"
-                  value={newTelefono}
-                  onChange={(e) => setNewTelefono(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                />
-              </div>
+            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
+              <input
+                type="date"
+                value={editDataNascita}
+                onChange={(e) => setEditDataNascita(e.target.value)}
+                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+              />
+            </div>
 
-              <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
-                <input
-                  type="date"
-                  value={newDataNascita}
-                  onChange={(e) => setNewDataNascita(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                />
-              </div>
-
+            {editStato === 'dipendente' && (
               <div className="flex flex-col gap-1 col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="Paga Oraria (facoltativo)"
-                  value={newPagaOraria}
-                  onChange={(e) => setNewPagaOraria(e.target.value)}
+                  value={editPagaOraria}
+                  onChange={(e) => setEditPagaOraria(e.target.value)}
                   className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                 />
               </div>
+            )}
+
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato Account</label>
+              <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="editAttivo"
+                  checked={editAttivo}
+                  onChange={(e) => setEditAttivo(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-800 text-indigo-600 focus:ring-indigo-500 bg-slate-950 cursor-pointer"
+                />
+                <label htmlFor="editAttivo" className="text-xs font-semibold text-slate-300 cursor-pointer select-none">
+                  Account Attivo (se disattivato, l'utente non potrà accedere)
+                </label>
+              </div>
             </div>
 
+            {/* RESET PASSWORD */}
+            <div className="col-span-2 pt-2 border-t border-slate-800/40 mt-1 flex flex-col gap-2">
+              <h4 className="text-[10px] font-extrabold text-indigo-400 uppercase tracking-wider">Cambia Password (opzionale)</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Nuova Password</label>
+                  <input
+                    type="password"
+                    placeholder="Nuova password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Conferma Password</label>
+                  <input
+                    type="password"
+                    placeholder="Conferma nuova password"
+                    value={editConfirmPassword}
+                    onChange={(e) => setEditConfirmPassword(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800/40">
+            <button
+              type="button"
+              onClick={() => setEditingProfile(null)}
+              className="flex-1 py-2 px-3 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
+            >
+              Annulla
+            </button>
             <button
               type="submit"
-              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
+              className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors"
             >
-              Crea Account
+              Salva Modifiche
             </button>
-          </form>
+          </div>
+        </form>
+      ) : (
+        /* VISTA TABELLA E LISTE REGOLARI */
+        <>
+          {/* Tabs di navigazione interna */}
+          <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab('utenti')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'utenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" /> Utenti
+            </button>
+            <button
+              onClick={() => setActiveTab('storico')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'storico' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" /> Storico
+            </button>
+            <button
+              onClick={() => setActiveTab('equipaggi')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'equipaggi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" /> Equipaggi
+            </button>
+          </div>
 
-          {/* Lista Utenti */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Membri del Roster ({profiles.length})</h3>
-            <div className="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1">
-              {profiles.map(prof => (
-                <div
-                  key={prof.id}
-                  className={`p-3.5 rounded-2xl border flex flex-col gap-3 transition-colors ${
-                    prof.attivo ? 'border-slate-800 bg-slate-900/20' : 'border-slate-800 bg-slate-950/60 opacity-60'
-                  }`}
+          {/* CONTENUTO TAB: UTENTI */}
+          {activeTab === 'utenti' && (
+            <div className="flex flex-col gap-6">
+              {/* Form Creazione Utente */}
+              <form onSubmit={handleCreateUser} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Crea Nuovo Account</h3>
+                
+                {userActionError && <span className="text-xs text-rose-400 font-semibold">{userActionError}</span>}
+                {userActionSuccess && <span className="text-xs text-emerald-400 font-semibold">{userActionSuccess}</span>}
+
+                <div className="grid grid-cols-2 gap-3 text-left">
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome *</label>
+                    <input
+                      type="text"
+                      placeholder="Nome"
+                      value={newNome}
+                      onChange={(e) => setNewNome(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cognome *</label>
+                    <input
+                      type="text"
+                      placeholder="Cognome"
+                      value={newCognome}
+                      onChange={(e) => setNewCognome(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password *</label>
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato *</label>
+                    <select
+                      value={newStato}
+                      onChange={(e) => setNewStato(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                    >
+                      <option value="dipendente">Dipendente</option>
+                      <option value="volontario">Volontario</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qualifica *</label>
+                    <select
+                      value={newQualifica}
+                      onChange={(e) => setNewQualifica(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                    >
+                      <option value="CE">Capo Equipaggio (CE)</option>
+                      <option value="autista">Autista</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Codice Fiscale</label>
+                    <input
+                      type="text"
+                      placeholder="Codice Fiscale"
+                      value={newCodiceFiscale}
+                      onChange={(e) => setNewCodiceFiscale(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none uppercase"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Personale</label>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono</label>
+                    <input
+                      type="tel"
+                      placeholder="Telefono"
+                      value={newTelefono}
+                      onChange={(e) => setNewTelefono(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data di Nascita</label>
+                    <input
+                      type="date"
+                      value={newDataNascita}
+                      onChange={(e) => setNewDataNascita(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                    />
+                  </div>
+
+                  {newStato === 'dipendente' && (
+                    <div className="flex flex-col gap-1 col-span-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Paga Oraria (facoltativo)"
+                        value={newPagaOraria}
+                        onChange={(e) => setNewPagaOraria(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
                 >
-                  {/* Nome utente [stato] [qualifica] - Ben visibile */}
-                  <div className="flex flex-col gap-1.5 text-left">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-extrabold text-slate-100">{prof.nome && prof.cognome ? `${prof.nome} ${prof.cognome}` : prof.username}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">({prof.username})</span>
-                      </div>
-                      
-                      {/* Toggle Stato Attivo / Inattivo */}
-                      <button
-                        onClick={() => handleToggleUserStatus(prof)}
-                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
+                  Crea Account
+                </button>
+              </form>
+
+              {/* Lista Utenti */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Membri del Roster ({profiles.length})</h3>
+                <p className="text-[10px] text-slate-500 italic text-left -mt-2">Clicca su un utente per modificarne i dettagli e le credenziali.</p>
+                <div className="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {profiles.map(prof => (
+                    <div
+                      key={prof.id}
+                      onClick={() => startEditing(prof)}
+                      className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 transition-all text-left cursor-pointer hover:border-indigo-500/50 hover:bg-slate-900/30 ${
+                        prof.attivo ? 'border-slate-800 bg-slate-900/20' : 'border-slate-800 bg-slate-950/60 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-extrabold text-slate-100">{prof.nome && prof.cognome ? `${prof.nome} ${prof.cognome}` : prof.username}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">({prof.username})</span>
+                        </div>
+                        
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
                           prof.attivo
                             ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35'
                             : 'bg-slate-800 text-slate-500 border-slate-700/50'
-                        }`}
-                      >
-                        {prof.attivo ? 'Attivo' : 'Disattivo'}
-                      </button>
-                    </div>
-
-                    {/* Badge Ruoli / Qualifiche */}
-                    <div className="flex gap-1.5 flex-wrap mt-0.5">
-                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
-                        prof.stato === 'admin'
-                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          : prof.stato === 'volontario'
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                      }`}>
-                        {prof.stato || prof.ruolo}
-                      </span>
-                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
-                        prof.qualifica === 'autista'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-slate-800 text-slate-400 border-slate-700/60'
-                      }`}>
-                        {prof.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
-                      </span>
-                      {prof.paga_oraria && (
-                        <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold border border-emerald-500/20">
-                          {Number(prof.paga_oraria).toFixed(2)} €/h
+                        }`}>
+                          {prof.attivo ? 'Attivo' : 'Disattivo'}
                         </span>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Dettagli anagrafici */}
-                    <div className="grid grid-cols-1 gap-y-1 mt-1.5 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
-                      {prof.codice_fiscale && (
-                        <div>CF: <span className="font-semibold text-slate-300 uppercase">{prof.codice_fiscale}</span></div>
-                      )}
-                      {prof.email && (
-                        <div className="truncate">Mail: <span className="font-semibold text-slate-300">{prof.email}</span></div>
-                      )}
-                      {prof.telefono && (
-                        <div>Tel: <span className="font-semibold text-slate-300">{prof.telefono}</span></div>
-                      )}
-                      {prof.data_nascita && (
-                        <div>Nato il: <span className="font-semibold text-slate-300">{format(parseISO(prof.data_nascita), 'dd/MM/yyyy')}</span></div>
+                      {/* Badge Ruoli / Qualifiche */}
+                      <div className="flex gap-1.5 flex-wrap mt-0.5">
+                        <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
+                          prof.stato === 'admin'
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            : prof.stato === 'volontario'
+                            ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        }`}>
+                          {prof.stato || prof.ruolo}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
+                          prof.qualifica === 'autista'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : 'bg-slate-800 text-slate-400 border-slate-700/60'
+                        }`}>
+                          {prof.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
+                        </span>
+                        {prof.paga_oraria && prof.stato === 'dipendente' && (
+                          <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold border border-emerald-500/20">
+                            {Number(prof.paga_oraria).toFixed(2)} €/h
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Dettagli anagrafici abbreviati */}
+                      {(prof.codice_fiscale || prof.email || prof.telefono) && (
+                        <div className="grid grid-cols-1 gap-y-0.5 mt-1 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400">
+                          {prof.codice_fiscale && (
+                            <div>CF: <span className="font-semibold text-slate-300 uppercase">{prof.codice_fiscale}</span></div>
+                          )}
+                          {prof.email && (
+                            <div className="truncate">Mail: <span className="font-semibold text-slate-300">{prof.email}</span></div>
+                          )}
+                          {prof.telefono && (
+                            <div>Tel: <span className="font-semibold text-slate-300">{prof.telefono}</span></div>
+                          )}
+                        </div>
                       )}
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CONTENUTO TAB: STORICO TURNI PASSATI */}
+          {activeTab === 'storico' && (
+            <div className="flex flex-col gap-4">
+              {/* Barra dei filtri */}
+              <div className="bg-slate-900/40 border border-slate-800 p-3.5 rounded-2xl flex flex-col gap-3">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5" /> Filtra Storico
+                </span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Nome utente..."
+                      value={filterUser}
+                      onChange={(e) => setFilterUser(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 outline-none"
+                    />
+                  </div>
+                  <select
+                    value={filterShift}
+                    onChange={(e) => setFilterShift(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                  >
+                    <option value="all">Tutte le fasce</option>
+                    <option value="1">Fascia 1 (06-14)</option>
+                    <option value="2">Fascia 2 (14-22)</option>
+                    <option value="3">Fascia 3 (22-06)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Elenco Storico */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Risultati Trovati ({filteredPastBookings.length})
+                </h3>
+                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+                  {filteredPastBookings.length === 0 ? (
+                    <span className="text-xs text-slate-500 italic">Nessun turno nello storico corrisponde ai filtri.</span>
+                  ) : (
+                    filteredPastBookings.map(b => (
+                      <div key={b.id} className="p-3 bg-slate-900/20 border border-slate-800/80 rounded-2xl flex items-center justify-between text-xs">
+                        <div className="flex flex-col gap-1 min-w-0 pr-3">
+                          <span className="font-bold text-slate-200 capitalize">
+                            {b.shifts?.data ? format(parseISO(b.shifts.data), 'dd MMMM yyyy', { locale: it }) : 'Data N/D'}
+                          </span>
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <span className="font-mono text-[10px]">
+                              {b.shifts?.ora_inizio ? b.shifts.ora_inizio.slice(0, 5) : 'N/D'}–{b.shifts?.ora_fine ? b.shifts.ora_fine.slice(0, 5) : 'N/D'}
+                            </span>
+                            <span>&bull;</span>
+                            <span className={`font-bold uppercase ${b.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{b.ruolo_turno === 'autista' ? 'Autista' : b.ruolo_turno}</span>
+                          </div>
+                          {b.is_partial && <span className="text-[10px] text-amber-400">{b.nota_parziale}</span>}
+                        </div>
+
+                        <div className="flex flex-col items-end flex-shrink-0">
+                          <span className="font-semibold text-slate-200">{b.profiles?.username || 'Collega'}</span>
+                          <span className="text-[9px] text-slate-500 mt-0.5">Assegnato</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CONTENUTO TAB: GESTIONE EQUIPAGGI */}
+          {activeTab === 'equipaggi' && (
+            <div className="flex flex-col gap-4">
+              <form onSubmit={handleAddCrewToShift} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Assegna Secondo Equipaggio (Rinforzo)</h3>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Consente di creare un secondo crew nello stesso giorno ed orario. Questo genererà una nuova coppia CE + Autista nel tabellone turni.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  {/* Seleziona Giorno */}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="crewDate" className="text-[10px] uppercase font-bold text-slate-500">Giorno del Turno</label>
+                    <input
+                      id="crewDate"
+                      type="date"
+                      value={crewDate}
+                      onChange={(e) => setCrewDate(e.target.value)}
+                      required
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                    />
                   </div>
 
-                  {/* Pulsanti vari - A capo */}
-                  <div className="flex items-center gap-2 pt-2.5 border-t border-slate-800/40 justify-between">
-                    <div className="flex flex-wrap items-center gap-2 flex-1">
-                      {/* Pulsante Reset Password */}
-                      <button
-                        onClick={() => setResetPassUser(prof)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 text-slate-400 hover:text-indigo-400 rounded-xl hover:border-indigo-500/20 transition-all text-[11px] font-semibold"
-                        title="Reimposta Password"
-                      >
-                        <Key className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Pass</span>
-                      </button>
+                  {/* Seleziona Fascia */}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="crewShiftSelect" className="text-[10px] uppercase font-bold text-slate-500">Seleziona Fascia Oraria</label>
+                    <select
+                      id="crewShiftSelect"
+                      value={crewShiftId}
+                      onChange={(e) => setCrewShiftId(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                    >
+                      <option value="1">Mattina (06:00–14:00)</option>
+                      <option value="2">Pomeriggio (14:00–22:00)</option>
+                      <option value="3">Notte (22:00–06:00)</option>
+                    </select>
+                  </div>
 
-                      {/* Select Stato */}
-                      <div className="flex-1 min-w-[90px]">
-                        <select
-                          value={prof.stato || prof.ruolo}
-                          onChange={(e) => handleChangeStato(prof.id, e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-bold px-2 py-2 rounded-xl outline-none cursor-pointer"
-                        >
-                          <option value="dipendente">Dipendente</option>
-                          <option value="volontario">Volontario</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </div>
-
-                      {/* Select Qualifica */}
-                      <div className="flex-1 min-w-[90px]">
-                        <select
-                          value={prof.qualifica || 'CE'}
-                          onChange={(e) => handleChangeQualifica(prof.id, e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-bold px-2 py-2 rounded-xl outline-none cursor-pointer"
-                        >
-                          <option value="CE">Qualifica: CE</option>
-                          <option value="autista">Qualifica: Autista</option>
-                        </select>
-                      </div>
-                    </div>
+                  {/* Seleziona Equipaggio da Assegnare */}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="crewSelect" className="text-[10px] uppercase font-bold text-slate-500">Seleziona Equipaggio (Es. Equipaggio 2)</label>
+                    <select
+                      id="crewSelect"
+                      value={crewSelectedId}
+                      onChange={(e) => setCrewSelectedId(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                    >
+                      {crews.map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* CONTENUTO TAB: STORICO TURNI PASSATI */}
-      {activeTab === 'storico' && (
-        <div className="flex flex-col gap-4">
-          {/* Barra dei filtri */}
-          <div className="bg-slate-900/40 border border-slate-800 p-3.5 rounded-2xl flex flex-col gap-3">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5" /> Filtra Storico
-            </span>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Nome utente..."
-                  value={filterUser}
-                  onChange={(e) => setFilterUser(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 outline-none"
-                />
-              </div>
-              <select
-                value={filterShift}
-                onChange={(e) => setFilterShift(e.target.value)}
-                className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-              >
-                <option value="all">Tutte le fasce</option>
-                <option value="1">Fascia 1 (06-14)</option>
-                <option value="2">Fascia 2 (14-22)</option>
-                <option value="3">Fascia 3 (22-06)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Elenco Storico */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Risultati Trovati ({filteredPastBookings.length})
-            </h3>
-            <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
-              {filteredPastBookings.length === 0 ? (
-                <span className="text-xs text-slate-500 italic">Nessun turno nello storico corrisponde ai filtri.</span>
-              ) : (
-                filteredPastBookings.map(b => (
-                  <div key={b.id} className="p-3 bg-slate-900/20 border border-slate-800/80 rounded-2xl flex items-center justify-between text-xs">
-                    <div className="flex flex-col gap-1 min-w-0 pr-3">
-                      <span className="font-bold text-slate-200 capitalize">
-                        {b.shifts?.data ? format(parseISO(b.shifts.data), 'dd MMMM yyyy', { locale: it }) : 'Data N/D'}
-                      </span>
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <span className="font-mono text-[10px]">
-                          {b.shifts?.ora_inizio ? b.shifts.ora_inizio.slice(0, 5) : 'N/D'}–{b.shifts?.ora_fine ? b.shifts.ora_fine.slice(0, 5) : 'N/D'}
-                        </span>
-                        <span>&bull;</span>
-                        <span className={`font-bold uppercase ${b.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{b.ruolo_turno === 'autista' ? 'Autista' : b.ruolo_turno}</span>
-                      </div>
-                      {b.is_partial && <span className="text-[10px] text-amber-400">{b.nota_parziale}</span>}
-                    </div>
-
-                    <div className="flex flex-col items-end flex-shrink-0">
-                      <span className="font-semibold text-slate-200">{b.profiles?.username || 'Collega'}</span>
-                      <span className="text-[9px] text-slate-500 mt-0.5">Assegnato</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONTENUTO TAB: GESTIONE EQUIPAGGI */}
-      {activeTab === 'equipaggi' && (
-        <div className="flex flex-col gap-4">
-          <form onSubmit={handleAddCrewToShift} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Assegna Secondo Equipaggio (Rinforzo)</h3>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Consente di creare un secondo crew nello stesso giorno ed orario. Questo genererà una nuova coppia CE + Autista nel tabellone turni.
-            </p>
-
-            <div className="flex flex-col gap-3">
-              {/* Seleziona Giorno */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="crewDate" className="text-[10px] uppercase font-bold text-slate-500">Giorno del Turno</label>
-                <input
-                  id="crewDate"
-                  type="date"
-                  value={crewDate}
-                  onChange={(e) => setCrewDate(e.target.value)}
-                  required
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                />
-              </div>
-
-              {/* Seleziona Fascia */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="crewShiftSelect" className="text-[10px] uppercase font-bold text-slate-500">Seleziona Fascia Oraria</label>
-                <select
-                  id="crewShiftSelect"
-                  value={crewShiftId}
-                  onChange={(e) => setCrewShiftId(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
                 >
-                  <option value="1">Mattina (06:00–14:00)</option>
-                  <option value="2">Pomeriggio (14:00–22:00)</option>
-                  <option value="3">Notte (22:00–06:00)</option>
-                </select>
-              </div>
-
-              {/* Seleziona Equipaggio da Assegnare */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="crewSelect" className="text-[10px] uppercase font-bold text-slate-500">Seleziona Equipaggio (Es. Equipaggio 2)</label>
-                <select
-                  id="crewSelect"
-                  value={crewSelectedId}
-                  onChange={(e) => setCrewSelectedId(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                >
-                  {crews.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
-                </select>
-              </div>
+                  Aggiungi Equipaggio a Fascia
+                </button>
+              </form>
             </div>
-
-            <button
-              type="submit"
-              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
-            >
-              Aggiungi Equipaggio a Fascia
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* RESET PASSWORD MODAL (SUB-POPUP) */}
-      {resetPassUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <form onSubmit={handleResetPassword} className="bg-slate-900 border border-slate-800 p-5 rounded-3xl w-full max-w-xs flex flex-col gap-4 shadow-premium">
-            <h3 className="text-base font-bold text-slate-100">Aggiorna Password</h3>
-            <p className="text-xs text-slate-400">
-              Imposta una nuova password per l'utente <strong>{resetPassUser.username}</strong>:
-            </p>
-            <input
-              type="text"
-              placeholder="Nuova password..."
-              value={resetPasswordVal}
-              onChange={(e) => setResetPasswordVal(e.target.value)}
-              className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-mono"
-              required
-              minLength={6}
-            />
-            <div className="flex gap-2.5 mt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setResetPassUser(null)
-                  setResetPasswordVal('')
-                }}
-                className="flex-1 py-2 px-3 border border-slate-700 bg-slate-800/30 hover:bg-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition-colors"
-              >
-                Annulla
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-colors"
-              >
-                Salva
-              </button>
-            </div>
-          </form>
-        </div>
+          )}
+        </>
       )}
     </div>
   )
