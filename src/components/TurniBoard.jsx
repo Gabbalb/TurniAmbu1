@@ -457,8 +457,22 @@ export default function TurniBoard() {
 
   // Renderizza la singola card dello slot (CE o Autista)
   const renderSlot = (shift, role, crewShifts) => {
-    // Trova tutte le prenotazioni per questo ruolo in questo turno
-    const slotBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
+    // Trova tutte le prenotazioni per questo ruolo in questo turno (ordinate cronologicamente)
+    const slotBookings = bookings
+      .filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
+      .sort((a, b) => {
+        const startA = timeToMinutes(a.ora_inizio_effettiva || shift.ora_inizio)
+        const startB = timeToMinutes(b.ora_inizio_effettiva || shift.ora_inizio)
+        const shiftStartMin = timeToMinutes(shift.ora_inizio)
+        
+        let normA = startA
+        let normB = startB
+        if (shiftStartMin === 1320) {
+          if (normA < 720) normA += 1440
+          if (normB < 720) normB += 1440
+        }
+        return normA - normB
+      })
     const slotIdStr = `${shift.id}-${role}`
     const isLoading = actionLoading === slotIdStr
 
@@ -583,8 +597,36 @@ export default function TurniBoard() {
       <div className="flex flex-col gap-3.5">
         {matchedShifts.map((shift, idx) => {
           const crewObj = crews.find(c => String(c.id) === String(shift.crew_id))
-          const ceBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'CE')
-          const asBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'autista')
+          const ceBookings = bookings
+            .filter(b => b.shift_id === shift.id && b.ruolo_turno === 'CE')
+            .sort((a, b) => {
+              const startA = timeToMinutes(a.ora_inizio_effettiva || shift.ora_inizio)
+              const startB = timeToMinutes(b.ora_inizio_effettiva || shift.ora_inizio)
+              const shiftStartMin = timeToMinutes(shift.ora_inizio)
+              
+              let normA = startA
+              let normB = startB
+              if (shiftStartMin === 1320) {
+                if (normA < 720) normA += 1440
+                if (normB < 720) normB += 1440
+              }
+              return normA - normB
+            })
+          const asBookings = bookings
+            .filter(b => b.shift_id === shift.id && b.ruolo_turno === 'autista')
+            .sort((a, b) => {
+              const startA = timeToMinutes(a.ora_inizio_effettiva || shift.ora_inizio)
+              const startB = timeToMinutes(b.ora_inizio_effettiva || shift.ora_inizio)
+              const shiftStartMin = timeToMinutes(shift.ora_inizio)
+              
+              let normA = startA
+              let normB = startB
+              if (shiftStartMin === 1320) {
+                if (normA < 720) normA += 1440
+                if (normB < 720) normB += 1440
+              }
+              return normA - normB
+            })
           
           return (
             <button
