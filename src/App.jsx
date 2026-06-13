@@ -182,6 +182,7 @@ function AppContent() {
             setSelectedBoardSlot(slotId)
             setView('board')
           }}
+          setView={setView}
         />
       )}
       {view === 'profile' && (

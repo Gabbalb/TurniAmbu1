@@ -131,7 +131,7 @@ const mergeBookings = (bookingsList) => {
   return mergedList
 }
 
-export default function IMieiTurni({ onJumpToShift }) {
+export default function IMieiTurni({ onJumpToShift, setView }) {
   const { user } = useAuth()
   const [myBookings, setMyBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -208,11 +208,18 @@ export default function IMieiTurni({ onJumpToShift }) {
       ) : myBookings.length === 0 ? (
         <div className="bg-slate-900/30 border border-slate-800 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-3 mt-4">
           <Calendar className="w-12 h-12 text-slate-700" />
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center">
             <span className="text-sm font-semibold text-slate-400">Nessun turno prenotato</span>
-            <span className="text-xs text-slate-500 max-w-xs mt-1 leading-relaxed">
+            <span className="text-xs text-slate-500 max-w-xs mt-1 leading-relaxed mb-4">
               Non hai ancora prenotato alcun turno futuro. Usa il pulsante (+) in basso per impostare le tue disponibilità!
             </span>
+            <button
+              onClick={() => setView('board')}
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 active:scale-95 duration-150"
+            >
+              Visita il Tabellone
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       ) : (
