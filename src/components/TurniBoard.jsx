@@ -164,17 +164,36 @@ export default function TurniBoard() {
     const dayShifts = shifts.filter(s => s.data === dateStr && s.ora_inizio === startTime)
     if (dayShifts.length === 0) return 'bg-transparent' // Trasparente se nessun turno creato
 
-    for (const shift of dayShifts) {
+    // Raccogliamo gli stati di ciascun turno (equipaggio) attivo in questa fascia
+    const statuses = dayShifts.map(shift => {
       const ceBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'CE')
-      const ceGaps = getUncoveredGaps(shift, ceBookings)
-      if (ceGaps.length > 0) return 'bg-rose-500' // Rosso per gap scoperto
-
       const asBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === 'autista')
-      const asGaps = getUncoveredGaps(shift, asBookings)
-      if (asGaps.length > 0) return 'bg-rose-500' // Rosso per gap scoperto
-    }
 
-    return 'bg-emerald-500' // Verde se completo
+      const ceEmpty = ceBookings.length === 0
+      const asEmpty = asBookings.length === 0
+
+      // Se non ci sono prenotazioni per nessuno dei due ruoli, il turno è rosso (completamente scoperto)
+      if (ceEmpty && asEmpty) return 'red'
+
+      const ceGaps = getUncoveredGaps(shift, ceBookings)
+      const asGaps = getUncoveredGaps(shift, asBookings)
+
+      const ceCovered = !ceEmpty && ceGaps.length === 0
+      const asCovered = !asEmpty && asGaps.length === 0
+
+      // Se entrambi i ruoli sono completamente coperti (nessun gap), il turno è verde
+      if (ceCovered && asCovered) return 'green'
+
+      // Altrimenti (solo un ruolo presente o copertura parziale con buchi), il turno è giallo
+      return 'yellow'
+    })
+
+    // Se tutti i turni attivi in questa fascia sono verdi, allora lo stato generale è verde
+    if (statuses.every(status => status === 'green')) return 'bg-emerald-500'
+    // Se tutti i turni attivi in questa fascia sono rossi, allora lo stato generale è rosso
+    if (statuses.every(status => status === 'red')) return 'bg-rose-500'
+    // Altrimenti (c'è un misto, o almeno uno è giallo), lo stato generale è giallo
+    return 'bg-amber-500'
   }
 
   const handleOpenBookingConfirm = (shift, role) => {
