@@ -6,6 +6,7 @@ import { User, Key, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
 export default function DatiPersonali() {
   const { profile } = useAuth()
   const [newPasswordVal, setNewPasswordVal] = useState('')
+  const [confirmPasswordVal, setConfirmPasswordVal] = useState('')
   const [changePassLoading, setChangePassLoading] = useState(false)
   const [changePassError, setChangePassError] = useState(null)
   const [changePassSuccess, setChangePassSuccess] = useState(null)
@@ -20,6 +21,11 @@ export default function DatiPersonali() {
       return
     }
 
+    if (newPasswordVal !== confirmPasswordVal) {
+      setChangePassError('Le password inserite non coincidono.')
+      return
+    }
+
     setChangePassLoading(true)
     try {
       const { error } = await api.updateOwnPassword(newPasswordVal)
@@ -28,6 +34,7 @@ export default function DatiPersonali() {
       } else {
         setChangePassSuccess('Password aggiornata con successo!')
         setNewPasswordVal('')
+        setConfirmPasswordVal('')
       }
     } catch (err) {
       setChangePassError(err.message || 'Errore imprevisto.')
@@ -115,9 +122,23 @@ export default function DatiPersonali() {
             />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="confirmPassword" className="text-[10px] uppercase font-bold text-slate-500">Conferma Nuova Password</label>
+            <input
+              id="confirmPassword"
+              type="password"
+              placeholder="Conferma nuova password"
+              value={confirmPasswordVal}
+              onChange={(e) => setConfirmPasswordVal(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-3 text-sm text-slate-200 outline-none transition-colors"
+              required
+              disabled={changePassLoading}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={changePassLoading || newPasswordVal.length === 0}
+            disabled={changePassLoading || newPasswordVal.length === 0 || confirmPasswordVal.length === 0}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/10 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {changePassLoading ? (

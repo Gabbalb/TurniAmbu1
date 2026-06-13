@@ -78,19 +78,25 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
         </div>
 
         {/* Profilo utente */}
-        <div className="p-4 border-b border-slate-800/80 bg-slate-900/50 text-left">
-          <div className="bg-slate-800/40 border border-slate-800/80 p-3 rounded-2xl flex flex-col gap-2">
+        <button
+          onClick={() => {
+            setView('profile')
+            setIsSidebarOpen(false)
+          }}
+          className="w-full p-4 border-b border-slate-800/80 bg-slate-900/50 text-left hover:bg-slate-800/20 transition-colors block"
+        >
+          <div className="bg-slate-800/40 hover:bg-slate-800/70 border border-slate-800/80 p-3 rounded-2xl flex flex-col gap-2 transition-colors">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 border border-indigo-500/20 font-bold text-sm">
                 {(profile?.username || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold text-slate-200 truncate">{profile?.username || 'Utente'}</span>
-                <span className="text-[10px] text-slate-400 capitalize truncate">{profile?.ruolo === 'admin' ? 'Amministratore' : 'Soccorritore'}</span>
+                <span className="text-[10px] text-slate-400 capitalize truncate">{profile?.ruolo === 'admin' ? 'Amministratore' : 'Dipendente'}</span>
               </div>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Navigazione */}
         <div className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1 text-left">
@@ -143,24 +149,22 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </button>
 
           {/* Pannello Admin */}
-          <button
-            onClick={() => {
-              setView('admin')
-              setIsSidebarOpen(false)
-            }}
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              currentView === 'admin'
-                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
-            }`}
-          >
-            {profile?.ruolo === 'admin' ? (
+          {profile?.ruolo === 'admin' && (
+            <button
+              onClick={() => {
+                setView('admin')
+                setIsSidebarOpen(false)
+              }}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                currentView === 'admin'
+                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+              }`}
+            >
               <ShieldCheck className="w-4.5 h-4.5 text-emerald-400" />
-            ) : (
-              <ShieldAlert className="w-4.5 h-4.5 text-slate-400" />
-            )}
-            <span>Pannello Admin</span>
-          </button>
+              <span>Pannello Admin</span>
+            </button>
+          )}
 
           {/* Inserisci Disponibilità (Bulk Modal) */}
           <button
@@ -202,62 +206,56 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
       </div>
 
       {/* Bottom Navigation Bar */}
-      <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 z-40 rounded-t-2xl shadow-xl flex-shrink-0 grid grid-cols-3 items-center">
-        {/* Left column: Home & Tabellone */}
-        <div className="flex justify-around items-center">
-          {/* Home Link */}
-          <button
-            onClick={() => setView('my-shifts')}
-            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
-              currentView === 'my-shifts'
-                ? 'text-indigo-400 scale-105 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Home className="w-6 h-6" />
-            <span className="text-[10px] font-semibold">Home</span>
-          </button>
+      <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 z-40 rounded-t-2xl shadow-xl flex-shrink-0 flex justify-around items-center">
+        {/* Home Link */}
+        <button
+          onClick={() => setView('my-shifts')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+            currentView === 'my-shifts'
+              ? 'text-indigo-400 scale-105 font-bold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Home className="w-6 h-6" />
+          <span className="text-[10px] font-semibold">Home</span>
+        </button>
 
-          {/* Tabellone Link */}
-          <button
-            onClick={() => setView('board')}
-            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
-              currentView === 'board'
-                ? 'text-indigo-400 scale-105 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Calendar className="w-6 h-6" />
-            <span className="text-[10px] font-semibold">Tabellone</span>
-          </button>
-        </div>
+        {/* Tabellone Link */}
+        <button
+          onClick={() => setView('board')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+            currentView === 'board'
+              ? 'text-indigo-400 scale-105 font-bold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Calendar className="w-6 h-6" />
+          <span className="text-[10px] font-semibold">Tabellone</span>
+        </button>
 
-        {/* Center column: Raised + button */}
-        <div className="relative flex justify-center h-8">
-          <button
-            onClick={onOpenBulkModal}
-            className="absolute -top-8 w-14 h-14 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 hover:scale-115 hover:shadow-cyan-500/30 active:scale-95 transition-all duration-200 border-4 border-slate-950 z-10"
-            title="Aggiungi Disponibilità"
-            aria-label="Aggiungi Disponibilità"
-          >
-            <span className="text-3xl font-light leading-none -mt-1">+</span>
-          </button>
-        </div>
+        {/* Aggiungi Link */}
+        <button
+          onClick={onOpenBulkModal}
+          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 text-slate-400 hover:text-slate-200"
+          title="Aggiungi Disponibilità"
+          aria-label="Aggiungi Disponibilità"
+        >
+          <PlusCircle className="w-6 h-6" />
+          <span className="text-[10px] font-semibold">Aggiungi</span>
+        </button>
 
-        {/* Right column: Hamburger Menu */}
-        <div className="flex justify-center items-center">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
-              isSidebarOpen
-                ? 'text-indigo-400 scale-105 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Menu className="w-6 h-6" />
-            <span className="text-[10px] font-semibold">Menu</span>
-          </button>
-        </div>
+        {/* Hamburger Menu */}
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+            isSidebarOpen
+              ? 'text-indigo-400 scale-105 font-bold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Menu className="w-6 h-6" />
+          <span className="text-[10px] font-semibold">Menu</span>
+        </button>
       </nav>
     </div>
   )
