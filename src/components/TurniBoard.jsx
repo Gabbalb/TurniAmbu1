@@ -59,16 +59,26 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     return d
   })
   const [listAnchorDate, setListAnchorDate] = useState(() => {
-    if (initialDate) {
-      const d = new Date(initialDate)
-      d.setHours(0, 0, 0, 0)
-      return d
-    }
+    // Il punto di partenza del tabellone deve sempre essere oggi, così da mostrare sempre i primi giorni
+    // anche se l'utente è atterrato evidenziando un turno futuro.
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d
   })
-  const [daysCount, setDaysCount] = useState(14)
+  const [daysCount, setDaysCount] = useState(() => {
+    if (initialDate) {
+      const d = new Date(initialDate)
+      d.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const diffTime = d.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      if (diffDays > 14) {
+        return diffDays + 5 // Assicura che il giorno futuro sia incluso nelle date renderizzate
+      }
+    }
+    return 14
+  })
   const [viewType, setViewType] = useState('giorno') // 'giorno' | 'settimana'
   const [shifts, setShifts] = useState([])
   const [bookings, setBookings] = useState([])

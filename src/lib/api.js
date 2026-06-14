@@ -28,7 +28,8 @@ if (USE_MOCK) {
         data_nascita: '1990-01-01',
         stato: 'admin',
         qualifica: 'CE',
-        paga_oraria: null
+        paga_oraria: null,
+        credito_surplus: 0.00
       },
       { 
         id: '00000000-0000-0000-0000-000000000002', 
@@ -43,7 +44,8 @@ if (USE_MOCK) {
         data_nascita: '1985-05-01',
         stato: 'dipendente',
         qualifica: 'CE',
-        paga_oraria: 12.50
+        paga_oraria: 12.50,
+        credito_surplus: 0.00
       },
       { 
         id: '00000000-0000-0000-0000-000000000003', 
@@ -58,7 +60,8 @@ if (USE_MOCK) {
         data_nascita: '1980-01-01',
         stato: 'dipendente',
         qualifica: 'autista',
-        paga_oraria: 14.00
+        paga_oraria: 14.00,
+        credito_surplus: 0.00
       },
       { 
         id: '00000000-0000-0000-0000-000000000004', 
@@ -73,7 +76,8 @@ if (USE_MOCK) {
         data_nascita: '1992-05-01',
         stato: 'volontario',
         qualifica: 'CE',
-        paga_oraria: null
+        paga_oraria: null,
+        credito_surplus: 0.00
       },
       { 
         id: '00000000-0000-0000-0000-000000000005', 
@@ -88,7 +92,8 @@ if (USE_MOCK) {
         data_nascita: '1988-08-08',
         stato: 'dipendente',
         qualifica: 'autista',
-        paga_oraria: 13.50
+        paga_oraria: 13.50,
+        credito_surplus: 0.00
       }
     ]))
   }
@@ -104,6 +109,9 @@ if (USE_MOCK) {
   }
   if (!localStorage.getItem('ta_bookings')) {
     localStorage.setItem('ta_bookings', JSON.stringify([]))
+  }
+  if (!localStorage.getItem('ta_clocked_shifts')) {
+    localStorage.setItem('ta_clocked_shifts', JSON.stringify([]))
   }
 }
 
@@ -824,7 +832,8 @@ export const api = {
         data_nascita: data_nascita || null,
         stato,
         qualifica,
-        paga_oraria: paga_oraria ? Number(paga_oraria) : null
+        paga_oraria: paga_oraria ? Number(paga_oraria) : null,
+        credito_surplus: 0.00
       };
 
       profiles.push(newProfile);
@@ -961,6 +970,265 @@ export const api = {
       return { error: null }
     }
     return supabase.auth.updateUser({ password: newPassword })
+  },
+
+  // =========================================================================
+  // TIMBRA TURNO & PAGAMENTI DIPENDENTI
+  // =========================================================================
+
+  fetchActiveShift: async (userId) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const active = shifts.find(s => s.user_id === userId && !s.end_time)
+      return { data: active || null, error: null }
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .select('*')
+      .eq('user_id', userId)
+      .is('end_time', null)
+      .maybeSingle()
+    return { data, error }
+  },
+
+  startShift: async (userId, hourlyRate) => {
+    const startTimeIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const newShift = {
+        id: getNextId(shifts),
+        user_id: userId,
+        start_time: startTimeIso,
+        end_time: null,
+        pagato: false,
+        paga_oraria_storica: Number(hourlyRate || 0)
+      }
+      shifts.push(newShift)
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+      return { data: newShift, error: null }
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .insert({
+        user_id: userId,
+        start_time: startTimeIso,
+        pagato: false,
+        paga_oraria_storica: Number(hourlyRate || 0)
+      })
+      .select()
+      .single()
+    return { data, error }
+  },
+
+  endShift: async (shiftId) => {
+    const endTimeIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const index = shifts.findIndex(s => s.id === Number(shiftId))
+      if (index === -1) return { error: { message: 'Timbratura non trovata.' } }
+      shifts[index].end_time = endTimeIso
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+      return { data: shifts[index], error: null }
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .update({ end_time: endTimeIso })
+      .eq('id', shiftId)
+      .select()
+      .single()
+    return { data, error }
+  },
+
+  fetchClockedShifts: async (userId) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const userShifts = shifts.filter(s => s.user_id === userId)
+      userShifts.sort((a, b) => {
+        if (a.pagato !== b.pagato) {
+          return a.pagato ? 1 : -1
+        }
+        return new Date(b.start_time) - new Date(a.start_time)
+      })
+      return { data: userShifts, error: null }
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_time', { ascending: false })
+      
+    if (data) {
+      data.sort((a, b) => {
+        if (a.pagato !== b.pagato) {
+          return a.pagato ? 1 : -1
+        }
+        return new Date(b.start_time) - new Date(a.start_time)
+      })
+    }
+    return { data, error }
+  },
+
+  payShifts: async (userId, shiftIds, totalToPay, actualAmountPaid) => {
+    const difference = Number(actualAmountPaid) - Number(totalToPay)
+    
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const numericShiftIds = shiftIds.map(Number)
+      shifts.forEach(s => {
+        if (numericShiftIds.includes(Number(s.id))) {
+          s.pagato = true
+        }
+      })
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+      const pIndex = profiles.findIndex(p => p.id === userId)
+      if (pIndex !== -1) {
+        const currentSurplus = Number(profiles[pIndex].credito_surplus || 0)
+        profiles[pIndex].credito_surplus = Number((currentSurplus + difference).toFixed(2))
+        localStorage.setItem('ta_profiles', JSON.stringify(profiles))
+      }
+      return { error: null }
+    }
+
+    try {
+      const { error: shiftsError } = await supabase
+        .from('clocked_shifts')
+        .update({ pagato: true })
+        .in('id', shiftIds)
+      
+      if (shiftsError) throw shiftsError
+
+      const { data: profileData, error: profileFetchError } = await supabase
+        .from('profiles')
+        .select('credito_surplus')
+        .eq('id', userId)
+        .single()
+
+      if (profileFetchError) throw profileFetchError
+
+      const newSurplus = Number((Number(profileData.credito_surplus || 0) + difference).toFixed(2))
+
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ credito_surplus: newSurplus })
+        .eq('id', userId)
+
+      if (profileUpdateError) throw profileUpdateError
+
+      return { error: null }
+    } catch (err) {
+      console.error('Errore durante la registrazione del pagamento:', err)
+      return { error: err }
+    }
+  },
+
+  fetchEmployeesWithPayments: async () => {
+    if (USE_MOCK) {
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+
+      const employees = profiles.filter(p => p.stato === 'dipendente' || p.stato === 'admin')
+
+      const result = employees.map(emp => {
+        const empShifts = shifts.filter(s => s.user_id === emp.id)
+        
+        empShifts.sort((a, b) => {
+          if (a.pagato !== b.pagato) {
+            return a.pagato ? 1 : -1
+          }
+          return new Date(b.start_time) - new Date(a.start_time)
+        })
+
+        let unpaidHours = 0
+        let unpaidCost = 0
+        let totalHours = 0
+
+        empShifts.forEach(s => {
+          if (s.end_time) {
+            const durationHrs = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
+            totalHours += durationHrs
+            if (!s.pagato) {
+              unpaidHours += durationHrs
+              unpaidCost += durationHrs * Number(s.paga_oraria_storica || emp.paga_oraria || 0)
+            }
+          }
+        })
+
+        const surplus = Number(emp.credito_surplus || 0)
+        const pendingPay = Number((unpaidCost - surplus).toFixed(2))
+
+        return {
+          ...emp,
+          shifts: empShifts,
+          totalHours: Number(totalHours.toFixed(2)),
+          unpaidHours: Number(unpaidHours.toFixed(2)),
+          pendingPay,
+          credito_surplus: surplus
+        }
+      })
+
+      return { data: result, error: null }
+    }
+
+    try {
+      const { data: profiles, error: pError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('stato', ['dipendente', 'admin'])
+        .order('username', { ascending: true })
+
+      if (pError) throw pError
+
+      const { data: shifts, error: sError } = await supabase
+        .from('clocked_shifts')
+        .select('*')
+
+      if (sError) throw sError
+
+      const result = profiles.map(emp => {
+        const empShifts = shifts.filter(s => s.user_id === emp.id)
+        
+        empShifts.sort((a, b) => {
+          if (a.pagato !== b.pagato) {
+            return a.pagato ? 1 : -1
+          }
+          return new Date(b.start_time) - new Date(a.start_time)
+        })
+
+        let unpaidHours = 0
+        let unpaidCost = 0
+        let totalHours = 0
+
+        empShifts.forEach(s => {
+          if (s.end_time) {
+            const durationHrs = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
+            totalHours += durationHrs
+            if (!s.pagato) {
+              unpaidHours += durationHrs
+              unpaidCost += durationHrs * Number(s.paga_oraria_storica || emp.paga_oraria || 0)
+            }
+          }
+        })
+
+        const surplus = Number(emp.credito_surplus || 0)
+        const pendingPay = Number((unpaidCost - surplus).toFixed(2))
+
+        return {
+          ...emp,
+          shifts: empShifts,
+          totalHours: Number(totalHours.toFixed(2)),
+          unpaidHours: Number(unpaidHours.toFixed(2)),
+          pendingPay,
+          credito_surplus: surplus
+        }
+      })
+
+      return { data: result, error: null }
+    } catch (err) {
+      console.error('Errore nel caricamento dei dipendenti:', err)
+      return { error: err }
+    }
   }
 }
 

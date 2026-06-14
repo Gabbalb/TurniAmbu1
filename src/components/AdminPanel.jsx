@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter } from 'lucide-react'
+import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter, ChevronLeft, CheckCircle, CircleDollarSign, Landmark, Check, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('utenti') // 'utenti' | 'storico' | 'equipaggi'
@@ -50,6 +50,16 @@ export default function AdminPanel() {
   const [filterUser, setFilterUser] = useState('')
   const [filterShift, setFilterShift] = useState('all')
 
+  // Stati per Gestione Ore / Pagamenti Dipendenti
+  const [employees, setEmployees] = useState([])
+  const [selectedEmployee, setSelectedEmployee] = useState(null)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [selectedShiftIds, setSelectedShiftIds] = useState([])
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [calculatedPayment, setCalculatedPayment] = useState(0)
+  const [empLoading, setEmpLoading] = useState(false)
+  const [empSearch, setEmpSearch] = useState('')
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -64,10 +74,77 @@ export default function AdminPanel() {
 
       const { data: pasts } = await api.fetchPastBookings()
       setPastBookings(pasts || [])
+
+      const { data: emps } = await api.fetchEmployeesWithPayments()
+      setEmployees(emps || [])
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Sincronizza il calcolo dei pagamenti
+  useEffect(() => {
+    if (selectedEmployee) {
+      let totalCheckedCost = 0
+      selectedEmployee.shifts.forEach(s => {
+        if (selectedShiftIds.includes(s.id)) {
+          const duration = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
+          totalCheckedCost += duration * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
+        }
+      })
+      const surplus = Number(selectedEmployee.credito_surplus || 0)
+      const due = Number((totalCheckedCost - surplus).toFixed(2))
+      setCalculatedPayment(due)
+      setPaymentAmount(String(due >= 0 ? due : 0))
+    }
+  }, [selectedShiftIds, selectedEmployee])
+
+  const handleConfirmPayment = async () => {
+    if (!selectedEmployee || selectedShiftIds.length === 0) return
+    
+    // Calcola il costo totale dei turni selezionati
+    let totalCost = 0
+    selectedEmployee.shifts.forEach(s => {
+      if (selectedShiftIds.includes(s.id)) {
+        const duration = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
+        totalCost += duration * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
+      }
+    })
+
+    setEmpLoading(true)
+    try {
+      const { error: apiError } = await api.payShifts(
+        selectedEmployee.id,
+        selectedShiftIds,
+        totalCost,
+        Number(paymentAmount)
+      )
+      
+      if (apiError) throw apiError
+      
+      // Ricarica tutti i dati
+      const { data: emps } = await api.fetchEmployeesWithPayments()
+      setEmployees(emps || [])
+      
+      // Trova l'impiegato aggiornato e riselezionalo per aggiornare la vista di dettaglio
+      const updatedEmp = emps.find(e => e.id === selectedEmployee.id)
+      setSelectedEmployee(updatedEmp || null)
+      
+      // Resetta i turni selezionati
+      setSelectedShiftIds([])
+      setPaymentModalOpen(false)
+      
+      // Mostra messaggio di successo
+      setUserActionSuccess('Pagamento registrato con successo!')
+      setTimeout(() => setUserActionSuccess(null), 5000)
+    } catch (err) {
+      console.error(err)
+      setUserActionError('Errore durante la registrazione del pagamento.')
+      setTimeout(() => setUserActionError(null), 5000)
+    } finally {
+      setEmpLoading(false)
     }
   }
 
@@ -477,10 +554,10 @@ export default function AdminPanel() {
         /* VISTA TABELLA E LISTE REGOLARI */
         <>
           {/* Tabs di navigazione interna */}
-          <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
+          <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto">
             <button
               onClick={() => setActiveTab('utenti')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'utenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -488,7 +565,7 @@ export default function AdminPanel() {
             </button>
             <button
               onClick={() => setActiveTab('storico')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'storico' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -496,11 +573,19 @@ export default function AdminPanel() {
             </button>
             <button
               onClick={() => setActiveTab('equipaggi')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'equipaggi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Plus className="w-3.5 h-3.5" /> Equipaggi
+            </button>
+            <button
+              onClick={() => setActiveTab('dipendenti')}
+              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'dipendenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" /> Dipendenti
             </button>
           </div>
 
@@ -883,7 +968,358 @@ export default function AdminPanel() {
               </form>
             </div>
           )}
+
+          {/* CONTENUTO TAB: DIPENDENTI */}
+          {activeTab === 'dipendenti' && (
+            <div className="flex flex-col gap-4 animate-fade-in">
+              {!selectedEmployee ? (
+                /* LISTA UTENTI DIPENDENTI / ADMIN */
+                <div className="flex flex-col gap-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      placeholder="Cerca dipendente o admin..."
+                      value={empSearch}
+                      onChange={(e) => setEmpSearch(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-600"
+                    />
+                  </div>
+
+                  {employees.filter(emp => {
+                    const fullName = `${emp.nome || ''} ${emp.cognome || ''} ${emp.username || ''}`.toLowerCase()
+                    return fullName.includes(empSearch.toLowerCase())
+                  }).length === 0 ? (
+                    <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center flex flex-col items-center gap-2">
+                      <Users className="w-8 h-8 text-slate-600" />
+                      <span className="text-xs text-slate-400">Nessun dipendente o admin trovato.</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+                      {employees.filter(emp => {
+                        const fullName = `${emp.nome || ''} ${emp.cognome || ''} ${emp.username || ''}`.toLowerCase()
+                        return fullName.includes(empSearch.toLowerCase())
+                      }).map(emp => {
+                        const unpaidCount = emp.shifts.filter(s => !s.pagato && s.end_time).length
+                        return (
+                          <button
+                            key={emp.id}
+                            onClick={() => {
+                              setSelectedEmployee(emp)
+                              const unpaidIds = emp.shifts.filter(s => !s.pagato && s.end_time).map(s => s.id)
+                              setSelectedShiftIds(unpaidIds)
+                            }}
+                            className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-2xl text-left hover:border-indigo-500/40 active:scale-[0.98] transition-all flex items-center justify-between gap-4 cursor-pointer"
+                          >
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-200 truncate">
+                                  {emp.nome && emp.cognome ? `${emp.nome} ${emp.cognome}` : emp.username}
+                                </span>
+                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
+                                  emp.stato === 'admin' 
+                                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                }`}>
+                                  {emp.stato === 'admin' ? 'Admin' : 'Dipendente'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold mt-0.5">
+                                <span>Paga: €{Number(emp.paga_oraria || 0).toFixed(2)}/h</span>
+                                {unpaidCount > 0 ? (
+                                  <span className="text-indigo-400">{unpaidCount} turni non pagati ({emp.unpaidHours}h)</span>
+                                ) : (
+                                  <span className="text-slate-500">Tutti i turni pagati</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Da Pagare</span>
+                              <span className={`text-base font-black font-mono ${emp.pendingPay > 0 ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                €{emp.pendingPay}
+                              </span>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* DETTAGLIO UTENTE SELEZIONATO */
+                <div className="flex flex-col gap-4 animate-fade-in">
+                  <div className="flex items-center justify-between gap-4">
+                    <button
+                      onClick={() => setSelectedEmployee(null)}
+                      className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-bold bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> Indietro
+                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
+                        selectedEmployee.stato === 'admin' 
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      }`}>
+                        {selectedEmployee.stato === 'admin' ? 'Admin' : 'Dipendente'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Info Dipendente */}
+                  <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-3xl flex flex-col gap-3">
+                    <div className="flex flex-col">
+                      <h3 className="text-base font-bold text-slate-100 leading-tight">
+                        {selectedEmployee.nome} {selectedEmployee.cognome}
+                      </h3>
+                      <span className="text-[10px] text-slate-400 font-mono mt-0.5">Username: {selectedEmployee.username}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-1.5">
+                      <div className="bg-slate-950/60 border border-slate-850 p-2.5 rounded-2xl flex flex-col gap-0.5">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Tariffa Oraria</span>
+                        <span className="text-sm font-extrabold text-slate-200">€{Number(selectedEmployee.paga_oraria || 0).toFixed(2)}/h</span>
+                      </div>
+                      <div className="bg-slate-950/60 border border-slate-850 p-2.5 rounded-2xl flex flex-col gap-0.5">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Surplus / Credito</span>
+                        <span className="text-sm font-extrabold text-emerald-400">€{Number(selectedEmployee.credito_surplus || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Riepilogo Calcolo Pagamento */}
+                  <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-slate-800/80 p-4.5 rounded-3xl flex flex-col gap-4 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Totale da pagare (selezionato)</span>
+                        <span className="text-2xl font-black font-mono text-indigo-400">€{calculatedPayment.toFixed(2)}</span>
+                      </div>
+
+                      <button
+                        onClick={() => setPaymentModalOpen(true)}
+                        disabled={selectedShiftIds.length === 0}
+                        className="px-4.5 py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/15 transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                      >
+                        Paga Rimanenti
+                      </button>
+                    </div>
+
+                    {selectedEmployee.shifts.filter(s => !s.pagato && s.end_time).length > 0 && (
+                      <div className="flex items-center justify-between border-t border-slate-800/50 pt-3 mt-1 text-[11px]">
+                        <span className="text-slate-400">Selezionati {selectedShiftIds.length} turni</span>
+                        <button
+                          onClick={() => {
+                            const unpaid = selectedEmployee.shifts.filter(s => !s.pagato && s.end_time).map(s => s.id)
+                            if (selectedShiftIds.length === unpaid.length) {
+                              setSelectedShiftIds([])
+                            } else {
+                              setSelectedShiftIds(unpaid)
+                            }
+                          }}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer"
+                        >
+                          {selectedShiftIds.length === selectedEmployee.shifts.filter(s => !s.pagato && s.end_time).length 
+                            ? 'Deseleziona tutti' 
+                            : 'Seleziona tutti'
+                          }
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lista Turni Timbrati del Dipendente */}
+                  <div className="flex flex-col gap-2.5 mt-2">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider px-1">Tutti i turni</span>
+
+                    {selectedEmployee.shifts.length === 0 ? (
+                      <div className="bg-slate-900/40 border border-slate-850 p-6 rounded-2xl text-center text-xs text-slate-500">
+                        Nessun turno timbrato registrato per questo dipendente.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        {selectedEmployee.shifts.map(shift => {
+                          const isCompleted = !!shift.end_time
+                          const isPagato = shift.pagato
+                          const durationHrs = isCompleted 
+                            ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
+                            : 0
+                          const importoShift = durationHrs * Number(shift.paga_oraria_storica || 0)
+                          const isChecked = selectedShiftIds.includes(shift.id)
+
+                          const formatShiftDateLocal = (dateStr) => {
+                            try {
+                              return format(parseISO(dateStr), 'eeee dd MMMM yyyy', { locale: it })
+                            } catch (e) {
+                              return dateStr
+                            }
+                          }
+
+                          const formatShiftTimeLocal = (dateStr) => {
+                            try {
+                              return format(parseISO(dateStr), 'HH:mm')
+                            } catch (e) {
+                              return ''
+                            }
+                          }
+
+                          return (
+                            <div
+                              key={shift.id}
+                              className={`bg-slate-900 border transition-all p-3 rounded-2xl flex flex-col gap-2.5 ${
+                                isPagato 
+                                  ? 'opacity-55 border-slate-900/80' 
+                                  : 'border-slate-800/80 hover:border-slate-700/60'
+                              }`}
+                            >
+                              {/* Header Turno */}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                  {!isPagato && isCompleted && (
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setSelectedShiftIds(prev => prev.filter(id => id !== shift.id))
+                                        } else {
+                                          setSelectedShiftIds(prev => [...prev, shift.id])
+                                        }
+                                      }}
+                                      className="mt-1 flex-shrink-0 w-4.5 h-4.5 bg-slate-950 border border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 rounded cursor-pointer"
+                                    />
+                                  )}
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-[11px] font-bold text-slate-200 truncate capitalize">
+                                      {formatShiftDateLocal(shift.start_time)}
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                      {formatShiftTimeLocal(shift.start_time)}
+                                      {isCompleted ? ` - ${formatShiftTimeLocal(shift.end_time)}` : ' (In corso)'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {isPagato ? (
+                                  <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-slate-800 text-slate-500 border border-slate-700/30">
+                                    Pagato
+                                  </span>
+                                ) : (
+                                  <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                    Da Pagare
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Dati Ore & Costo */}
+                              <div className="flex justify-between border-t border-slate-850 pt-2 text-[10px] font-semibold">
+                                <span className="text-slate-500 font-mono">
+                                  {isCompleted ? `${durationHrs.toFixed(2)} ore (${Number(shift.paga_oraria_storica).toFixed(2)}/h)` : 'In corso'}
+                                </span>
+                                <span className="text-slate-300 font-mono">
+                                  {isCompleted ? `€${importoShift.toFixed(2)}` : '-'}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
+      )}
+
+      {/* Modal di Conferma Pagamento */}
+      {paymentModalOpen && selectedEmployee && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 w-full max-w-sm flex flex-col gap-4 shadow-2xl animate-scale-in">
+            <div className="flex flex-col gap-1 text-center">
+              <h4 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Conferma Pagamento</h4>
+              <p className="text-[10px] text-slate-400">
+                Stai registrando un pagamento per <b>{selectedEmployee.nome} {selectedEmployee.cognome}</b>
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 border border-slate-850 p-3.5 rounded-2xl flex flex-col gap-2">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-400">Turni Selezionati:</span>
+                <span className="text-slate-200">
+                  {selectedShiftIds.length} turni ({selectedEmployee.shifts
+                    .filter(s => selectedShiftIds.includes(s.id))
+                    .reduce((acc, s) => acc + (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60), 0)
+                    .toFixed(2)} ore)
+                </span>
+              </div>
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-400">Costo Turni:</span>
+                <span className="text-slate-200">
+                  €{selectedEmployee.shifts
+                    .filter(s => selectedShiftIds.includes(s.id))
+                    .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
+                    .toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-400">Surplus Precedente:</span>
+                <span className="text-slate-200">€{Number(selectedEmployee.credito_surplus || 0).toFixed(2)}</span>
+              </div>
+              <div className="border-t border-slate-800/80 my-1"></div>
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-indigo-400">Da Pagare (Calcolato):</span>
+                <span className="text-indigo-400 font-mono">€{calculatedPayment.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="confirmAmount" className="text-[10px] uppercase font-bold text-slate-400">Importo Effettivamente Pagato (€)</label>
+              <input
+                id="confirmAmount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-3 text-sm font-bold text-slate-200 outline-none text-center font-mono"
+              />
+              <p className="text-[9px] text-slate-500 leading-normal text-center mt-1">
+                {Number(paymentAmount) > calculatedPayment ? (
+                  <span className="text-emerald-400 font-semibold">
+                    Stai pagando un surplus di €{(Number(paymentAmount) - calculatedPayment).toFixed(2)} che verrà registrato come credito.
+                  </span>
+                ) : Number(paymentAmount) < calculatedPayment ? (
+                  <span className="text-amber-400 font-semibold">
+                    Rimarrà un debito residuo di €{(calculatedPayment - Number(paymentAmount)).toFixed(2)} da saldare in futuro.
+                  </span>
+                ) : (
+                  <span>Pagamento esatto. Il saldo surplus rimarrà invariato.</span>
+                )}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={() => setPaymentModalOpen(false)}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700/60"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPayment}
+                disabled={empLoading}
+                className="py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-1 disabled:opacity-50"
+              >
+                {empLoading ? 'Connessione...' : 'Conferma'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

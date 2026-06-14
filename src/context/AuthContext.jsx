@@ -186,6 +186,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [])
 
+  const refreshProfile = async () => {
+    if (user?.id) {
+      const userProfile = await fetchProfile(user.id)
+      if (userProfile) {
+        setProfile(userProfile)
+      }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -195,7 +204,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         error,
-        setError
+        setError,
+        refreshProfile
       }}
     >
       {children}

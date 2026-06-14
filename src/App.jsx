@@ -6,6 +6,8 @@ import IMieiTurni from './components/IMieiTurni'
 import AdminPanel from './components/AdminPanel'
 import DatiPersonali from './components/DatiPersonali'
 import DisponibilitaModal from './components/DisponibilitaModal'
+import TimbraTurno from './components/TimbraTurno'
+import StoricoOre from './components/StoricoOre'
 import { ShieldCheck, ShieldAlert, RefreshCw, Key, User } from 'lucide-react'
 
 function AppContent() {
@@ -187,6 +189,12 @@ function AppContent() {
       )}
       {view === 'profile' && (
         <DatiPersonali />
+      )}
+      {view === 'clock-shift' && (
+        <TimbraTurno />
+      )}
+      {view === 'hours-history' && (
+        <StoricoOre />
       )}
       {view === 'admin' && (
         profile?.ruolo === 'admin' ? (
