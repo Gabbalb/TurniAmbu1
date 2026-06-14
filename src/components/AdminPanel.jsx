@@ -894,7 +894,9 @@ export default function AdminPanel() {
                         </div>
 
                         <div className="flex flex-col items-end flex-shrink-0">
-                          <span className="font-semibold text-slate-200">{b.profiles?.username || 'Collega'}</span>
+                          <span className="font-semibold text-slate-200">
+                            {b.profiles?.nome && b.profiles?.cognome ? `${b.profiles.nome} ${b.profiles.cognome}` : (b.profiles?.username || 'Collega')}
+                          </span>
                           <span className="text-[9px] text-slate-500 mt-0.5">Assegnato</span>
                         </div>
                       </div>
@@ -1091,16 +1093,16 @@ export default function AdminPanel() {
 
                   {/* Riepilogo Calcolo Pagamento */}
                   <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-slate-800/80 p-4.5 rounded-3xl flex flex-col gap-4 shadow-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Totale da pagare (selezionato)</span>
-                        <span className="text-2xl font-black font-mono text-indigo-400">€{calculatedPayment.toFixed(2)}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Totale da pagare (selezionato)</span>
+                        <span className="text-2xl font-black font-mono text-indigo-400 truncate">€{calculatedPayment.toFixed(2)}</span>
                       </div>
 
                       <button
                         onClick={() => setPaymentModalOpen(true)}
                         disabled={selectedShiftIds.length === 0}
-                        className="px-4.5 py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/15 transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                        className="px-4 py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/15 transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer whitespace-nowrap flex-shrink-0"
                       >
                         Paga Rimanenti
                       </button>

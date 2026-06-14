@@ -13,6 +13,7 @@ export default function TimbraTurno() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState(null)
   const [elapsedString, setElapsedString] = useState('00:00:00')
+  const [successInfo, setSuccessInfo] = useState(null) // { duration }
 
   // Interval references
   const clockIntervalRef = useRef(null)
@@ -86,6 +87,7 @@ export default function TimbraTurno() {
     if (!profile?.id) return
     setActionLoading(true)
     setError(null)
+    setSuccessInfo(null)
     try {
       const { data, error: apiError } = await api.startShift(profile.id, profile.paga_oraria || 0)
       if (apiError) throw apiError
@@ -102,10 +104,13 @@ export default function TimbraTurno() {
     if (!activeShift?.id) return
     setActionLoading(true)
     setError(null)
+    setSuccessInfo(null)
     try {
+      const duration = elapsedString
       const { error: apiError } = await api.endShift(activeShift.id)
       if (apiError) throw apiError
       setActiveShift(null)
+      setSuccessInfo({ duration })
     } catch (err) {
       console.error(err)
       setError('Errore durante la chiusura del turno.')
@@ -146,6 +151,19 @@ export default function TimbraTurno() {
         <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {successInfo && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-4 rounded-3xl text-xs font-semibold flex flex-col gap-1.5 animate-fade-in text-left">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span className="font-bold text-slate-100">Turno terminato!</span>
+          </div>
+          <p className="text-slate-350 font-normal leading-relaxed">
+            Hai completato un turno di <strong className="text-indigo-400 font-mono font-bold">{successInfo.duration}</strong>.
+            Le ore sono state registrate e sono visibili nello storico.
+          </p>
         </div>
       )}
 

@@ -662,6 +662,25 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     }
   }
 
+  // Cancella un intero equipaggio/turno (solo admin)
+  const handleDeleteShift = async (shiftId) => {
+    const confirm = window.confirm("Sei sicuro di voler eliminare questo equipaggio da questa fascia oraria? Verranno eliminate anche tutte le prenotazioni collegate.")
+    if (!confirm) return
+
+    try {
+      const { error } = await api.adminDeleteShift(shiftId)
+      if (error) {
+        alert(error.message || "Errore nella cancellazione dell'equipaggio.")
+      } else {
+        setSelectedCrewShift(null)
+        await loadBoardData(true)
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Si è verificato un errore imprevisto.")
+    }
+  }
+
   // Trova le fasce orarie e le colorazioni corrispondenti
   const getShiftStyle = (ora_inizio) => {
     if (ora_inizio.startsWith('06:')) {
@@ -1274,6 +1293,17 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               {renderSlot(selectedCrewShift.shift, 'CE')}
               {renderSlot(selectedCrewShift.shift, 'autista')}
             </div>
+
+            {/* Pulsante Elimina Equipaggio (Solo Admin) */}
+            {profile?.ruolo === 'admin' && (
+              <button
+                onClick={() => handleDeleteShift(selectedCrewShift.shift.id)}
+                className="w-full mt-2 py-3.5 bg-gradient-to-tr from-rose-600/10 to-red-600/10 hover:from-rose-600/20 hover:to-red-600/20 text-rose-300 border border-rose-500/20 hover:border-rose-500/45 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 duration-200"
+              >
+                <Trash2 className="w-4.5 h-4.5 text-rose-400" />
+                Elimina questo Equipaggio
+              </button>
+            )}
           </div>
         </div>
       )}

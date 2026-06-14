@@ -223,7 +223,7 @@ export const api = {
       let added = false
 
       dates.forEach(date => {
-        crews.forEach(crew => {
+        crews.slice(0, 1).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = shifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && s.crew_id === crew.id
@@ -263,7 +263,7 @@ export const api = {
 
       const insertRows = []
       dates.forEach(date => {
-        crews.forEach(crew => {
+        crews.slice(0, 1).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = existingShifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && String(s.crew_id) === String(crew.id)
@@ -926,6 +926,25 @@ export const api = {
     })
   },
 
+  adminDeleteShift: async (shiftId) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      const updatedShifts = shifts.filter(s => Number(s.id) !== Number(shiftId))
+      localStorage.setItem('ta_shifts', JSON.stringify(updatedShifts))
+      
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+      const updatedBookings = bookings.filter(b => Number(b.shift_id) !== Number(shiftId))
+      localStorage.setItem('ta_bookings', JSON.stringify(updatedBookings))
+      
+      return { error: null }
+    }
+
+    return supabase
+      .from('shifts')
+      .delete()
+      .eq('id', shiftId)
+  },
+
   // Storico turni passati (solo admin)
   fetchPastBookings: async () => {
     const todayStr = new Date().toISOString().split('T')[0]
@@ -1128,7 +1147,7 @@ export const api = {
       const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
       const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
 
-      const employees = profiles.filter(p => p.stato === 'dipendente' || p.stato === 'admin')
+      const employees = profiles.filter(p => p.stato === 'dipendente')
 
       const result = employees.map(emp => {
         const empShifts = shifts.filter(s => s.user_id === emp.id)
@@ -1175,7 +1194,7 @@ export const api = {
       const { data: profiles, error: pError } = await supabase
         .from('profiles')
         .select('*')
-        .in('stato', ['dipendente', 'admin'])
+        .eq('stato', 'dipendente')
         .order('username', { ascending: true })
 
       if (pError) throw pError
