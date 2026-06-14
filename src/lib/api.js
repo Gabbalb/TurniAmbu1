@@ -720,6 +720,44 @@ export const api = {
       .single()
   },
 
+  createCrew: async (nome) => {
+    if (USE_MOCK) {
+      const crews = JSON.parse(localStorage.getItem('ta_crews')) || []
+      const exists = crews.some(c => c.nome.toLowerCase() === nome.toLowerCase())
+      if (exists) {
+        return { error: { message: 'Un equipaggio con questo nome esiste già.' } }
+      }
+      const newCrew = {
+        id: getNextId(crews),
+        nome,
+        attivo: true
+      }
+      crews.push(newCrew)
+      localStorage.setItem('ta_crews', JSON.stringify(crews))
+      return { data: newCrew, error: null }
+    }
+
+    return supabase
+      .from('crews')
+      .insert({ nome, attivo: true })
+      .select()
+      .single()
+  },
+
+  deleteCrew: async (crewId) => {
+    if (USE_MOCK) {
+      const crews = JSON.parse(localStorage.getItem('ta_crews')) || []
+      const updated = crews.filter(c => Number(c.id) !== Number(crewId))
+      localStorage.setItem('ta_crews', JSON.stringify(updated))
+      return { error: null }
+    }
+
+    return supabase
+      .from('crews')
+      .delete()
+      .eq('id', crewId)
+  },
+
   // Modifica una prenotazione (ora inizio/fine effettiva, ruolo, nota)
   adminUpdateBooking: async (bookingId, updates) => {
     if (USE_MOCK) {

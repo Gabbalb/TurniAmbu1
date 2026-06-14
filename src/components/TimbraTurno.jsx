@@ -111,6 +111,9 @@ export default function TimbraTurno() {
       if (apiError) throw apiError
       setActiveShift(null)
       setSuccessInfo({ duration })
+      setTimeout(() => {
+        setSuccessInfo(null)
+      }, 4000)
     } catch (err) {
       console.error(err)
       setError('Errore durante la chiusura del turno.')
@@ -155,15 +158,9 @@ export default function TimbraTurno() {
       )}
 
       {successInfo && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-4 rounded-3xl text-xs font-semibold flex flex-col gap-1.5 animate-fade-in text-left">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span className="font-bold text-slate-100">Turno terminato!</span>
-          </div>
-          <p className="text-slate-350 font-normal leading-relaxed">
-            Hai completato un turno di <strong className="text-indigo-400 font-mono font-bold">{successInfo.duration}</strong>.
-            Le ore sono state registrate e sono visibili nello storico.
-          </p>
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in text-left">
+          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <span>Turno salvato con successo</span>
         </div>
       )}
 
@@ -240,7 +237,7 @@ export default function TimbraTurno() {
                     Data Inizio
                   </span>
                   <span className="text-xs font-semibold text-slate-200">
-                    {format(parseISO(activeShift.start_time), 'dd MMM yyyy', { locale: it })}
+                    {activeShift?.start_time ? format(parseISO(activeShift.start_time), 'dd MMM yyyy', { locale: it }) : ''}
                   </span>
                 </div>
 
@@ -250,7 +247,7 @@ export default function TimbraTurno() {
                     Ora Inizio
                   </span>
                   <span className="text-xs font-semibold text-slate-200">
-                    {format(parseISO(activeShift.start_time), 'HH:mm:ss')}
+                    {activeShift?.start_time ? format(parseISO(activeShift.start_time), 'HH:mm:ss') : ''}
                   </span>
                 </div>
               </div>

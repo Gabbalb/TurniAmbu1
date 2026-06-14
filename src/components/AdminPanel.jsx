@@ -59,6 +59,7 @@ export default function AdminPanel() {
   const [calculatedPayment, setCalculatedPayment] = useState(0)
   const [empLoading, setEmpLoading] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
+  const [newCrewName, setNewCrewName] = useState('')
 
   const loadData = async () => {
     setLoading(true)
@@ -68,8 +69,11 @@ export default function AdminPanel() {
 
       const { data: crws } = await api.fetchCrews()
       setCrews(crws || [])
-      if (crws && crws.length > 0 && !crewSelectedId) {
-        setCrewSelectedId(String(crws[0].id))
+      const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+      if (reinforcementCrews.length > 0) {
+        setCrewSelectedId(String(reinforcementCrews[0].id))
+      } else {
+        setCrewSelectedId('')
       }
 
       const { data: pasts } = await api.fetchPastBookings()
@@ -145,6 +149,54 @@ export default function AdminPanel() {
       setTimeout(() => setUserActionError(null), 5000)
     } finally {
       setEmpLoading(false)
+    }
+  }
+
+  const handleCreateCrew = async (e) => {
+    e.preventDefault()
+    if (!newCrewName.trim()) return
+
+    try {
+      const { error } = await api.createCrew(newCrewName.trim())
+      if (error) {
+        alert(error.message || 'Errore nella creazione dell\'equipaggio.')
+      } else {
+        setNewCrewName('')
+        const { data: crws } = await api.fetchCrews()
+        setCrews(crws || [])
+        const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+        if (reinforcementCrews.length > 0) {
+          setCrewSelectedId(String(reinforcementCrews[reinforcementCrews.length - 1].id))
+        } else {
+          setCrewSelectedId('')
+        }
+        alert('Equipaggio creato con successo!')
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleDeleteCrew = async (crewId) => {
+    if (!window.confirm('Vuoi davvero eliminare questo equipaggio? Questo eliminerà anche tutti i turni ad esso collegati.')) return
+
+    try {
+      const { error } = await api.deleteCrew(crewId)
+      if (error) {
+        alert(error.message || 'Errore nell\'eliminazione dell\'equipaggio.')
+      } else {
+        const { data: crws } = await api.fetchCrews()
+        setCrews(crws || [])
+        const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+        if (reinforcementCrews.length > 0) {
+          setCrewSelectedId(String(reinforcementCrews[0].id))
+        } else {
+          setCrewSelectedId('')
+        }
+        alert('Equipaggio eliminato con successo!')
+      }
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -909,7 +961,7 @@ export default function AdminPanel() {
 
           {/* CONTENUTO TAB: GESTIONE EQUIPAGGI */}
           {activeTab === 'equipaggi' && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
               <form onSubmit={handleAddCrewToShift} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
                 <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Assegna Secondo Equipaggio (Rinforzo)</h3>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -952,22 +1004,84 @@ export default function AdminPanel() {
                       id="crewSelect"
                       value={crewSelectedId}
                       onChange={(e) => setCrewSelectedId(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                      disabled={crews.filter(c => c.id !== 1).length === 0}
+                      className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold disabled:opacity-50"
                     >
-                      {crews.map(c => (
-                        <option key={c.id} value={c.id}>{c.nome}</option>
-                      ))}
+                      {crews.filter(c => c.id !== 1).length === 0 ? (
+                        <option value="">Nessun altro equipaggio registrato</option>
+                      ) : (
+                        crews.filter(c => c.id !== 1).map(c => (
+                          <option key={c.id} value={c.id}>{c.nome}</option>
+                        ))
+                      )}
                     </select>
+                    {crews.filter(c => c.id !== 1).length === 0 && (
+                      <span className="text-[9px] text-amber-500 font-semibold leading-normal">
+                        ⚠️ Registra prima un secondo equipaggio (es. Equipaggio 2) nella sezione sottostante.
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10"
+                  disabled={crews.filter(c => c.id !== 1).length === 0}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   Aggiungi Equipaggio a Fascia
                 </button>
               </form>
+
+              {/* Sezione Creazione Equipaggio */}
+              <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Gestione Equipaggi Registrati</h3>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Registra nuovi equipaggi per poterli assegnare come rinforzo, oppure rimuovi quelli non necessari.
+                </p>
+
+                {/* Form Creazione Equipaggio */}
+                <form onSubmit={handleCreateCrew} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nome equipaggio (es. Equipaggio 2)"
+                    value={newCrewName}
+                    onChange={(e) => setNewCrewName(e.target.value)}
+                    required
+                    className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer whitespace-nowrap"
+                  >
+                    Crea
+                  </button>
+                </form>
+
+                {/* Lista Equipaggi Registrati */}
+                <div className="flex flex-col gap-2 mt-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider px-0.5">Elenco Equipaggi</span>
+                  {crews.length === 0 ? (
+                    <span className="text-[10px] text-slate-500 italic">Nessun equipaggio presente.</span>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {crews.map(c => (
+                        <div key={c.id} className="flex items-center justify-between bg-slate-950/40 border border-slate-850 p-2.5 rounded-xl text-xs">
+                          <span className="font-bold text-slate-200">{c.nome}</span>
+                          {c.id !== 1 && ( // Impedisci di eliminare l'equipaggio principale (default)
+                            <button
+                              onClick={() => handleDeleteCrew(c.id)}
+                              className="text-rose-400 hover:text-rose-300 p-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg cursor-pointer"
+                              title="Elimina Equipaggio"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -975,13 +1089,13 @@ export default function AdminPanel() {
           {activeTab === 'dipendenti' && (
             <div className="flex flex-col gap-4 animate-fade-in">
               {!selectedEmployee ? (
-                /* LISTA UTENTI DIPENDENTI / ADMIN */
+                /* LISTA UTENTI DIPENDENTI */
                 <div className="flex flex-col gap-4">
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                     <input
                       type="text"
-                      placeholder="Cerca dipendente o admin..."
+                      placeholder="Cerca dipendente..."
                       value={empSearch}
                       onChange={(e) => setEmpSearch(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-600"
@@ -994,7 +1108,7 @@ export default function AdminPanel() {
                   }).length === 0 ? (
                     <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center flex flex-col items-center gap-2">
                       <Users className="w-8 h-8 text-slate-600" />
-                      <span className="text-xs text-slate-400">Nessun dipendente o admin trovato.</span>
+                      <span className="text-xs text-slate-400">Nessun dipendente trovato.</span>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2.5">
@@ -1096,7 +1210,7 @@ export default function AdminPanel() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Totale da pagare (selezionato)</span>
-                        <span className="text-2xl font-black font-mono text-indigo-400 truncate">€{calculatedPayment.toFixed(2)}</span>
+                        <span className="text-2xl font-black font-mono text-indigo-400 truncate">€{Math.max(0, calculatedPayment).toFixed(2)}</span>
                       </div>
 
                       <button
@@ -1273,7 +1387,7 @@ export default function AdminPanel() {
               <div className="border-t border-slate-800/80 my-1"></div>
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-indigo-400">Da Pagare (Calcolato):</span>
-                <span className="text-indigo-400 font-mono">€{calculatedPayment.toFixed(2)}</span>
+                <span className="text-indigo-400 font-mono">€{Math.max(0, calculatedPayment).toFixed(2)}</span>
               </div>
             </div>
 
@@ -1289,7 +1403,23 @@ export default function AdminPanel() {
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-3 text-sm font-bold text-slate-200 outline-none text-center font-mono"
               />
               <p className="text-[9px] text-slate-500 leading-normal text-center mt-1">
-                {Number(paymentAmount) > calculatedPayment ? (
+                {calculatedPayment < 0 ? (
+                  Number(paymentAmount) > 0 ? (
+                    <span className="text-emerald-400 font-semibold">
+                      Il costo di €{selectedEmployee.shifts
+                        .filter(s => selectedShiftIds.includes(s.id))
+                        .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
+                        .toFixed(2)} è interamente coperto dal surplus. Pagando €{Number(paymentAmount).toFixed(2)} cash, il nuovo surplus diventerà €{(Number(selectedEmployee.credito_surplus) + Number(paymentAmount) - selectedEmployee.shifts.filter(s => selectedShiftIds.includes(s.id)).reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)).toFixed(2)}.
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 font-semibold">
+                      Il costo di €{selectedEmployee.shifts
+                        .filter(s => selectedShiftIds.includes(s.id))
+                        .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
+                        .toFixed(2)} verrà interamente coperto dal surplus. Residueranno €{Math.abs(calculatedPayment).toFixed(2)} di credito.
+                    </span>
+                  )
+                ) : Number(paymentAmount) > calculatedPayment ? (
                   <span className="text-emerald-400 font-semibold">
                     Stai pagando un surplus di €{(Number(paymentAmount) - calculatedPayment).toFixed(2)} che verrà registrato come credito.
                   </span>
