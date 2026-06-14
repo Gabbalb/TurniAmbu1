@@ -606,38 +606,38 @@ export default function AdminPanel() {
         /* VISTA TABELLA E LISTE REGOLARI */
         <>
           {/* Tabs di navigazione interna */}
-          <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto">
+          <div className="grid grid-cols-4 bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
             <button
               onClick={() => setActiveTab('utenti')}
-              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 activeTab === 'utenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Users className="w-3.5 h-3.5" /> Utenti
+              <Users className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Utenti</span>
             </button>
             <button
               onClick={() => setActiveTab('storico')}
-              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 activeTab === 'storico' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <History className="w-3.5 h-3.5" /> Storico
+              <History className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Storico</span>
             </button>
             <button
               onClick={() => setActiveTab('equipaggi')}
-              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 activeTab === 'equipaggi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Plus className="w-3.5 h-3.5" /> Equipaggi
+              <Plus className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Equipaggi</span>
             </button>
             <button
               onClick={() => setActiveTab('dipendenti')}
-              className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 activeTab === 'dipendenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Users className="w-3.5 h-3.5" /> Dipendenti
+              <Users className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Dipendenti</span>
             </button>
           </div>
 
@@ -1206,7 +1206,7 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Riepilogo Calcolo Pagamento */}
-                  <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-slate-800/80 p-4.5 rounded-3xl flex flex-col gap-4 shadow-lg">
+                  <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-slate-800/80 p-5 rounded-3xl flex flex-col gap-4 shadow-lg">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Totale da pagare (selezionato)</span>
