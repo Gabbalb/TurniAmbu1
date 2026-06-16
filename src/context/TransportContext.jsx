@@ -223,6 +223,7 @@ export const TransportProvider = ({ children }) => {
       fetchBaseData(); // Aggiorna i km dei mezzi
     } catch (err) {
       console.error('Errore termine', err);
+      throw err;
     }
   };
 

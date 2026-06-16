@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X, ChevronRight, Building2, Home as HomeIcon, Stethoscope, ArrowRightLeft, Check, Circle, MapPin, Edit2 } from 'lucide-react';
 import { useTransports } from '../context/TransportContext';
 
@@ -31,10 +31,14 @@ function sectionStatus(t) {
   return sections;
 }
 
-function LuogoField({ label, prefix, value, onChange }) {
+function LuogoField({ label, prefix, value, onChange, onSaveNow, onBlur }) {
   const tipo = value[`${prefix}_tipo_luogo`];
   const placeholderNome = tipo === "ospedale" ? "es: Chiari" : tipo === "rsa" ? "es: Girasole" : "";
   const placeholderReparto = tipo === "ospedale" ? "es: P.S." : "es: Reparto";
+
+  const handleFocus = (e) => {
+    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   return (
     <div className="mb-4 last:mb-0">
@@ -50,7 +54,7 @@ function LuogoField({ label, prefix, value, onChange }) {
               className={`flex-1 flex flex-col items-center gap-1 p-2 border rounded-xl text-[11.5px] transition-all ${
                 active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 font-bold' : 'border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700/50'
               }`}
-              onClick={() => onChange({ [`${prefix}_tipo_luogo`]: opt })}
+              onClick={() => onSaveNow({ [`${prefix}_tipo_luogo`]: opt })}
             >
               <Icon size={16} />
               <span>{opt === "ospedale" ? "Ospedale" : opt === "rsa" ? "RSA" : "Abitazione"}</span>
@@ -68,6 +72,8 @@ function LuogoField({ label, prefix, value, onChange }) {
               placeholder={placeholderReparto}
               value={value[`${prefix}_reparto`] || ""}
               onChange={(e) => onChange({ [`${prefix}_reparto`]: e.target.value })}
+              onBlur={onBlur}
+              onFocus={handleFocus}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -77,6 +83,8 @@ function LuogoField({ label, prefix, value, onChange }) {
               placeholder={placeholderNome}
               value={value[`${prefix}_nome`] || ""}
               onChange={(e) => onChange({ [`${prefix}_nome`]: e.target.value })}
+              onBlur={onBlur}
+              onFocus={handleFocus}
             />
           </div>
         </div>
@@ -89,6 +97,8 @@ function LuogoField({ label, prefix, value, onChange }) {
             placeholder="Via, civico, comune"
             value={value[`${prefix}_via`] || ""}
             onChange={(e) => onChange({ [`${prefix}_via`]: e.target.value })}
+            onBlur={onBlur}
+            onFocus={handleFocus}
           />
         </div>
       )}
@@ -183,6 +193,13 @@ export default function TransportSheet() {
   const [confirmPassaggio, setConfirmPassaggio] = useState(false);
   const [editCrew, setEditCrew] = useState(false);
   const [localDraft, setLocalDraft] = useState(null);
+  
+  const draftRef = useRef(null);
+
+  // Sync del ref con lo stato locale per il salvataggio sullo smontaggio
+  useEffect(() => {
+    draftRef.current = localDraft;
+  }, [localDraft]);
 
   // Sync local draft con il context solo all'apertura o al cambio di stato (stato/id) per evitare sovrascritture durante la digitazione
   useEffect(() => {
@@ -195,11 +212,19 @@ export default function TransportSheet() {
     }
   }, [transport, openTransportId]);
 
-  // Debounce per l'autosalvataggio (1 secondo di inattività dopo una digitazione)
+  // Salva automaticamente quando si chiude o si smonta il componente
+  useEffect(() => {
+    return () => {
+      if (draftRef.current) {
+        updateTransport(draftRef.current).catch(() => {});
+      }
+    };
+  }, [updateTransport]);
+
+  // Debounce di sicurezza per l'autosalvataggio (1 secondo di inattività)
   useEffect(() => {
     if (!localDraft || !transport) return;
     
-    // Evita salvataggi se i dati correnti sono uguali a quelli salvati nel context
     const isSame = JSON.stringify(localDraft) === JSON.stringify(transport);
     if (isSame) return;
 
@@ -210,8 +235,38 @@ export default function TransportSheet() {
     return () => clearTimeout(timer);
   }, [localDraft, transport, updateTransport]);
 
+  // Aggiorna lo stato locale senza salvare subito (ottimo per la digitazione tasto per tasto)
   const patch = (fields) => {
     setLocalDraft(prev => prev ? { ...prev, ...fields } : null);
+  };
+
+  // Salva IMMEDIATAMENTE (ideale per dropdown, checkbox, bottoni e selezioni istantanee)
+  const saveNow = (fields) => {
+    setLocalDraft(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...fields };
+      updateTransport(updated).catch(() => {});
+      return updated;
+    });
+  };
+
+  // Salva quando l'utente esce da un campo di input (onBlur)
+  const handleBlur = () => {
+    if (localDraft) {
+      updateTransport(localDraft).catch(() => {});
+    }
+  };
+
+  // Salva e chiude
+  const handleClose = () => {
+    if (localDraft) {
+      updateTransport(localDraft).catch(() => {});
+    }
+    closeTransport();
+  };
+
+  const handleFocus = (e) => {
+    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   if (!openTransportId || !localDraft) return null;
@@ -238,7 +293,7 @@ export default function TransportSheet() {
               {t.stato === "attivo" ? "Turno attivo" : t.stato === "terminato" ? "Terminato" : "Bozza"}
             </span>
           </div>
-          <button className="p-2 bg-slate-800 text-slate-300 hover:bg-rose-500/20 hover:text-rose-400 rounded-xl transition-all" onClick={closeTransport}>
+          <button className="p-2 bg-slate-800 text-slate-300 hover:bg-rose-500/20 hover:text-rose-400 rounded-xl transition-all" onClick={handleClose}>
             <X size={20} />
           </button>
         </div>
@@ -285,7 +340,7 @@ export default function TransportSheet() {
               ) : (
                 <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
                   const sugg = suggestCrew(t.ora_servizio);
-                  if (sugg) patch({ ce: sugg.ce, autista: sugg.autista });
+                  if (sugg) saveNow({ ce: sugg.ce, autista: sugg.autista });
                   setEditCrew(false);
                 }}>Prendi da tabellone</button>
               )}
@@ -304,14 +359,14 @@ export default function TransportSheet() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">CE *</label>
-                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => patch({ ce: e.target.value })}>
+                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => saveNow({ ce: e.target.value })} onFocus={handleFocus}>
                     <option value="">Seleziona...</option>
                     {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">AS *</label>
-                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => patch({ autista: e.target.value })}>
+                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => saveNow({ autista: e.target.value })} onFocus={handleFocus}>
                     <option value="">Seleziona...</option>
                     {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
                   </select>
@@ -330,14 +385,14 @@ export default function TransportSheet() {
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Mezzo *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.vehicle_id || ""} onChange={e => patch({ vehicle_id: e.target.value, km_iniziali: getLastKmForVehicle(e.target.value) })}>
+                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.vehicle_id || ""} onChange={e => saveNow({ vehicle_id: e.target.value, km_iniziali: getLastKmForVehicle(e.target.value) })} onFocus={handleFocus}>
                   <option value="">Seleziona...</option>
                   {mezzi.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km Iniziali *</label>
-                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_iniziali || ""} onChange={e => patch({ km_iniziali: e.target.value })} />
+                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_iniziali || ""} onChange={e => patch({ km_iniziali: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
               </div>
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Ora servizio</label>
@@ -349,8 +404,8 @@ export default function TransportSheet() {
                     p.ce = sugg.ce;
                     p.autista = sugg.autista;
                   }
-                  patch(p);
-                }} />
+                  saveNow(p);
+                }} onFocus={handleFocus} />
               </div>
             </div>
 
@@ -359,7 +414,7 @@ export default function TransportSheet() {
                 <button
                   key={opt}
                   className={`py-3 rounded-xl text-[13.5px] border transition-all flex items-center justify-center ${t.tipo_trasporto === opt ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400 font-semibold hover:bg-slate-800'}`}
-                  onClick={() => patch({ tipo_trasporto: opt, variante_ar: opt === "dimissione" || opt === "trasferimento" ? "" : t.variante_ar })}
+                  onClick={() => saveNow({ tipo_trasporto: opt, variante_ar: opt === "dimissione" || opt === "trasferimento" ? "" : t.variante_ar })}
                 >
                   {opt.charAt(0).toUpperCase() + opt.slice(1)}
                 </button>
@@ -370,22 +425,22 @@ export default function TransportSheet() {
               <div className="mb-4">
                 <div className="flex gap-2">
                   {[ { v: "andata_ritorno", l: "A/R" }, { v: "andata", l: "Andata" }, { v: "ritorno", l: "Ritorno" } ].map((o) => (
-                    <button key={o.v} className={`px-3 py-1.5 rounded-full text-[12.5px] border transition-all ${t.variante_ar === o.v ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400'}`} onClick={() => patch({ variante_ar: o.v })}>{o.l}</button>
+                    <button key={o.v} className={`px-3 py-1.5 rounded-full text-[12.5px] border transition-all ${t.variante_ar === o.v ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400'}`} onClick={() => saveNow({ variante_ar: o.v })}>{o.l}</button>
                   ))}
                 </div>
               </div>
             )}
 
             {t.tipo_trasporto === "altro" && (
-              <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" placeholder="Specifica altro..." value={t.altro_descrizione || ""} onChange={(e) => patch({ altro_descrizione: e.target.value })} />
+              <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" placeholder="Specifica altro..." value={t.altro_descrizione || ""} onChange={(e) => patch({ altro_descrizione: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
             )}
           </section>
 
           {/* PERCORSO */}
           <section id="sec-percorso" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <LuogoField label="Da *" prefix="da" value={t} onChange={patch} />
+            <LuogoField label="Da *" prefix="da" value={t} onChange={patch} onSaveNow={saveNow} onBlur={handleBlur} />
             <div className="h-6"></div>
-            <LuogoField label="A *" prefix="a" value={t} onChange={patch} />
+            <LuogoField label="A *" prefix="a" value={t} onChange={patch} onSaveNow={saveNow} onBlur={handleBlur} />
           </section>
 
           {/* PAZIENTE */}
@@ -394,21 +449,21 @@ export default function TransportSheet() {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Cognome e Nome *</label>
-                <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.paziente_nome || ""} onChange={e => patch({ paziente_nome: e.target.value })} />
+                <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.paziente_nome || ""} onChange={e => patch({ paziente_nome: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Telefono</label>
-                  <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.paziente_tel || ""} onChange={e => patch({ paziente_tel: e.target.value })} />
+                  <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.paziente_tel || ""} onChange={e => patch({ paziente_tel: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
                 </div>
                 <div>
                   <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Codice Fiscale</label>
-                  <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none uppercase" value={t.paziente_cf || ""} onChange={e => patch({ paziente_cf: e.target.value })} />
+                  <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none uppercase" value={t.paziente_cf || ""} onChange={e => patch({ paziente_cf: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
                 </div>
               </div>
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Note</label>
-                <textarea rows={3} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.note || ""} onChange={e => patch({ note: e.target.value })}></textarea>
+                <textarea rows={3} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.note || ""} onChange={e => patch({ note: e.target.value })} onBlur={handleBlur} onFocus={handleFocus}></textarea>
               </div>
             </div>
           </section>
@@ -420,7 +475,7 @@ export default function TransportSheet() {
             <div className="flex gap-2 mb-4">
               {[{v: "contante", l: "Contanti"}, {v: "pos", l: "POS"}, {v: "altro", l: "Altro..."}].map(o => (
                 <label key={o.v} className="flex items-center gap-2 cursor-pointer bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 flex-1">
-                  <input type="radio" name="pagamento" checked={t.tipo_pagamento === o.v} onChange={() => patch({ tipo_pagamento: o.v })} className="text-indigo-600 focus:ring-indigo-500 bg-slate-800 border-slate-600" />
+                  <input type="radio" name="pagamento" checked={t.tipo_pagamento === o.v} onChange={() => saveNow({ tipo_pagamento: o.v })} className="text-indigo-600 focus:ring-indigo-500 bg-slate-800 border-slate-600" />
                   <span className="text-[12.5px] text-slate-300 font-bold">{o.l}</span>
                 </label>
               ))}
@@ -429,11 +484,11 @@ export default function TransportSheet() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Importo € {t.tipo_pagamento ? '*' : ''}</label>
-                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.importo || ""} onChange={e => patch({ importo: e.target.value })} />
+                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.importo || ""} onChange={e => patch({ importo: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} />
               </div>
               <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km finali *</label>
-                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_finali || ""} onChange={e => patch({ km_finali: e.target.value })} disabled={t.stato === "terminato"} />
+                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_finali || ""} onChange={e => patch({ km_finali: e.target.value })} onBlur={handleBlur} onFocus={handleFocus} disabled={t.stato === "terminato"} />
               </div>
             </div>
           </section>
