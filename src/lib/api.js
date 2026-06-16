@@ -1194,6 +1194,30 @@ export const api = {
     return { error }
   },
 
+  fetchFirstShiftDate: async () => {
+    if (USE_MOCK) {
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      
+      const dates = shifts.map(s => s.data)
+      if (dates.length === 0) {
+        const d = new Date()
+        d.setDate(d.getDate() - 30) // 30 days ago fallback for mock
+        return { data: d.toISOString().split('T')[0], error: null }
+      }
+      dates.sort()
+      return { data: dates[0], error: null }
+    }
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('data')
+      .order('data', { ascending: true })
+      .limit(1)
+    
+    const minDate = data && data.length > 0 ? data[0].data : new Date().toISOString().split('T')[0]
+    return { data: minDate, error }
+  },
+
   payShifts: async (userId, shiftIds, totalToPay, actualAmountPaid) => {
     const difference = Number(actualAmountPaid) - Number(totalToPay)
     

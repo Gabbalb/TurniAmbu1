@@ -13,21 +13,28 @@ const getUserDisplayName = (prof) => {
   return prof.username || ''
 }
 
-export default function TurniBoard({ initialDate, initialSlot, onDateChange, onClearSlotHighlight }) {
+export default function TurniBoard({ initialDate, initialSlot, onDateChange, onClearSlotHighlight, isHistory = false }) {
   const { user, profile } = useAuth()
+  const [firstShiftDate, setFirstShiftDate] = useState(null)
 
   const getBookingLimitDate = () => {
+    if (isHistory) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      return today
+    }
     const today = new Date()
     return new Date(today.getFullYear(), today.getMonth() + 2, 0)
   }
 
   const getCalendarDays = () => {
-    const start = new Date()
-    start.setHours(0, 0, 0, 0)
+    const start = isHistory && firstShiftDate ? firstShiftDate : new Date()
+    const startCopy = new Date(start)
+    startCopy.setHours(0, 0, 0, 0)
     const limit = getBookingLimitDate()
     
     const days = []
-    let current = start
+    let current = startCopy
     while (current <= limit) {
       days.push(current)
       current = addDays(current, 1)
@@ -104,6 +111,33 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
   const currentDateRef = useRef(currentDate)
   currentDateRef.current = currentDate
  
+  // Carica la data del primo turno in modalità storico
+  useEffect(() => {
+    if (isHistory) {
+      const fetchFirstDate = async () => {
+        const { data } = await api.fetchFirstShiftDate()
+        if (data) {
+          const d = new Date(data)
+          d.setHours(0, 0, 0, 0)
+          setFirstShiftDate(d)
+        }
+      }
+      fetchFirstDate()
+    }
+  }, [isHistory])
+
+  // Allinea l'ancora e il conteggio dei giorni in modalità storico una volta nota la data iniziale
+  useEffect(() => {
+    if (isHistory && firstShiftDate) {
+      setListAnchorDate(firstShiftDate)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const diffTime = today.getTime() - firstShiftDate.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      setDaysCount(diffDays)
+    }
+  }, [firstShiftDate, isHistory])
+
   // Sincronizza la data del tabellone con lo stato globale di App.jsx
   useEffect(() => {
     if (onDateChange && currentDate) {
@@ -747,16 +781,22 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Libero</span>
           </div>
           
-          <button
-            onClick={() => handleOpenBookingConfirm(shift, role)}
-            disabled={isLoading || !profile?.attivo}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-dashed border-slate-700/60 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200 text-left"
-          >
-            <span className="text-xs sm:text-sm font-medium text-slate-400">Posto libero</span>
-            <span className="text-xs sm:text-sm font-bold text-indigo-400/90 hover:text-indigo-300">
-              {isLoading ? 'Prenotazione...' : '+ Disponibile'}
-            </span>
-          </button>
+          {isHistory ? (
+            <div className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-950/20 text-left">
+              <span className="text-xs sm:text-sm font-medium text-slate-500 italic">Libero</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleOpenBookingConfirm(shift, role)}
+              disabled={isLoading || !profile?.attivo}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-dashed border-slate-700/60 hover:border-indigo-500/60 bg-slate-900/20 hover:bg-indigo-500/5 transition-all duration-200 text-left"
+            >
+              <span className="text-xs sm:text-sm font-medium text-slate-400">Posto libero</span>
+              <span className="text-xs sm:text-sm font-bold text-indigo-400/90 hover:text-indigo-300">
+                {isLoading ? 'Prenotazione...' : '+ Disponibile'}
+              </span>
+            </button>
+          )}
         </div>
       )
     }
@@ -770,13 +810,15 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             {roleLabel}
           </span>
           
-          <button
-            onClick={() => handleOpenBookingConfirm(shift, role)}
-            disabled={!profile?.attivo}
-            className="px-2 py-0.5 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all"
-          >
-            + Aggiungi
-          </button>
+          {!isHistory && (
+            <button
+              onClick={() => handleOpenBookingConfirm(shift, role)}
+              disabled={!profile?.attivo}
+              className="px-2 py-0.5 border border-dashed border-slate-800 hover:border-indigo-500/40 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all"
+            >
+              + Aggiungi
+            </button>
+          )}
         </div>
         
         {/* Lista prenotati */}
@@ -795,19 +837,21 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                       <span className="text-[11px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
                     )}
                   </div>
-                  <button
-                    onClick={(e) => handleCancelBooking(bk.id, e)}
-                    disabled={isBkLoading}
-                    className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-                    title="Cancella prenotazione"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {!isHistory && (
+                    <button
+                      onClick={(e) => handleCancelBooking(bk.id, e)}
+                      disabled={isBkLoading}
+                      className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
+                      title="Cancella prenotazione"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               )
             } else {
               return (
-                <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 text-slate-400 ${isAdmin ? 'hover:border-rose-500/30' : ''}`}>
+                <div key={bk.id} className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 text-slate-400 ${isAdmin && !isHistory ? 'hover:border-rose-500/30' : ''}`}>
                   <div className="flex flex-col min-w-0 pr-2 text-left">
                     <span className="text-sm sm:text-base font-bold text-slate-200 break-all">
                       {getUserDisplayName(bk.profiles) || 'Collega'}
@@ -816,7 +860,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                       <span className="text-[11px] text-slate-500 mt-0.5 leading-tight">{bk.nota_parziale}</span>
                     )}
                   </div>
-                  {isAdmin ? (
+                  {!isHistory && isAdmin ? (
                     <button
                       onClick={(e) => handleCancelBooking(bk.id, e)}
                       disabled={isBkLoading}
@@ -825,9 +869,9 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  ) : (
+                  ) : !isHistory ? (
                     <Lock className="w-3.5 h-3.5 text-slate-500 mr-1 flex-shrink-0" />
-                  )}
+                  ) : null}
                 </div>
               )
             }
@@ -880,12 +924,12 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               return normA - normB
             })
           
-          return (
-            <button
-              key={shift.id}
-              onClick={() => setSelectedCrewShift({ shift, matchedShifts })}
-              className="w-full text-left bg-slate-900/40 border border-slate-800/80 hover:border-indigo-500/40 hover:bg-slate-900/60 p-3.5 rounded-2xl shadow-inner-soft transition-all duration-200 flex flex-col gap-2 cursor-pointer"
-            >
+          const containerClasses = isHistory 
+            ? "w-full text-left bg-slate-900/40 border border-slate-800/80 p-3.5 rounded-2xl shadow-inner-soft flex flex-col gap-2"
+            : "w-full text-left bg-slate-900/40 border border-slate-800/80 hover:border-indigo-500/40 hover:bg-slate-900/60 p-3.5 rounded-2xl shadow-inner-soft transition-all duration-200 flex flex-col gap-2 cursor-pointer"
+
+          const content = (
+            <>
               {/* Nome Equipaggio */}
               <div className="flex items-center justify-between w-full pb-1 border-b border-slate-800/40">
                 <span className="text-xs font-extrabold text-indigo-400 uppercase tracking-widest">
@@ -944,6 +988,24 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                   ))
                 )}
               </div>
+            </>
+          )
+
+          if (isHistory) {
+            return (
+              <div key={shift.id} className={containerClasses}>
+                {content}
+              </div>
+            )
+          }
+
+          return (
+            <button
+              key={shift.id}
+              onClick={() => setSelectedCrewShift({ shift, matchedShifts })}
+              className={containerClasses}
+            >
+              {content}
             </button>
           )
         })}

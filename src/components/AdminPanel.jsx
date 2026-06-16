@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../lib/api'
+import TurniBoard from './TurniBoard'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter, ChevronLeft, CheckCircle, CircleDollarSign, Landmark, Check, AlertCircle, Loader2, Pencil, X } from 'lucide-react'
@@ -1008,73 +1009,7 @@ export default function AdminPanel() {
 
           {/* CONTENUTO TAB: STORICO TURNI PASSATI */}
           {activeTab === 'storico' && (
-            <div className="flex flex-col gap-4">
-              {/* Barra dei filtri */}
-              <div className="bg-slate-900/40 border border-slate-800 p-3.5 rounded-2xl flex flex-col gap-3">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Filter className="w-3.5 h-3.5" /> Filtra Storico
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder="Nome utente..."
-                      value={filterUser}
-                      onChange={(e) => setFilterUser(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 outline-none"
-                    />
-                  </div>
-                  <select
-                    value={filterShift}
-                    onChange={(e) => setFilterShift(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
-                  >
-                    <option value="all">Tutte le fasce</option>
-                    <option value="1">Fascia 1 (06-14)</option>
-                    <option value="2">Fascia 2 (14-22)</option>
-                    <option value="3">Fascia 3 (22-06)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Elenco Storico */}
-              <div className="flex flex-col gap-3">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Risultati Trovati ({filteredPastBookings.length})
-                </h3>
-                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
-                  {filteredPastBookings.length === 0 ? (
-                    <span className="text-xs text-slate-500 italic">Nessun turno nello storico corrisponde ai filtri.</span>
-                  ) : (
-                    filteredPastBookings.map(b => (
-                      <div key={b.id} className="p-3 bg-slate-900/20 border border-slate-800/80 rounded-2xl flex items-center justify-between text-xs">
-                        <div className="flex flex-col gap-1 min-w-0 pr-3">
-                          <span className="font-bold text-slate-200 capitalize">
-                            {b.shifts?.data ? format(parseISO(b.shifts.data), 'dd MMMM yyyy', { locale: it }) : 'Data N/D'}
-                          </span>
-                          <div className="flex items-center gap-1.5 text-slate-400">
-                            <span className="font-mono text-[10px]">
-                              {b.shifts?.ora_inizio ? b.shifts.ora_inizio.slice(0, 5) : 'N/D'}–{b.shifts?.ora_fine ? b.shifts.ora_fine.slice(0, 5) : 'N/D'}
-                            </span>
-                            <span>&bull;</span>
-                            <span className={`font-bold uppercase ${b.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{b.ruolo_turno === 'autista' ? 'Autista' : b.ruolo_turno}</span>
-                          </div>
-                          {b.is_partial && <span className="text-[10px] text-amber-400">{b.nota_parziale}</span>}
-                        </div>
-
-                        <div className="flex flex-col items-end flex-shrink-0">
-                          <span className="font-semibold text-slate-200">
-                            {b.profiles?.nome && b.profiles?.cognome ? `${b.profiles.nome} ${b.profiles.cognome}` : (b.profiles?.username || 'Collega')}
-                          </span>
-                          <span className="text-[9px] text-slate-500 mt-0.5">Assegnato</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            <TurniBoard isHistory={true} />
           )}
 
           {/* CONTENUTO TAB: GESTIONE EQUIPAGGI */}
