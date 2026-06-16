@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { User, Key, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
 
 export default function DatiPersonali() {
-  const { profile } = useAuth()
+  const { profile, deviceUniqueId } = useAuth()
   const [newPasswordVal, setNewPasswordVal] = useState('')
   const [confirmPasswordVal, setConfirmPasswordVal] = useState('')
   const [changePassLoading, setChangePassLoading] = useState(false)
@@ -102,6 +102,13 @@ export default function DatiPersonali() {
                 {profile?.attivo !== false ? 'Attivo' : 'Disabilitato'}
               </span>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase font-bold text-slate-500">ID Dispositivo</span>
+            <span className="text-sm font-semibold text-slate-300 font-mono">
+              {deviceUniqueId || 'N/D'}
+            </span>
           </div>
 
           {profile?.codice_fiscale && (

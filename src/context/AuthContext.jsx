@@ -1,10 +1,46 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+// Helper per leggere un cookie
+const getCookie = (name) => {
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop().split(';').shift()
+  return null
+}
+
+// Helper per impostare un cookie (default 20 anni per massima persistenza)
+const setCookie = (name, value, days = 7300) => {
+  const date = new Date()
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000))
+  const expires = `; expires=${date.toUTCString()}`
+  document.cookie = `${name}=${value || ""}${expires}; path=/; SameSite=Lax; Secure`
+}
+
+// Genera o recupera l'ID dispositivo persistente (localStorage + Cookie backup)
+const getDeviceUniqueId = () => {
+  let deviceId = localStorage.getItem('device_unique_id')
+  
+  if (!deviceId) {
+    deviceId = getCookie('device_unique_id')
+  }
+
+  if (!deviceId) {
+    deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+  }
+
+  // Sincronizza su entrambi i sistemi di storage per massima longevità
+  localStorage.setItem('device_unique_id', deviceId)
+  setCookie('device_unique_id', deviceId)
+
+  return deviceId
+}
+
 const AuthContext = createContext({
   user: null,
   profile: null,
   loading: true,
+  deviceUniqueId: null,
   login: async () => {},
   logout: async () => {},
   error: null,
@@ -16,9 +52,15 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [deviceUniqueId, setDeviceUniqueId] = useState(null)
 
   const isLoggingIn = useRef(false)
   const profileSubscriptionRef = useRef(null)
+
+  // Inizializza l'ID del dispositivo persistente
+  useEffect(() => {
+    setDeviceUniqueId(getDeviceUniqueId())
+  }, [])
 
   // Mappa username a email interna
   const getEmailFromUsername = (username) => {
@@ -353,10 +395,20 @@ export const AuthProvider = ({ children }) => {
           return `${os} con browser ${browser}`
         }
 
+        const getDeviceUniqueId = () => {
+          let deviceId = localStorage.getItem('device_unique_id')
+          if (!deviceId) {
+            deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            localStorage.setItem('device_unique_id', deviceId)
+          }
+          return deviceId
+        }
+
         const notifyAccess = async () => {
           const deviceName = getDeviceFriendlyName()
+          const deviceId = getDeviceUniqueId()
           const nomeCognome = profile.nome && profile.cognome ? `${profile.nome} ${profile.cognome}` : profile.username
-          const msg = `l'amministratore ${nomeCognome} si è collegato all'interfaccia admin tramite il dispositivo e ${deviceName}`
+          const msg = `l'amministratore ${nomeCognome} si è collegato all'interfaccia admin tramite il dispositivo e ${deviceName} [ID: ${deviceId}]`
           
           try {
             await supabase.from('notifications').insert([
@@ -427,6 +479,7 @@ export const AuthProvider = ({ children }) => {
         user,
         profile,
         loading,
+        deviceUniqueId,
         login,
         logout,
         error,
