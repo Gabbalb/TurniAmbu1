@@ -222,6 +222,9 @@ export const AuthProvider = ({ children }) => {
         throw authError
       }
 
+      // Attendiamo 200ms per assicurarci che Supabase abbia propagato i token di sessione nei suoi header interni
+      await new Promise(resolve => setTimeout(resolve, 200))
+
       // Recupera il profilo subito
       const userProfile = await fetchProfile(data.user.id)
       
@@ -246,16 +249,21 @@ export const AuthProvider = ({ children }) => {
           await sendAccessNotification(userProfile, deviceId)
         }
 
-        const { error: updateError } = await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('profiles')
           .update({ 
             session_token: newToken,
             last_device_id: deviceId
           })
           .eq('id', userProfile.id)
+          .select()
         
         if (updateError) {
           throw new Error("Impossibile salvare la sessione nel database: " + updateError.message)
+        }
+
+        if (!updateData || updateData.length === 0) {
+          throw new Error("Aggiornamento del profilo non riuscito (0 righe interessate). Verifica i permessi RLS del database.")
         }
         
         userProfile.session_token = newToken
