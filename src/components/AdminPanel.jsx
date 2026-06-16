@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter, ChevronLeft, CheckCircle, CircleDollarSign, Landmark, Check, AlertCircle, Loader2 } from 'lucide-react'
+import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter, ChevronLeft, CheckCircle, CircleDollarSign, Landmark, Check, AlertCircle, Loader2, Pencil, X } from 'lucide-react'
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('utenti') // 'utenti' | 'storico' | 'equipaggi'
@@ -60,6 +60,124 @@ export default function AdminPanel() {
   const [empLoading, setEmpLoading] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
   const [newCrewName, setNewCrewName] = useState('')
+
+  // States for Edit Shift (Admin)
+  const [editingShift, setEditingShift] = useState(null)
+  const [editStartDate, setEditStartDate] = useState('')
+  const [editStartTime, setEditStartTime] = useState('')
+  const [editEndDate, setEditEndDate] = useState('')
+  const [editEndTime, setEditEndTime] = useState('')
+  const [editHourlyRate, setEditHourlyRate] = useState('')
+  const [editShiftLoading, setEditShiftLoading] = useState(false)
+  const [editShiftError, setEditShiftError] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  const getLocalDateString = (isoString) => {
+    if (!isoString) return ''
+    try {
+      return format(parseISO(isoString), 'yyyy-MM-dd')
+    } catch (e) {
+      return ''
+    }
+  }
+
+  const getLocalTimeString = (isoString) => {
+    if (!isoString) return ''
+    try {
+      return format(parseISO(isoString), 'HH:mm')
+    } catch (e) {
+      return ''
+    }
+  }
+
+  const refreshEmployeeData = async (employeeId) => {
+    try {
+      const { data: emps } = await api.fetchEmployeesWithPayments()
+      setEmployees(emps || [])
+      if (employeeId) {
+        const updated = emps.find(e => e.id === employeeId)
+        setSelectedEmployee(updated || null)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleOpenEditShiftModal = (shift) => {
+    setEditingShift(shift)
+    setEditStartDate(getLocalDateString(shift.start_time))
+    setEditStartTime(getLocalTimeString(shift.start_time))
+    setEditEndDate(getLocalDateString(shift.end_time))
+    setEditEndTime(getLocalTimeString(shift.end_time))
+    setEditHourlyRate(shift.paga_oraria_storica || 0)
+    setEditShiftError(null)
+    setShowDeleteConfirm(false)
+  }
+
+  const handleEditShiftSubmit = async (e) => {
+    e.preventDefault()
+    setEditShiftLoading(true)
+    setEditShiftError(null)
+
+    try {
+      if (!editStartDate || !editStartTime) {
+        throw new Error('Inserisci data e ora di inizio.')
+      }
+
+      const start = new Date(`${editStartDate}T${editStartTime}`)
+      if (isNaN(start.getTime())) {
+        throw new Error('Data o ora di inizio non valida.')
+      }
+
+      let end = null
+      if (editEndDate && editEndTime) {
+        end = new Date(`${editEndDate}T${editEndTime}`)
+        if (isNaN(end.getTime())) {
+          throw new Error('Data o ora di fine non valida.')
+        }
+        if (end <= start) {
+          throw new Error('La data/ora di fine deve essere successiva a quella di inizio.')
+        }
+      }
+
+      const { error: apiError } = await api.updateClockedShift(
+        editingShift.id,
+        start.toISOString(),
+        end ? end.toISOString() : null,
+        editHourlyRate
+      )
+
+      if (apiError) throw apiError
+
+      setEditingShift(null)
+      setSelectedShiftIds([])
+      await refreshEmployeeData(selectedEmployee.id)
+    } catch (err) {
+      console.error(err)
+      setEditShiftError(err.message || 'Si è verificato un errore durante la modifica del turno.')
+    } finally {
+      setEditShiftLoading(false)
+    }
+  }
+
+  const handleDeleteShift = async () => {
+    setEditShiftLoading(true)
+    setEditShiftError(null)
+    try {
+      const { error: apiError } = await api.deleteClockedShift(editingShift.id)
+      if (apiError) throw apiError
+
+      setEditingShift(null)
+      setShowDeleteConfirm(false)
+      setSelectedShiftIds([])
+      await refreshEmployeeData(selectedEmployee.id)
+    } catch (err) {
+      console.error(err)
+      setEditShiftError(err.message || 'Errore durante l\'eliminazione del turno.')
+    } finally {
+      setEditShiftLoading(false)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -1280,66 +1398,82 @@ export default function AdminPanel() {
                             }
                           }
 
-                          return (
-                            <div
-                              key={shift.id}
-                              className={`bg-slate-900 border transition-all p-3 rounded-2xl flex flex-col gap-2.5 ${
-                                isPagato 
-                                  ? 'opacity-55 border-slate-900/80' 
-                                  : 'border-slate-800/80 hover:border-slate-700/60'
-                              }`}
-                            >
-                              {/* Header Turno */}
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-2.5 min-w-0">
-                                  {!isPagato && isCompleted && (
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        if (isChecked) {
-                                          setSelectedShiftIds(prev => prev.filter(id => id !== shift.id))
-                                        } else {
-                                          setSelectedShiftIds(prev => [...prev, shift.id])
-                                        }
-                                      }}
-                                      className="mt-1 flex-shrink-0 w-4.5 h-4.5 bg-slate-950 border border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 rounded cursor-pointer"
-                                    />
-                                  )}
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="text-[11px] font-bold text-slate-200 truncate capitalize">
-                                      {formatShiftDateLocal(shift.start_time)}
-                                    </span>
-                                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
-                                      {formatShiftTimeLocal(shift.start_time)}
-                                      {isCompleted ? ` - ${formatShiftTimeLocal(shift.end_time)}` : ' (In corso)'}
-                                    </span>
-                                  </div>
-                                </div>
+                           const totalMinutes = Math.round(durationHrs * 60)
+                           const hours = Math.floor(totalMinutes / 60)
+                           const minutes = totalMinutes % 60
+                           const pad = (num) => String(num).padStart(2, '0')
+                           const durationStr = `${pad(hours)}:${pad(minutes)}`
 
-                                {isPagato ? (
-                                  <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-slate-800 text-slate-500 border border-slate-700/30">
-                                    Pagato
-                                  </span>
-                                ) : (
-                                  <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                    Da Pagare
-                                  </span>
-                                )}
-                              </div>
+                           return (
+                             <div
+                               key={shift.id}
+                               className={`bg-slate-900 border transition-all p-3 rounded-2xl flex flex-col gap-2.5 ${
+                                 isPagato 
+                                   ? 'opacity-55 border-slate-900/80' 
+                                   : 'border-slate-800/80 hover:border-slate-700/60'
+                               }`}
+                             >
+                               {/* Header Turno */}
+                               <div className="flex items-start justify-between gap-3">
+                                 <div className="flex items-start gap-2.5 min-w-0">
+                                   {!isPagato && isCompleted && (
+                                     <input
+                                       type="checkbox"
+                                       checked={isChecked}
+                                       onChange={() => {
+                                         if (isChecked) {
+                                           setSelectedShiftIds(prev => prev.filter(id => id !== shift.id))
+                                         } else {
+                                           setSelectedShiftIds(prev => [...prev, shift.id])
+                                         }
+                                       }}
+                                       className="mt-1 flex-shrink-0 w-4.5 h-4.5 bg-slate-950 border border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 rounded cursor-pointer"
+                                     />
+                                   )}
+                                   <div className="flex flex-col min-w-0">
+                                     <span className="text-[11px] font-bold text-slate-200 truncate capitalize">
+                                       {formatShiftDateLocal(shift.start_time)}
+                                     </span>
+                                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                       {formatShiftTimeLocal(shift.start_time)}
+                                       {isCompleted ? ` - ${formatShiftTimeLocal(shift.end_time)}` : ' (In corso)'}
+                                     </span>
+                                   </div>
+                                 </div>
 
-                              {/* Dati Ore & Costo */}
-                              <div className="flex justify-between border-t border-slate-850 pt-2 text-[10px] font-semibold">
-                                <span className="text-slate-500 font-mono">
-                                  {isCompleted ? `${durationHrs.toFixed(2)} ore (${Number(shift.paga_oraria_storica).toFixed(2)}/h)` : 'In corso'}
-                                </span>
-                                <span className="text-slate-300 font-mono">
-                                  {isCompleted ? `€${importoShift.toFixed(2)}` : '-'}
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        })}
+                                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                                   <button
+                                     onClick={() => handleOpenEditShiftModal(shift)}
+                                     className="p-1 hover:bg-slate-800 rounded-lg text-slate-450 hover:text-slate-200 transition-colors flex items-center justify-center border border-slate-800/40 hover:border-slate-700/60"
+                                     title="Modifica turno (Admin)"
+                                   >
+                                     <Pencil className="w-3 h-3" />
+                                   </button>
+
+                                   {isPagato ? (
+                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-slate-800 text-slate-500 border border-slate-700/30">
+                                       Pagato
+                                     </span>
+                                   ) : (
+                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                       Da Pagare
+                                     </span>
+                                   )}
+                                 </div>
+                               </div>
+
+                               {/* Dati Ore & Costo */}
+                               <div className="flex justify-between border-t border-slate-850 pt-2 text-[10px] font-semibold">
+                                 <span className="text-slate-500 font-mono">
+                                   {isCompleted ? `${durationStr} (${Number(shift.paga_oraria_storica).toFixed(2)}/h)` : 'In corso'}
+                                 </span>
+                                 <span className="text-slate-300 font-mono">
+                                   {isCompleted ? `€${importoShift.toFixed(2)}` : '-'}
+                                 </span>
+                               </div>
+                             </div>
+                           )
+                         })}
                       </div>
                     )}
                   </div>
@@ -1450,6 +1584,146 @@ export default function AdminPanel() {
                 {empLoading ? 'Connessione...' : 'Conferma'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* MODALE DI MODIFICA TURNO (ADMIN) */}
+      {editingShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in text-left">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl w-full max-w-sm flex flex-col gap-4 shadow-2xl animate-slide-up relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setEditingShift(null)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 text-indigo-400">
+              <div className="p-2 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                <Pencil className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-100 font-bold">Modifica Turno (Admin)</h3>
+            </div>
+
+            {editingShift.pagato && (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-2xl text-[10px] font-medium leading-relaxed text-left">
+                ⚠️ <strong>Attenzione:</strong> Questo turno è già stato pagato. Modificando i dettagli, i calcoli storici e i pagamenti già completati per questo dipendente risulteranno disallineati rispetto ai dettagli nel database.
+              </div>
+            )}
+
+            {editShiftError && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-3 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                <span>{editShiftError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditShiftSubmit} className="flex flex-col gap-4 text-left">
+              {/* Inizio */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Inizio Turno</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                    required
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    required
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Fine */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Fine Turno</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
+                  />
+                </div>
+                <span className="text-[9px] text-slate-500 leading-none">Lascia vuoto se il turno è ancora in corso.</span>
+              </div>
+
+              {/* Paga Oraria */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Paga Oraria (€/ora)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editHourlyRate}
+                  onChange={(e) => setEditHourlyRate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
+                />
+              </div>
+
+              {showDeleteConfirm ? (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-2xl flex flex-col gap-2.5 mt-2 animate-fade-in text-left">
+                  <span className="text-[10px] font-bold text-rose-300">
+                    Sei sicuro di voler eliminare definitivamente questo turno per il dipendente?
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 transition-colors"
+                    >
+                      No, annulla
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteShift}
+                      disabled={editShiftLoading}
+                      className="flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-[10px] font-extrabold shadow-md shadow-rose-600/15 transition-colors"
+                    >
+                      {editShiftLoading ? 'Eliminazione...' : 'Sì, elimina'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 mt-2 text-left">
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditingShift(null)}
+                      className="flex-1 py-2.5 border border-slate-700 bg-slate-800/20 hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-300 transition-colors"
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editShiftLoading}
+                      className="flex-1 py-2.5 bg-gradient-to-tr from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/15 disabled:opacity-50 transition-all duration-200"
+                    >
+                      {editShiftLoading ? 'Salvataggio...' : 'Conferma'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold transition-all duration-200"
+                  >
+                    Elimina Turno
+                  </button>
+                </div>
+              )}
+            </form>
           </div>
         </div>
       )}
