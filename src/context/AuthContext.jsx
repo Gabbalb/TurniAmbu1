@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext({
@@ -16,6 +16,9 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  const isLoggingIn = useRef(false)
+  const profileSubscriptionRef = useRef(null)
 
   // Mappa username a email interna
   const getEmailFromUsername = (username) => {
@@ -39,10 +42,64 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Imposta la sottoscrizione real-time per il profilo dell'utente
+  const setupProfileSubscription = (userId) => {
+    if (profileSubscriptionRef.current) {
+      supabase.removeChannel(profileSubscriptionRef.current)
+    }
+
+    const sub = supabase
+      .channel(`profile-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`
+        },
+        (payload) => {
+          const updatedProfile = payload.new
+          
+          // Se l'utente è un admin, controlla se il session_token è stato modificato da un altro accesso
+          if (updatedProfile.ruolo === 'admin' || updatedProfile.stato === 'admin') {
+            const localToken = localStorage.getItem('admin_session_token')
+            if (updatedProfile.session_token && updatedProfile.session_token !== localToken) {
+              supabase.auth.signOut().then(() => {
+                setUser(null)
+                setProfile(null)
+                localStorage.removeItem('admin_session_token')
+                sessionStorage.removeItem('admin_notified_session')
+                setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+              })
+              return
+            }
+          }
+
+          setProfile(updatedProfile)
+          
+          // Se l'admin disattiva l'utente, effettua il logout forzato
+          if (!updatedProfile.attivo) {
+            supabase.auth.signOut().then(() => {
+              setUser(null)
+              setProfile(null)
+              localStorage.removeItem('admin_session_token')
+              sessionStorage.removeItem('admin_notified_session')
+              setError("Il tuo account è stato disattivato dall'amministratore.")
+            })
+          }
+        }
+      )
+      .subscribe()
+
+    profileSubscriptionRef.current = sub
+  }
+
   // Effettua il login
   const login = async (username, password) => {
     setError(null)
     setLoading(true)
+    isLoggingIn.current = true
     try {
       const email = getEmailFromUsername(username)
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -74,12 +131,23 @@ export const AuthProvider = ({ children }) => {
         const newToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
         localStorage.setItem('admin_session_token', newToken)
         
-        await supabase
+        const { error: updateError } = await supabase
           .from('profiles')
           .update({ session_token: newToken })
           .eq('id', userProfile.id)
         
+        if (updateError) {
+          throw new Error("Impossibile salvare la sessione nel database: " + updateError.message)
+        }
+        
         userProfile.session_token = newToken
+        setupProfileSubscription(userProfile.id)
+      } else {
+        // Se non è admin, assicuriamoci di pulire eventuali vecchi canali
+        if (profileSubscriptionRef.current) {
+          supabase.removeChannel(profileSubscriptionRef.current)
+          profileSubscriptionRef.current = null
+        }
       }
 
       setUser(data.user)
@@ -87,8 +155,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true }
     } catch (err) {
       setError(err.message)
-      setLoading(false)
       return { success: false, error: err.message }
+    } finally {
+      isLoggingIn.current = false
+      setLoading(false)
     }
   }
 
@@ -98,9 +168,14 @@ export const AuthProvider = ({ children }) => {
     setLoading(true)
     try {
       localStorage.removeItem('admin_session_token')
+      sessionStorage.removeItem('admin_notified_session')
       await supabase.auth.signOut()
       setUser(null)
       setProfile(null)
+      if (profileSubscriptionRef.current) {
+        supabase.removeChannel(profileSubscriptionRef.current)
+        profileSubscriptionRef.current = null
+      }
     } catch (err) {
       console.error('Errore durante il logout:', err.message)
     } finally {
@@ -109,160 +184,109 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    let profileSubscription = null
+    let initialized = false
 
-    // Controlla la sessione all'avvio
-    const initializeAuth = async () => {
+    const handleAuth = async (session) => {
+      if (!session?.user) {
+        setUser(null)
+        setProfile(null)
+        localStorage.removeItem('admin_session_token')
+        sessionStorage.removeItem('admin_notified_session')
+        if (profileSubscriptionRef.current) {
+          supabase.removeChannel(profileSubscriptionRef.current)
+          profileSubscriptionRef.current = null
+        }
+        setLoading(false)
+        return
+      }
+
+      // Se stiamo effettuando l'accesso (login attivo), non eseguiamo i controlli in questo listener
+      if (isLoggingIn.current) {
+        return
+      }
+
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user) {
-          const userProfile = await fetchProfile(session.user.id)
-          
-          if (userProfile && userProfile.attivo) {
-            // Se l'utente è un admin, controlla il session_token
-            if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
-              let localToken = localStorage.getItem('admin_session_token')
-              if (!localToken) {
-                // Se non c'è, lo generiamo e lo impostiamo nel DB
-                localToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
-                localStorage.setItem('admin_session_token', localToken)
-                
-                await supabase
-                  .from('profiles')
-                  .update({ session_token: localToken })
-                  .eq('id', userProfile.id)
-                
-                userProfile.session_token = localToken
-              } else {
-                // Se c'è ma non corrisponde a quello del DB, scollega (accesso da altro dispositivo)
-                if (userProfile.session_token && userProfile.session_token !== localToken) {
-                  await supabase.auth.signOut()
-                  setUser(null)
-                  setProfile(null)
-                  setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
-                  setLoading(false)
-                  return
-                }
-              }
+        const userProfile = await fetchProfile(session.user.id)
+        if (userProfile && userProfile.attivo) {
+          // Se l'utente è un admin, controlla il session_token
+          if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
+            let localToken = localStorage.getItem('admin_session_token')
+            if (!localToken && !userProfile.session_token) {
+              localToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
+              localStorage.setItem('admin_session_token', localToken)
+              
+              await supabase
+                .from('profiles')
+                .update({ session_token: localToken })
+                .eq('id', userProfile.id)
+              
+              userProfile.session_token = localToken
+            } else if (userProfile.session_token !== localToken) {
+              // Mismatch! Forza logout (accesso da altro dispositivo)
+              await supabase.auth.signOut()
+              setUser(null)
+              setProfile(null)
+              localStorage.removeItem('admin_session_token')
+              sessionStorage.removeItem('admin_notified_session')
+              setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+              setLoading(false)
+              return
             }
-
-            setUser(session.user)
-            setProfile(userProfile)
-            
-            // Abilita la sottoscrizione real-time per rilevare disattivazioni, cambi ruolo o sessioni concorrenti
-            profileSubscription = supabase
-              .channel(`profile-${session.user.id}`)
-              .on(
-                'postgres_changes',
-                {
-                  event: 'UPDATE',
-                  schema: 'public',
-                  table: 'profiles',
-                  filter: `id=eq.${session.user.id}`
-                },
-                (payload) => {
-                  const updatedProfile = payload.new
-                  
-                  // Se l'utente è un admin, controlla se il session_token è stato modificato da un altro accesso
-                  if (updatedProfile.ruolo === 'admin' || updatedProfile.stato === 'admin') {
-                    const localToken = localStorage.getItem('admin_session_token')
-                    if (updatedProfile.session_token && updatedProfile.session_token !== localToken) {
-                      supabase.auth.signOut().then(() => {
-                        setUser(null)
-                        setProfile(null)
-                        setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
-                      })
-                      return
-                    }
-                  }
-
-                  setProfile(updatedProfile)
-                  
-                  // Se l'admin disattiva l'utente, effettua il logout forzato
-                  if (!updatedProfile.attivo) {
-                    supabase.auth.signOut().then(() => {
-                      setUser(null)
-                      setProfile(null)
-                      setError("Il tuo account è stato disattivato dall'amministratore.")
-                    })
-                  }
-                }
-              )
-              .subscribe()
-          } else if (userProfile && !userProfile.attivo) {
-            // Se l'account è inattivo, forza il logout
-            await supabase.auth.signOut()
-            setUser(null)
-            setProfile(null)
-            setError('Questo account è stato disattivato.')
           }
+
+          setUser(session.user)
+          setProfile(userProfile)
+          setupProfileSubscription(session.user.id)
+          setError(null)
+        } else if (userProfile && !userProfile.attivo) {
+          await supabase.auth.signOut()
+          setUser(null)
+          setProfile(null)
+          localStorage.removeItem('admin_session_token')
+          sessionStorage.removeItem('admin_notified_session')
+          setError('Questo account è stato disattivato.')
         }
       } catch (err) {
-        console.error('Errore durante inizializzazione auth:', err)
+        console.error('Errore durante gestione auth:', err)
       } finally {
         setLoading(false)
       }
     }
 
-    initializeAuth()
-
     // Ascolta i cambiamenti di stato autenticazione di Supabase
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const userProfile = await fetchProfile(session.user.id)
-          if (userProfile && userProfile.attivo) {
-            // Se l'utente è un admin, controlla/imposta il token
-            if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
-              let localToken = localStorage.getItem('admin_session_token')
-              if (!localToken || event === 'SIGNED_IN') {
-                localToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
-                localStorage.setItem('admin_session_token', localToken)
-                
-                await supabase
-                  .from('profiles')
-                  .update({ session_token: localToken })
-                  .eq('id', userProfile.id)
-                
-                userProfile.session_token = localToken
-              } else {
-                if (userProfile.session_token && userProfile.session_token !== localToken) {
-                  await supabase.auth.signOut()
-                  setUser(null)
-                  setProfile(null)
-                  setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
-                  setLoading(false)
-                  return
-                }
-              }
-            }
-
-            setUser(session.user)
-            setProfile(userProfile)
-            setError(null)
-          } else if (userProfile && !userProfile.attivo) {
-            await supabase.auth.signOut()
-            setUser(null)
-            setProfile(null)
-            setError('Questo account è stato disattivato.')
-          }
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
+          initialized = true
           setUser(null)
           setProfile(null)
           localStorage.removeItem('admin_session_token')
-          if (profileSubscription) {
-            supabase.removeChannel(profileSubscription)
+          sessionStorage.removeItem('admin_notified_session')
+          if (profileSubscriptionRef.current) {
+            supabase.removeChannel(profileSubscriptionRef.current)
+            profileSubscriptionRef.current = null
           }
+          setLoading(false)
+        } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (event === 'INITIAL_SESSION' && initialized) return
+          initialized = true
+          await handleAuth(session)
         }
-        setLoading(false)
       }
     )
 
+    // Fallback getSession per garantire l'avvio della sessione
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!initialized) {
+        initialized = true
+        handleAuth(session)
+      }
+    })
+
     return () => {
       authSubscription.unsubscribe()
-      if (profileSubscription) {
-        supabase.removeChannel(profileSubscription)
+      if (profileSubscriptionRef.current) {
+        supabase.removeChannel(profileSubscriptionRef.current)
       }
     }
   }, [])
