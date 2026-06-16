@@ -166,10 +166,27 @@ CREATE POLICY "Modifica trasporti equipaggio assegnato o admin"
   USING (
     public.es_admin()
     OR EXISTS (SELECT 1 FROM public.transport_crew tc WHERE tc.transport_id = id AND tc.user_id = auth.uid())
+    OR (
+      stato = 'bozza'
+      AND (
+        creato_da = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM public.shifts s 
+          JOIN public.bookings b ON s.id = b.shift_id 
+          WHERE s.data = transports.data AND b.user_id = auth.uid()
+        )
+      )
+    )
   )
   WITH CHECK (
     public.es_admin()
     OR EXISTS (SELECT 1 FROM public.transport_crew tc WHERE tc.transport_id = id AND tc.user_id = auth.uid())
+    OR creato_da = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.shifts s 
+      JOIN public.bookings b ON s.id = b.shift_id 
+      WHERE s.data = transports.data AND b.user_id = auth.uid()
+    )
   );
 
 DROP POLICY IF EXISTS "Cancellazione trasporti solo admin" ON public.transports;

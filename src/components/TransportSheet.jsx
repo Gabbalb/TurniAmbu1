@@ -22,7 +22,7 @@ function sectionStatus(t) {
   });
   sections.push({
     key: "paziente", label: "Dati paziente",
-    complete: Boolean(t.paziente_nome) && Boolean(t.paziente_tel),
+    complete: Boolean(t.paziente_nome),
   });
   sections.push({
     key: "pagamento", label: "Pagamento",
@@ -184,21 +184,34 @@ export default function TransportSheet() {
   const [editCrew, setEditCrew] = useState(false);
   const [localDraft, setLocalDraft] = useState(null);
 
-  // Sync local draft con context quando si apre
+  // Sync local draft con il context solo all'apertura o al cambio di stato (stato/id) per evitare sovrascritture durante la digitazione
   useEffect(() => {
     if (transport) {
-      setLocalDraft(transport);
+      if (!localDraft || localDraft.id !== transport.id || localDraft.stato !== transport.stato) {
+        setLocalDraft(transport);
+      }
+    } else {
+      setLocalDraft(null);
     }
   }, [transport, openTransportId]);
 
-  // Debounce salvataggio automatico (oppure si salva esplicitamente)
-  // Per semplicità facciamo update ad ogni modifica campo (nel context c'è già try catch)
-  // Essendo un mockup avanzato, chiamiamo updateTransport direttamente on blur o con un timeout,
-  // Ma qui passiamo localDraft e salviamo
+  // Debounce per l'autosalvataggio (1 secondo di inattività dopo una digitazione)
+  useEffect(() => {
+    if (!localDraft || !transport) return;
+    
+    // Evita salvataggi se i dati correnti sono uguali a quelli salvati nel context
+    const isSame = JSON.stringify(localDraft) === JSON.stringify(transport);
+    if (isSame) return;
+
+    const timer = setTimeout(() => {
+      updateTransport(localDraft).catch(() => {});
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [localDraft, transport, updateTransport]);
+
   const patch = (fields) => {
-    const updated = { ...localDraft, ...fields };
-    setLocalDraft(updated);
-    updateTransport(updated);
+    setLocalDraft(prev => prev ? { ...prev, ...fields } : null);
   };
 
   if (!openTransportId || !localDraft) return null;
@@ -435,7 +448,7 @@ export default function TransportSheet() {
                 // Autocompilazione all'attivazione del turno
                 const ora = t.ora_servizio || new Date().toTimeString().slice(0,5);
                 const sugg = suggestCrew(ora);
-                let updates = { ora_servizio: ora };
+                let updates = { ...t, ora_servizio: ora };
                 if (sugg && !t.ce && !t.autista) {
                   updates.ce = sugg.ce;
                   updates.autista = sugg.autista;
@@ -451,15 +464,27 @@ export default function TransportSheet() {
               <button className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2" onClick={() => setConfirmPassaggio(true)}>
                 <ArrowRightLeft size={16} /> Passa
               </button>
-              <button className="flex-[2] bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => {
-                const completato = sections.every(s => s.complete);
-                if (!completato) {
-                  alert("Compila tutti i campi obbligatori (le sezioni col check verde) prima di terminare!");
-                  return;
-                }
-                if (!t.km_finali) alert("Inserisci i km finali per terminare il servizio");
-                else terminaServizio(t.id, t.km_finali);
-              }}>
+              <button 
+                className="flex-[2] bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                onClick={async () => {
+                  const completato = sections.every(s => s.complete);
+                  if (!completato) {
+                    alert("Compila tutti i campi obbligatori (le sezioni col check verde) prima di terminare!");
+                    return;
+                  }
+                  if (!t.km_finali) {
+                    alert("Inserisci i km finali per terminare il servizio");
+                    return;
+                  }
+                  try {
+                    // Salva gli ultimi km inseriti e le modifiche prima di chiudere
+                    await updateTransport(t);
+                    await terminaServizio(t.id, t.km_finali);
+                  } catch (err) {
+                    alert("Errore durante il completamento del servizio: " + err.message);
+                  }
+                }}
+              >
                 Termina servizio
               </button>
             </div>

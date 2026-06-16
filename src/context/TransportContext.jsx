@@ -190,7 +190,8 @@ export const TransportProvider = ({ children }) => {
       await fetchTransports();
     } catch (err) {
       console.error('Errore update trasporto', err);
-      alert('Errore nel salvataggio');
+      alert('Errore nel salvataggio: ' + err.message);
+      throw err;
     }
   };
 
@@ -251,12 +252,20 @@ export const TransportProvider = ({ children }) => {
     const normalize = (t) => t ? t.slice(0, 5) : "";
     const os = normalize(oraServizio);
 
+    const isTimeInInterval = (t, start, end) => {
+      if (start <= end) {
+        return t >= start && t <= end;
+      } else {
+        return t >= start || t <= end;
+      }
+    };
+
     for (const shift of tabelloneOggi) {
       const sInizio = normalize(shift.ora_inizio);
       const sFine = normalize(shift.ora_fine);
       
       // Controlla se l'ora del servizio ricade nell'orario del turno principale
-      if (os >= sInizio && os <= sFine) {
+      if (isTimeInInterval(os, sInizio, sFine)) {
         
         // Cerca chi copre questa fascia considerando anche l'orario parziale
         const ce = shift.bookings.find(b => {
@@ -264,7 +273,7 @@ export const TransportProvider = ({ children }) => {
           if (!b.is_partial) return true;
           const bInizio = normalize(b.ora_inizio_effettiva || shift.ora_inizio);
           const bFine = normalize(b.ora_fine_effettiva || shift.ora_fine);
-          return os >= bInizio && os <= bFine;
+          return isTimeInInterval(os, bInizio, bFine);
         });
         
         const autista = shift.bookings.find(b => {
@@ -272,13 +281,13 @@ export const TransportProvider = ({ children }) => {
           if (!b.is_partial) return true;
           const bInizio = normalize(b.ora_inizio_effettiva || shift.ora_inizio);
           const bFine = normalize(b.ora_fine_effettiva || shift.ora_fine);
-          return os >= bInizio && os <= bFine;
+          return isTimeInInterval(os, bInizio, bFine);
         });
         
         if (ce || autista) {
           return {
-            ce: ce?.user_id,
-            autista: autista?.user_id,
+            ce: ce?.user_id || null,
+            autista: autista?.user_id || null,
             soccorritore: null,
             mezzo: null
           };
