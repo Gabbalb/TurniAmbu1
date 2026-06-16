@@ -204,12 +204,39 @@ export const AuthProvider = ({ children }) => {
         
         const getDeviceFriendlyName = () => {
           const ua = navigator.userAgent
-          let device = "Dispositivo Sconosciuto"
-          if (/android/i.test(ua)) device = "Android"
-          else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) device = "iOS"
-          else if (/Macintosh/i.test(ua)) device = "Mac"
-          else if (/Windows/i.test(ua)) device = "Windows"
-          else if (/Linux/i.test(ua)) device = "Linux"
+          let os = "Dispositivo Sconosciuto"
+          
+          if (/android/i.test(ua)) {
+            const androidMatch = ua.match(/Android\s+([0-9\.]+)/i)
+            const androidVer = androidMatch ? `Android ${androidMatch[1]}` : "Android"
+            const modelMatch = ua.match(/Android\s+[0-9\.]+;\s+([^;)]+)/i)
+            const model = modelMatch ? modelMatch[1].split('Build/')[0].trim() : ""
+            os = model ? `${androidVer} (${model})` : androidVer
+          } else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
+            const iosMatch = ua.match(/OS\s+([0-9_]+)\s+like/i) || ua.match(/iPhone OS\s+([0-9_]+)/i)
+            const iosVer = iosMatch ? iosMatch[1].replace(/_/g, '.') : ""
+            const isIpad = /iPad/.test(ua)
+            const name = isIpad ? "iPad" : "iPhone"
+            os = iosVer ? `${isIpad ? 'iPadOS' : 'iOS'} ${iosVer} su ${name}` : `${isIpad ? 'iPadOS' : 'iOS'} su ${name}`
+          } else if (/Macintosh/i.test(ua)) {
+            const macMatch = ua.match(/Mac OS X\s+([0-9_]+)/i)
+            const macVer = macMatch ? macMatch[1].replace(/_/g, '.') : ""
+            os = macVer ? `macOS ${macVer}` : "macOS"
+          } else if (/Windows/i.test(ua)) {
+            const winMatch = ua.match(/Windows NT\s+([0-9\.]+)/i)
+            let winVer = "Windows"
+            if (winMatch) {
+              const ntVer = winMatch[1]
+              if (ntVer === "10.0") winVer = "Windows 10/11"
+              else if (ntVer === "6.3") winVer = "Windows 8.1"
+              else if (ntVer === "6.2") winVer = "Windows 8"
+              else if (ntVer === "6.1") winVer = "Windows 7"
+              else winVer = `Windows NT ${ntVer}`
+            }
+            os = winVer
+          } else if (/Linux/i.test(ua)) {
+            os = "Linux"
+          }
 
           let browser = "Browser Sconosciuto"
           if (/chrome|crios/i.test(ua) && !/edge|opr/i.test(ua)) browser = "Chrome"
@@ -218,7 +245,7 @@ export const AuthProvider = ({ children }) => {
           else if (/edge/i.test(ua)) browser = "Edge"
           else if (/opr/i.test(ua)) browser = "Opera"
 
-          return `${device} (${browser})`
+          return `${os} con browser ${browser}`
         }
 
         const notifyAccess = async () => {
