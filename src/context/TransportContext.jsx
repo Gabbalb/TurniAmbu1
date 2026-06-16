@@ -190,7 +190,6 @@ export const TransportProvider = ({ children }) => {
       await fetchTransports();
     } catch (err) {
       console.error('Errore update trasporto', err);
-      alert('Errore nel salvataggio: ' + err.message);
       throw err;
     }
   };

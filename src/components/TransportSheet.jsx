@@ -242,12 +242,13 @@ export default function TransportSheet() {
 
   // Salva IMMEDIATAMENTE (ideale per dropdown, checkbox, bottoni e selezioni istantanee)
   const saveNow = (fields) => {
-    setLocalDraft(prev => {
-      if (!prev) return null;
-      const updated = { ...prev, ...fields };
-      updateTransport(updated).catch(() => {});
-      return updated;
-    });
+    if (localDraft) {
+      const updated = { ...localDraft, ...fields };
+      setLocalDraft(updated);
+      updateTransport(updated).catch((err) => {
+        console.error("Immediate save failed:", err);
+      });
+    }
   };
 
   // Salva quando l'utente esce da un campo di input (onBlur)
@@ -339,8 +340,13 @@ export default function TransportSheet() {
                 </button>
               ) : (
                 <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
-                  const sugg = suggestCrew(t.ora_servizio);
-                  if (sugg) saveNow({ ce: sugg.ce, autista: sugg.autista });
+                  const ora = t.ora_servizio || new Date().toTimeString().slice(0,5);
+                  const sugg = suggestCrew(ora);
+                  if (sugg) {
+                    saveNow({ ce: sugg.ce, autista: sugg.autista });
+                  } else {
+                    alert("Nessun equipaggio in turno trovato per l'orario del servizio (" + ora + ")");
+                  }
                   setEditCrew(false);
                 }}>Prendi da tabellone</button>
               )}
