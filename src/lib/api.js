@@ -1125,6 +1125,61 @@ export const api = {
     return { data, error }
   },
 
+  updateClockedShift: async (shiftId, startTime, endTime, hourlyRate) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const index = shifts.findIndex(s => s.id === Number(shiftId))
+      if (index === -1) return { error: { message: 'Timbratura non trovata.' } }
+      shifts[index].start_time = startTime
+      shifts[index].end_time = endTime
+      if (hourlyRate !== undefined) {
+        shifts[index].paga_oraria_storica = Number(hourlyRate || 0)
+      }
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+      return { data: shifts[index], error: null }
+    }
+    const updateData = { start_time: startTime, end_time: endTime }
+    if (hourlyRate !== undefined) {
+      updateData.paga_oraria_storica = Number(hourlyRate || 0)
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .update(updateData)
+      .eq('id', shiftId)
+      .select()
+      .single()
+    return { data, error }
+  },
+
+  addManualClockedShift: async (userId, startTime, endTime, hourlyRate) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const newShift = {
+        id: getNextId(shifts),
+        user_id: userId,
+        start_time: startTime,
+        end_time: endTime,
+        pagato: false,
+        paga_oraria_storica: Number(hourlyRate || 0)
+      }
+      shifts.push(newShift)
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+      return { data: newShift, error: null }
+    }
+    const { data, error } = await supabase
+      .from('clocked_shifts')
+      .insert({
+        user_id: userId,
+        start_time: startTime,
+        end_time: endTime,
+        pagato: false,
+        paga_oraria_storica: Number(hourlyRate || 0)
+      })
+      .select()
+      .single()
+    return { data, error }
+  },
+
   payShifts: async (userId, shiftIds, totalToPay, actualAmountPaid) => {
     const difference = Number(actualAmountPaid) - Number(totalToPay)
     
