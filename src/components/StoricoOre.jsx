@@ -30,6 +30,7 @@ export default function StoricoOre() {
   const [editHourlyRate, setEditHourlyRate] = useState('')
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const getLocalDateString = (isoString) => {
     if (!isoString) return ''
@@ -75,6 +76,25 @@ export default function StoricoOre() {
     setEditEndTime(getLocalTimeString(shift.end_time))
     setEditHourlyRate(shift.paga_oraria_storica || 0)
     setEditError(null)
+    setShowDeleteConfirm(false)
+  }
+
+  const handleDeleteShift = async () => {
+    setEditLoading(true)
+    setEditError(null)
+    try {
+      const { error: apiError } = await api.deleteClockedShift(editingShift.id)
+      if (apiError) throw apiError
+
+      setEditingShift(null)
+      setShowDeleteConfirm(false)
+      await loadShifts()
+    } catch (err) {
+      console.error(err)
+      setEditError(err.message || 'Errore durante l\'eliminazione del turno. Potrebbe essere necessario il permesso dell\'amministratore.')
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   const handleAddSubmit = async (e) => {
@@ -190,6 +210,14 @@ export default function StoricoOre() {
     loadShifts()
   }, [profile?.id])
 
+  const formatDecimalHoursToHHMM = (decimalHours) => {
+    const totalMinutes = Math.round(decimalHours * 60)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    const pad = (num) => String(num).padStart(2, '0')
+    return `${pad(hours)}:${pad(minutes)}`
+  }
+
   // Calcoli delle statistiche
   const calculateStats = () => {
     let oreTotali = 0
@@ -212,8 +240,8 @@ export default function StoricoOre() {
     const totaleDovuto = Math.max(0, Number((importoLordoNonPagato - surplus).toFixed(2)))
 
     return {
-      oreTotali: oreTotali.toFixed(2),
-      oreNonPagate: oreNonPagate.toFixed(2),
+      oreTotali: formatDecimalHoursToHHMM(oreTotali),
+      oreNonPagate: formatDecimalHoursToHHMM(oreNonPagate),
       importoLordoNonPagato: importoLordoNonPagato.toFixed(2),
       totaleDovuto,
       surplus: surplus.toFixed(2)
@@ -241,8 +269,11 @@ export default function StoricoOre() {
   const getDurationString = (start, end) => {
     if (!end) return 'In corso'
     const diffMs = new Date(end) - new Date(start)
-    const hours = diffMs / (1000 * 60 * 60)
-    return `${hours.toFixed(2)} ore`
+    const totalMinutes = Math.round(diffMs / (1000 * 60))
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    const pad = (num) => String(num).padStart(2, '0')
+    return `${pad(hours)}:${pad(minutes)}`
   }
 
   if (loading) {
@@ -594,22 +625,56 @@ export default function StoricoOre() {
                 />
               </div>
 
-              <div className="flex gap-2.5 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingShift(null)}
-                  className="flex-1 py-2.5 border border-slate-700 bg-slate-800/20 hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-300 transition-colors"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  disabled={editLoading}
-                  className="flex-1 py-2.5 bg-gradient-to-tr from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/15 disabled:opacity-50 transition-all duration-200"
-                >
-                  {editLoading ? 'Salvataggio...' : 'Conferma'}
-                </button>
-              </div>
+              {showDeleteConfirm ? (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-2xl flex flex-col gap-2.5 mt-2 animate-fade-in">
+                  <span className="text-[10px] font-bold text-rose-300">
+                    Sei sicuro di voler eliminare definitivamente questo turno?
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 transition-colors"
+                    >
+                      No, annulla
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteShift}
+                      disabled={editLoading}
+                      className="flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-[10px] font-extrabold shadow-md shadow-rose-600/15 transition-colors"
+                    >
+                      {editLoading ? 'Eliminazione...' : 'Sì, elimina'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 mt-2">
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditingShift(null)}
+                      className="flex-1 py-2.5 border border-slate-700 bg-slate-800/20 hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-300 transition-colors"
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editLoading}
+                      className="flex-1 py-2.5 bg-gradient-to-tr from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/15 disabled:opacity-50 transition-all duration-200"
+                    >
+                      {editLoading ? 'Salvataggio...' : 'Conferma'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold transition-all duration-200"
+                  >
+                    Elimina Turno
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>

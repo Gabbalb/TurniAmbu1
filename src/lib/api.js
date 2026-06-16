@@ -1180,6 +1180,20 @@ export const api = {
     return { data, error }
   },
 
+  deleteClockedShift: async (shiftId) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const updatedShifts = shifts.filter(s => s.id !== Number(shiftId))
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(updatedShifts))
+      return { error: null }
+    }
+    const { error } = await supabase
+      .from('clocked_shifts')
+      .delete()
+      .eq('id', shiftId)
+    return { error }
+  },
+
   payShifts: async (userId, shiftIds, totalToPay, actualAmountPaid) => {
     const difference = Number(actualAmountPaid) - Number(totalToPay)
     
