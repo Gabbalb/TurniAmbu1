@@ -134,14 +134,7 @@ export default function DatiPersonali() {
             </div>
           )}
 
-          {profile?.paga_oraria && profile?.stato === 'dipendente' && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold text-slate-500">Paga Oraria</span>
-              <span className="text-sm font-semibold text-emerald-400">
-                {Number(profile.paga_oraria).toFixed(2)} €/h
-              </span>
-            </div>
-          )}
+
         </div>
       </div>
 

@@ -89,7 +89,7 @@ export default function TimbraTurno() {
     setError(null)
     setSuccessInfo(null)
     try {
-      const { data, error: apiError } = await api.startShift(profile.id, profile.paga_oraria || 0)
+      const { data, error: apiError } = await api.startShift(profile.id, 0)
       if (apiError) throw apiError
       setActiveShift(data)
     } catch (err) {
@@ -178,15 +178,7 @@ export default function TimbraTurno() {
           {formatTime(currentTime)}
         </h3>
 
-        {profile?.paga_oraria ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/50 border border-slate-700/40 rounded-full text-[10px] font-bold text-slate-300">
-            Tariffa oraria: €{Number(profile.paga_oraria).toFixed(2)} / ora
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-bold text-amber-400">
-            Nessuna tariffa oraria impostata. Contatta l'admin.
-          </span>
-        )}
+
       </div>
 
       {/* Action panel */}

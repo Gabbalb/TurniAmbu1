@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { History, Calendar, Clock, CircleDollarSign, CheckCircle, AlertCircle, Loader2, Landmark, Pencil, Plus, X } from 'lucide-react'
+import { History, Calendar, Clock, CheckCircle, AlertCircle, Loader2, Pencil, Plus, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 
@@ -17,7 +17,6 @@ export default function StoricoOre() {
   const [addStartTime, setAddStartTime] = useState('')
   const [addEndDate, setAddEndDate] = useState('')
   const [addEndTime, setAddEndTime] = useState('')
-  const [addHourlyRate, setAddHourlyRate] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState(null)
 
@@ -27,7 +26,6 @@ export default function StoricoOre() {
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
-  const [editHourlyRate, setEditHourlyRate] = useState('')
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -63,7 +61,6 @@ export default function StoricoOre() {
     setAddEndDate(format(eightHoursLater, 'yyyy-MM-dd'))
     setAddEndTime(format(eightHoursLater, 'HH:mm'))
     
-    setAddHourlyRate(profile?.paga_oraria || 0)
     setAddError(null)
     setIsAddModalOpen(true)
   }
@@ -74,7 +71,6 @@ export default function StoricoOre() {
     setEditStartTime(getLocalTimeString(shift.start_time))
     setEditEndDate(getLocalDateString(shift.end_time))
     setEditEndTime(getLocalTimeString(shift.end_time))
-    setEditHourlyRate(shift.paga_oraria_storica || 0)
     setEditError(null)
     setShowDeleteConfirm(false)
   }
@@ -127,7 +123,7 @@ export default function StoricoOre() {
         profile.id,
         start.toISOString(),
         end ? end.toISOString() : null,
-        addHourlyRate
+        0
       )
 
       if (apiError) throw apiError
@@ -172,7 +168,7 @@ export default function StoricoOre() {
         editingShift.id,
         start.toISOString(),
         end ? end.toISOString() : null,
-        editHourlyRate
+        0
       )
 
       if (apiError) throw apiError
@@ -221,30 +217,28 @@ export default function StoricoOre() {
   // Calcoli delle statistiche
   const calculateStats = () => {
     let oreTotali = 0
-    let oreNonPagate = 0
-    let importoLordoNonPagato = 0
+    let turniTotali = 0
+    let turniConvalidati = 0
+    let turniDaConvalidare = 0
 
     shifts.forEach(s => {
       if (s.end_time) {
         const durationHours = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
         oreTotali += durationHours
-        if (!s.pagato) {
-          oreNonPagate += durationHours
-          importoLordoNonPagato += durationHours * Number(s.paga_oraria_storica || 0)
+        turniTotali += 1
+        if (s.pagato) {
+          turniConvalidati += 1
+        } else {
+          turniDaConvalidare += 1
         }
       }
     })
 
-    const surplus = Number(profile?.credito_surplus || 0)
-    // Totale dovuto all'utente al netto del surplus
-    const totaleDovuto = Math.max(0, Number((importoLordoNonPagato - surplus).toFixed(2)))
-
     return {
       oreTotali: formatDecimalHoursToHHMM(oreTotali),
-      oreNonPagate: formatDecimalHoursToHHMM(oreNonPagate),
-      importoLordoNonPagato: importoLordoNonPagato.toFixed(2),
-      totaleDovuto,
-      surplus: surplus.toFixed(2)
+      turniTotali,
+      turniConvalidati,
+      turniDaConvalidare
     }
   }
 
@@ -322,29 +316,10 @@ export default function StoricoOre() {
         </div>
 
         <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-3xl flex flex-col gap-1 shadow-md">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Da Pagare</span>
-          <span className="text-2xl font-black text-indigo-400 font-mono">€{stats.totaleDovuto}</span>
-          <span className="text-[9px] text-slate-500 leading-none">Al netto di acconti/surplus</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Stato Turni</span>
+          <span className="text-2xl font-black text-indigo-400 font-mono">{stats.turniConvalidati} / {stats.turniTotali}</span>
+          <span className="text-[9px] text-slate-500 leading-none">{stats.turniDaConvalidare} da convalidare</span>
         </div>
-
-        {Number(stats.surplus) !== 0 && (
-          <div className="col-span-2 bg-indigo-950/20 border border-indigo-900/30 p-3.5 rounded-3xl flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 flex-shrink-0">
-              <Landmark className="w-4 h-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
-                {Number(stats.surplus) > 0 ? 'Surplus Registrato' : 'Debito Residuo'}
-              </span>
-              <span className="text-xs font-semibold text-slate-200">
-                {Number(stats.surplus) > 0 
-                  ? `Hai un credito di €${stats.surplus} (già anticipato dall'amministratore)`
-                  : `Mancano €${Math.abs(Number(stats.surplus)).toFixed(2)} dal pagamento precedente`
-                }
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Lista Turni */}
@@ -361,11 +336,6 @@ export default function StoricoOre() {
             {shifts.map((shift) => {
               const isCompleted = !!shift.end_time
               const isPagato = shift.pagato
-              const durationHrs = isCompleted 
-                ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
-                : 0
-              const importoShift = durationHrs * Number(shift.paga_oraria_storica || 0)
-
               return (
                 <div
                   key={shift.id}
@@ -399,35 +369,25 @@ export default function StoricoOre() {
                       </button>
 
                       {isPagato ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-800/60 text-slate-400 border border-slate-700/35">
-                          <CheckCircle className="w-3 h-3 text-slate-400" />
-                          Pagato
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle className="w-3 h-3 text-emerald-450" />
+                          Convalidato
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                          <CircleDollarSign className="w-3 h-3 text-indigo-400 animate-pulse" />
-                          Da Pagare
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <AlertCircle className="w-3 h-3 text-amber-400 animate-pulse" />
+                          Da convalidare
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Dettagli della durata e importo */}
+                  {/* Dettagli della durata */}
                   <div className="flex items-center justify-between border-t border-slate-800/50 pt-2.5 mt-0.5">
                     <div className="flex flex-col">
                       <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Durata</span>
                       <span className="text-xs font-semibold text-slate-300 font-mono">
                         {getDurationString(shift.start_time, shift.end_time)}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-end">
-                      <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Guadagno</span>
-                      <span className="text-xs font-bold text-slate-200 font-mono">
-                        {isCompleted 
-                          ? `€${importoShift.toFixed(2)} (${Number(shift.paga_oraria_storica).toFixed(2)}/h)` 
-                          : '-'
-                        }
                       </span>
                     </div>
                   </div>
@@ -505,18 +465,7 @@ export default function StoricoOre() {
                 <span className="text-[9px] text-slate-500 leading-none">Lascia vuoto se il turno è ancora in corso.</span>
               </div>
 
-              {/* Paga Oraria */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-400">Paga Oraria (€/ora)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={addHourlyRate}
-                  onChange={(e) => setAddHourlyRate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
-                />
-              </div>
+
 
               <div className="flex gap-2.5 mt-2">
                 <button
@@ -559,7 +508,7 @@ export default function StoricoOre() {
 
             {editingShift.pagato && (
               <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-2xl text-[10px] font-medium leading-relaxed">
-                ⚠️ <strong>Attenzione:</strong> Questo turno è già stato pagato. Modificando data/ora, i conteggi storici e i pagamenti già effettuati potrebbero risultare disallineati rispetto ai dettagli nel database.
+                ⚠️ <strong>Attenzione:</strong> Questo turno è già stato convalidato. Modificando data/ora, i conteggi storici potrebbero risultare disallineati rispetto ai dettagli nel database.
               </div>
             )}
 
@@ -612,18 +561,7 @@ export default function StoricoOre() {
                 <span className="text-[9px] text-slate-500 leading-none">Lascia vuoto se il turno è ancora in corso.</span>
               </div>
 
-              {/* Paga Oraria */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-400">Paga Oraria (€/ora)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editHourlyRate}
-                  onChange={(e) => setEditHourlyRate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
-                />
-              </div>
+
 
               {showDeleteConfirm ? (
                 <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-2xl flex flex-col gap-2.5 mt-2 animate-fade-in">

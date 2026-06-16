@@ -156,40 +156,36 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
           </button>
 
           {/* Timbra Turno */}
-          {(profile?.stato === 'dipendente' || profile?.stato === 'admin') && (
-            <button
-              onClick={() => {
-                setView('clock-shift')
-                setIsSidebarOpen(false)
-              }}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                currentView === 'clock-shift'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
-              }`}
-            >
-              <Clock className="w-4.5 h-4.5" />
-              <span>Timbra Turno</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setView('clock-shift')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'clock-shift'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <Clock className="w-4.5 h-4.5" />
+            <span>Timbra Turno</span>
+          </button>
 
           {/* Storico Ore */}
-          {(profile?.stato === 'dipendente' || profile?.stato === 'admin') && (
-            <button
-              onClick={() => {
-                setView('hours-history')
-                setIsSidebarOpen(false)
-              }}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                currentView === 'hours-history'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
-              }`}
-            >
-              <History className="w-4.5 h-4.5" />
-              <span>Storico Ore</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setView('hours-history')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'hours-history'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <History className="w-4.5 h-4.5" />
+            <span>Storico Ore</span>
+          </button>
 
           {/* Sezione Amministrazione (Riquadro) */}
           {profile?.ruolo === 'admin' && (
@@ -249,7 +245,7 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                   <span>Gestione Equipaggi</span>
                 </button>
 
-                {/* Gestione Dipendenti */}
+                {/* Gestione Dipendenti (Convalida Turni) */}
                 <button
                   onClick={() => {
                     setView('admin-dipendenti')
@@ -262,7 +258,7 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                   }`}
                 >
                   <Users className="w-4 h-4 flex-shrink-0" />
-                  <span>Gestione Dipendenti</span>
+                  <span>Convalida Turni</span>
                 </button>
               </div>
             </div>

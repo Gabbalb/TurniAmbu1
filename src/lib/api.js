@@ -1278,7 +1278,7 @@ export const api = {
       const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
       const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
 
-      const employees = profiles.filter(p => p.stato === 'dipendente')
+      const employees = profiles
 
       const result = employees.map(emp => {
         const empShifts = shifts.filter(s => s.user_id === emp.id)
@@ -1291,7 +1291,6 @@ export const api = {
         })
 
         let unpaidHours = 0
-        let unpaidCost = 0
         let totalHours = 0
 
         empShifts.forEach(s => {
@@ -1300,21 +1299,17 @@ export const api = {
             totalHours += durationHrs
             if (!s.pagato) {
               unpaidHours += durationHrs
-              unpaidCost += durationHrs * Number(s.paga_oraria_storica || emp.paga_oraria || 0)
             }
           }
         })
-
-        const surplus = Number(emp.credito_surplus || 0)
-        const pendingPay = Number((unpaidCost - surplus).toFixed(2))
 
         return {
           ...emp,
           shifts: empShifts,
           totalHours: Number(totalHours.toFixed(2)),
           unpaidHours: Number(unpaidHours.toFixed(2)),
-          pendingPay,
-          credito_surplus: surplus
+          pendingPay: 0,
+          credito_surplus: 0
         }
       })
 
@@ -1325,7 +1320,6 @@ export const api = {
       const { data: profiles, error: pError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('stato', 'dipendente')
         .order('username', { ascending: true })
 
       if (pError) throw pError
@@ -1347,7 +1341,6 @@ export const api = {
         })
 
         let unpaidHours = 0
-        let unpaidCost = 0
         let totalHours = 0
 
         empShifts.forEach(s => {
@@ -1356,21 +1349,17 @@ export const api = {
             totalHours += durationHrs
             if (!s.pagato) {
               unpaidHours += durationHrs
-              unpaidCost += durationHrs * Number(s.paga_oraria_storica || emp.paga_oraria || 0)
             }
           }
         })
-
-        const surplus = Number(emp.credito_surplus || 0)
-        const pendingPay = Number((unpaidCost - surplus).toFixed(2))
 
         return {
           ...emp,
           shifts: empShifts,
           totalHours: Number(totalHours.toFixed(2)),
           unpaidHours: Number(unpaidHours.toFixed(2)),
-          pendingPay,
-          credito_surplus: surplus
+          pendingPay: 0,
+          credito_surplus: 0
         }
       })
 

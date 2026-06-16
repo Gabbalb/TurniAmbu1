@@ -55,8 +55,6 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [selectedShiftIds, setSelectedShiftIds] = useState([])
-  const [paymentAmount, setPaymentAmount] = useState('')
-  const [calculatedPayment, setCalculatedPayment] = useState(0)
   const [empLoading, setEmpLoading] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
   const [newCrewName, setNewCrewName] = useState('')
@@ -67,7 +65,6 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
-  const [editHourlyRate, setEditHourlyRate] = useState('')
   const [editShiftLoading, setEditShiftLoading] = useState(false)
   const [editShiftError, setEditShiftError] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -109,7 +106,6 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
     setEditStartTime(getLocalTimeString(shift.start_time))
     setEditEndDate(getLocalDateString(shift.end_time))
     setEditEndTime(getLocalTimeString(shift.end_time))
-    setEditHourlyRate(shift.paga_oraria_storica || 0)
     setEditShiftError(null)
     setShowDeleteConfirm(false)
   }
@@ -144,7 +140,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
         editingShift.id,
         start.toISOString(),
         end ? end.toISOString() : null,
-        editHourlyRate
+        0
       )
 
       if (apiError) throw apiError
@@ -206,42 +202,16 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
     }
   }
 
-  // Sincronizza il calcolo dei pagamenti
-  useEffect(() => {
-    if (selectedEmployee) {
-      let totalCheckedCost = 0
-      selectedEmployee.shifts.forEach(s => {
-        if (selectedShiftIds.includes(s.id)) {
-          const duration = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
-          totalCheckedCost += duration * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
-        }
-      })
-      const surplus = Number(selectedEmployee.credito_surplus || 0)
-      const due = Number((totalCheckedCost - surplus).toFixed(2))
-      setCalculatedPayment(due)
-      setPaymentAmount(String(due >= 0 ? due : 0))
-    }
-  }, [selectedShiftIds, selectedEmployee])
-
   const handleConfirmPayment = async () => {
     if (!selectedEmployee || selectedShiftIds.length === 0) return
     
-    // Calcola il costo totale dei turni selezionati
-    let totalCost = 0
-    selectedEmployee.shifts.forEach(s => {
-      if (selectedShiftIds.includes(s.id)) {
-        const duration = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
-        totalCost += duration * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
-      }
-    })
-
     setEmpLoading(true)
     try {
       const { error: apiError } = await api.payShifts(
         selectedEmployee.id,
         selectedShiftIds,
-        totalCost,
-        Number(paymentAmount)
+        0,
+        0
       )
       
       if (apiError) throw apiError
@@ -250,7 +220,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
       const { data: emps } = await api.fetchEmployeesWithPayments()
       setEmployees(emps || [])
       
-      // Trova l'impiegato aggiornato e riselezionalo per aggiornare la vista di dettaglio
+      // Trova l'utente aggiornato e riselezionalo per aggiornare la vista di dettaglio
       const updatedEmp = emps.find(e => e.id === selectedEmployee.id)
       setSelectedEmployee(updatedEmp || null)
       
@@ -259,11 +229,11 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
       setPaymentModalOpen(false)
       
       // Mostra messaggio di successo
-      setUserActionSuccess('Pagamento registrato con successo!')
+      setUserActionSuccess('Convalida registrata con successo!')
       setTimeout(() => setUserActionSuccess(null), 5000)
     } catch (err) {
       console.error(err)
-      setUserActionError('Errore durante la registrazione del pagamento.')
+      setUserActionError('Errore durante la convalida dei turni.')
       setTimeout(() => setUserActionError(null), 5000)
     } finally {
       setEmpLoading(false)
@@ -523,7 +493,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                   : activeTab === 'equipaggi' 
                     ? 'Gestione Equipaggi' 
                     : activeTab === 'dipendenti' 
-                      ? 'Gestione Dipendenti' 
+                      ? 'Convalida Turni' 
                       : 'Area Amministrazione'}
           </span>
         </div>
@@ -647,19 +617,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
               />
             </div>
 
-            {editStato === 'dipendente' && (
-              <div className="flex flex-col gap-1 col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Paga Oraria (facoltativo)"
-                  value={editPagaOraria}
-                  onChange={(e) => setEditPagaOraria(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                />
-              </div>
-            )}
+
 
             <div className="flex flex-col gap-1 col-span-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stato Account</label>
@@ -883,19 +841,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                       />
                     </div>
 
-                    {newStato === 'dipendente' && (
-                      <div className="flex flex-col gap-1 col-span-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paga Oraria (€/h)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Paga Oraria (facoltativo)"
-                          value={newPagaOraria}
-                          onChange={(e) => setNewPagaOraria(e.target.value)}
-                          className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
-                        />
-                      </div>
-                    )}
+
                   </div>
 
                   <button
@@ -953,11 +899,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                         }`}>
                           {prof.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
                         </span>
-                        {prof.paga_oraria && prof.stato === 'dipendente' && (
-                          <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold border border-emerald-500/20">
-                            {Number(prof.paga_oraria).toFixed(2)} €/h
-                          </span>
-                        )}
+
                       </div>
 
                       {/* Dettagli anagrafici abbreviati */}
@@ -1122,7 +1064,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                     <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                     <input
                       type="text"
-                      placeholder="Cerca dipendente..."
+                      placeholder="Cerca utente..."
                       value={empSearch}
                       onChange={(e) => setEmpSearch(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-600"
@@ -1135,7 +1077,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                   }).length === 0 ? (
                     <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center flex flex-col items-center gap-2">
                       <Users className="w-8 h-8 text-slate-600" />
-                      <span className="text-xs text-slate-400">Nessun dipendente trovato.</span>
+                      <span className="text-xs text-slate-400">Nessun utente trovato.</span>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2.5">
@@ -1162,25 +1104,26 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                                 <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
                                   emp.stato === 'admin' 
                                     ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : emp.stato === 'volontario'
+                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                                 }`}>
-                                  {emp.stato === 'admin' ? 'Admin' : 'Dipendente'}
+                                  {emp.stato === 'admin' ? 'Admin' : emp.stato === 'volontario' ? 'Volontario' : 'Dipendente'}
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold mt-0.5">
-                                <span>Paga: €{Number(emp.paga_oraria || 0).toFixed(2)}/h</span>
                                 {unpaidCount > 0 ? (
-                                  <span className="text-indigo-400">{unpaidCount} turni non pagati ({emp.unpaidHours}h)</span>
+                                  <span className="text-amber-400">{unpaidCount} turni da convalidare ({emp.unpaidHours}h)</span>
                                 ) : (
-                                  <span className="text-slate-500">Tutti i turni pagati</span>
+                                  <span className="text-emerald-450">Tutti i turni convalidati</span>
                                 )}
                               </div>
                             </div>
 
                             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Da Pagare</span>
-                              <span className={`text-base font-black font-mono ${emp.pendingPay > 0 ? 'text-indigo-400' : 'text-slate-400'}`}>
-                                €{emp.pendingPay}
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore Totali</span>
+                              <span className="text-base font-black font-mono text-slate-300">
+                                {emp.totalHours}h
                               </span>
                             </div>
                           </button>
@@ -1204,14 +1147,16 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
                         selectedEmployee.stato === 'admin' 
                           ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          : selectedEmployee.stato === 'volontario'
+                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                       }`}>
-                        {selectedEmployee.stato === 'admin' ? 'Admin' : 'Dipendente'}
+                        {selectedEmployee.stato === 'admin' ? 'Admin' : selectedEmployee.stato === 'volontario' ? 'Volontario' : 'Dipendente'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Info Dipendente */}
+                  {/* Info Utente */}
                   <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-3xl flex flex-col gap-3">
                     <div className="flex flex-col">
                       <h3 className="text-base font-bold text-slate-100 leading-tight">
@@ -1222,22 +1167,27 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                     
                     <div className="grid grid-cols-2 gap-3 mt-1.5">
                       <div className="bg-slate-950/60 border border-slate-850 p-2.5 rounded-2xl flex flex-col gap-0.5">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Tariffa Oraria</span>
-                        <span className="text-sm font-extrabold text-slate-200">€{Number(selectedEmployee.paga_oraria || 0).toFixed(2)}/h</span>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Ore Totali</span>
+                        <span className="text-sm font-extrabold text-slate-200">{selectedEmployee.totalHours}h</span>
                       </div>
                       <div className="bg-slate-950/60 border border-slate-850 p-2.5 rounded-2xl flex flex-col gap-0.5">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Surplus / Credito</span>
-                        <span className="text-sm font-extrabold text-emerald-400">€{Number(selectedEmployee.credito_surplus || 0).toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Da Convalidare</span>
+                        <span className="text-sm font-extrabold text-indigo-400">{selectedEmployee.unpaidHours}h</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Riepilogo Calcolo Pagamento */}
+                  {/* Convalida dei Turni */}
                   <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-slate-800/80 p-5 rounded-3xl flex flex-col gap-4 shadow-lg">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Totale da pagare (selezionato)</span>
-                        <span className="text-2xl font-black font-mono text-indigo-400 truncate">€{Math.max(0, calculatedPayment).toFixed(2)}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Ore selezionate per convalida</span>
+                        <span className="text-2xl font-black font-mono text-indigo-400 truncate">
+                          {selectedEmployee.shifts
+                            .filter(s => selectedShiftIds.includes(s.id))
+                            .reduce((acc, s) => acc + (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60), 0)
+                            .toFixed(2)}h
+                        </span>
                       </div>
 
                       <button
@@ -1245,7 +1195,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                         disabled={selectedShiftIds.length === 0}
                         className="px-4 py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/15 transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer whitespace-nowrap flex-shrink-0"
                       >
-                        Paga Rimanenti
+                        Convalida Selezionati
                       </button>
                     </div>
 
@@ -1271,14 +1221,13 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                       </div>
                     )}
                   </div>
-
-                  {/* Lista Turni Timbrati del Dipendente */}
+                             {/* Lista Turni Timbrati dell'Utente */}
                   <div className="flex flex-col gap-2.5 mt-2">
                     <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider px-1">Tutti i turni</span>
 
                     {selectedEmployee.shifts.length === 0 ? (
                       <div className="bg-slate-900/40 border border-slate-850 p-6 rounded-2xl text-center text-xs text-slate-500">
-                        Nessun turno timbrato registrato per questo dipendente.
+                        Nessun turno timbrato registrato per questo utente.
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2.5">
@@ -1288,7 +1237,6 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                           const durationHrs = isCompleted 
                             ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
                             : 0
-                          const importoShift = durationHrs * Number(shift.paga_oraria_storica || 0)
                           const isChecked = selectedShiftIds.includes(shift.id)
 
                           const formatShiftDateLocal = (dateStr) => {
@@ -1360,24 +1308,24 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                                    </button>
 
                                    {isPagato ? (
-                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-slate-800 text-slate-500 border border-slate-700/30">
-                                       Pagato
+                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                       Convalidato
                                      </span>
                                    ) : (
-                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                       Da Pagare
+                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                       Da convalidare
                                      </span>
                                    )}
                                  </div>
                                </div>
 
-                               {/* Dati Ore & Costo */}
+                               {/* Dati Ore */}
                                <div className="flex justify-between border-t border-slate-850 pt-2 text-[10px] font-semibold">
-                                 <span className="text-slate-500 font-mono">
-                                   {isCompleted ? `${durationStr} (${Number(shift.paga_oraria_storica).toFixed(2)}/h)` : 'In corso'}
+                                 <span className="text-slate-500">
+                                   Durata
                                  </span>
                                  <span className="text-slate-300 font-mono">
-                                   {isCompleted ? `€${importoShift.toFixed(2)}` : '-'}
+                                   {isCompleted ? durationStr : 'In corso'}
                                  </span>
                                </div>
                              </div>
@@ -1393,14 +1341,14 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
         </>
       )}
 
-      {/* Modal di Conferma Pagamento */}
+      {/* Modal di Conferma Convalida */}
       {paymentModalOpen && selectedEmployee && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 w-full max-w-sm flex flex-col gap-4 shadow-2xl animate-scale-in">
             <div className="flex flex-col gap-1 text-center">
-              <h4 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Conferma Pagamento</h4>
+              <h4 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Conferma Convalida</h4>
               <p className="text-[10px] text-slate-400">
-                Stai registrando un pagamento per <b>{selectedEmployee.nome} {selectedEmployee.cognome}</b>
+                Stai convalidando i turni per <b>{selectedEmployee.nome} {selectedEmployee.cognome}</b>
               </p>
             </div>
 
@@ -1414,67 +1362,11 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                     .toFixed(2)} ore)
                 </span>
               </div>
-              <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">Costo Turni:</span>
-                <span className="text-slate-200">
-                  €{selectedEmployee.shifts
-                    .filter(s => selectedShiftIds.includes(s.id))
-                    .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
-                    .toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">Surplus Precedente:</span>
-                <span className="text-slate-200">€{Number(selectedEmployee.credito_surplus || 0).toFixed(2)}</span>
-              </div>
-              <div className="border-t border-slate-800/80 my-1"></div>
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-indigo-400">Da Pagare (Calcolato):</span>
-                <span className="text-indigo-400 font-mono">€{Math.max(0, calculatedPayment).toFixed(2)}</span>
-              </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirmAmount" className="text-[10px] uppercase font-bold text-slate-400">Importo Effettivamente Pagato (€)</label>
-              <input
-                id="confirmAmount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-3 text-sm font-bold text-slate-200 outline-none text-center font-mono"
-              />
-              <p className="text-[9px] text-slate-500 leading-normal text-center mt-1">
-                {calculatedPayment < 0 ? (
-                  Number(paymentAmount) > 0 ? (
-                    <span className="text-emerald-400 font-semibold">
-                      Il costo di €{selectedEmployee.shifts
-                        .filter(s => selectedShiftIds.includes(s.id))
-                        .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
-                        .toFixed(2)} è interamente coperto dal surplus. Pagando €{Number(paymentAmount).toFixed(2)} cash, il nuovo surplus diventerà €{(Number(selectedEmployee.credito_surplus) + Number(paymentAmount) - selectedEmployee.shifts.filter(s => selectedShiftIds.includes(s.id)).reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)).toFixed(2)}.
-                    </span>
-                  ) : (
-                    <span className="text-emerald-400 font-semibold">
-                      Il costo di €{selectedEmployee.shifts
-                        .filter(s => selectedShiftIds.includes(s.id))
-                        .reduce((acc, s) => acc + ((new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)) * Number(s.paga_oraria_storica || selectedEmployee.paga_oraria || 0), 0)
-                        .toFixed(2)} verrà interamente coperto dal surplus. Residueranno €{Math.abs(calculatedPayment).toFixed(2)} di credito.
-                    </span>
-                  )
-                ) : Number(paymentAmount) > calculatedPayment ? (
-                  <span className="text-emerald-400 font-semibold">
-                    Stai pagando un surplus di €{(Number(paymentAmount) - calculatedPayment).toFixed(2)} che verrà registrato come credito.
-                  </span>
-                ) : Number(paymentAmount) < calculatedPayment ? (
-                  <span className="text-amber-400 font-semibold">
-                    Rimarrà un debito residuo di €{(calculatedPayment - Number(paymentAmount)).toFixed(2)} da saldare in futuro.
-                  </span>
-                ) : (
-                  <span>Pagamento esatto. Il saldo surplus rimarrà invariato.</span>
-                )}
-              </p>
-            </div>
+            <p className="text-xs text-slate-400 text-center leading-normal">
+              I turni selezionati verranno contrassegnati come <strong>Convalidati</strong>. L'operazione non può essere annullata dagli utenti.
+            </p>
 
             <div className="grid grid-cols-2 gap-2.5 mt-2">
               <button
@@ -1490,7 +1382,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                 disabled={empLoading}
                 className="py-2.5 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-1 disabled:opacity-50"
               >
-                {empLoading ? 'Connessione...' : 'Conferma'}
+                {empLoading ? 'Connessione...' : 'Conferma Convalida'}
               </button>
             </div>
           </div>
@@ -1516,7 +1408,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
 
             {editingShift.pagato && (
               <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-2xl text-[10px] font-medium leading-relaxed text-left">
-                ⚠️ <strong>Attenzione:</strong> Questo turno è già stato pagato. Modificando i dettagli, i calcoli storici e i pagamenti già completati per questo dipendente risulteranno disallineati rispetto ai dettagli nel database.
+                ⚠️ <strong>Attenzione:</strong> Questo turno è già stato convalidato. Modificando i dettagli, i conteggi storici potrebbero risultare disallineati rispetto ai dettagli nel database.
               </div>
             )}
 
@@ -1569,23 +1461,12 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                 <span className="text-[9px] text-slate-500 leading-none">Lascia vuoto se il turno è ancora in corso.</span>
               </div>
 
-              {/* Paga Oraria */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-400">Paga Oraria (€/ora)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editHourlyRate}
-                  onChange={(e) => setEditHourlyRate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none"
-                />
-              </div>
+
 
               {showDeleteConfirm ? (
                 <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-2xl flex flex-col gap-2.5 mt-2 animate-fade-in text-left">
                   <span className="text-[10px] font-bold text-rose-300">
-                    Sei sicuro di voler eliminare definitivamente questo turno per il dipendente?
+                    Sei sicuro di voler eliminare definitivamente questo turno?
                   </span>
                   <div className="flex gap-2">
                     <button
