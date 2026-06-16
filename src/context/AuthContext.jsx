@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
           if (updatedProfile.ruolo === 'admin' || updatedProfile.stato === 'admin') {
             const localToken = localStorage.getItem('admin_session_token')
             if (updatedProfile.session_token && updatedProfile.session_token !== localToken) {
-              supabase.auth.signOut().then(() => {
+              supabase.auth.signOut({ scope: 'local' }).then(() => {
                 setUser(null)
                 setProfile(null)
                 localStorage.removeItem('admin_session_token')
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }) => {
           
           // Se l'admin disattiva l'utente, effettua il logout forzato
           if (!updatedProfile.attivo) {
-            supabase.auth.signOut().then(() => {
+            supabase.auth.signOut({ scope: 'local' }).then(() => {
               setUser(null)
               setProfile(null)
               localStorage.removeItem('admin_session_token')
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!userProfile.attivo) {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         throw new Error('Questo account è stato disattivato.')
       }
 
@@ -169,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem('admin_session_token')
       sessionStorage.removeItem('admin_notified_session')
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
       setUser(null)
       setProfile(null)
       if (profileSubscriptionRef.current) {
@@ -223,7 +223,7 @@ export const AuthProvider = ({ children }) => {
               userProfile.session_token = localToken
             } else if (userProfile.session_token !== localToken) {
               // Mismatch! Forza logout (accesso da altro dispositivo)
-              await supabase.auth.signOut()
+              await supabase.auth.signOut({ scope: 'local' })
               setUser(null)
               setProfile(null)
               localStorage.removeItem('admin_session_token')
@@ -239,7 +239,7 @@ export const AuthProvider = ({ children }) => {
           setupProfileSubscription(session.user.id)
           setError(null)
         } else if (userProfile && !userProfile.attivo) {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
           setUser(null)
           setProfile(null)
           localStorage.removeItem('admin_session_token')
@@ -375,6 +375,51 @@ export const AuthProvider = ({ children }) => {
       }
     }
   }, [profile])
+
+  // Polling e focus check per velocizzare e forzare lo sloggamento se session_token cambia
+  useEffect(() => {
+    if (!user || !(profile?.ruolo === 'admin' || profile?.stato === 'admin')) {
+      return
+    }
+
+    const checkSessionToken = async () => {
+      try {
+        const userProfile = await fetchProfile(user.id)
+        if (userProfile) {
+          const localToken = localStorage.getItem('admin_session_token')
+          if (userProfile.session_token && userProfile.session_token !== localToken) {
+            await supabase.auth.signOut({ scope: 'local' })
+            setUser(null)
+            setProfile(null)
+            localStorage.removeItem('admin_session_token')
+            sessionStorage.removeItem('admin_notified_session')
+            setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+          }
+        }
+      } catch (err) {
+        console.error("Errore durante il controllo periodico del token:", err)
+      }
+    }
+
+    // Controlla periodicamente ogni 10 secondi per massima reattività
+    const intervalId = setInterval(checkSessionToken, 10000)
+
+    // Controlla immediatamente quando l'utente torna alla scheda/finestra (focus o visibilità)
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkSessionToken()
+      }
+    }
+
+    window.addEventListener('focus', handleFocusOrVisibility)
+    document.addEventListener('visibilitychange', handleFocusOrVisibility)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocusOrVisibility)
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility)
+    }
+  }, [user, profile])
 
   return (
     <AuthContext.Provider
