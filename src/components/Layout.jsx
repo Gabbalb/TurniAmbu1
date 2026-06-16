@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus } from 'lucide-react'
 
 export default function Layout({ children, currentView, setView, onOpenBulkModal }) {
   const { profile, logout } = useAuth()
@@ -191,22 +191,81 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
             </button>
           )}
 
-          {/* Pannello Admin */}
+          {/* Sezione Amministrazione (Riquadro) */}
           {profile?.ruolo === 'admin' && (
-            <button
-              onClick={() => {
-                setView('admin')
-                setIsSidebarOpen(false)
-              }}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                currentView === 'admin'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                  : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
-              }`}
-            >
-              <ShieldCheck className="w-4.5 h-4.5 text-emerald-400" />
-              <span>Pannello Admin</span>
-            </button>
+            <div className="mt-2 mb-1 bg-slate-950/40 border border-slate-800/80 rounded-2xl p-2.5 flex flex-col gap-1 shadow-inner">
+              <div className="flex items-center gap-2 px-2 pb-1.5 mb-1 border-b border-slate-800/40">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Amministrazione
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {/* Gestione Utenti */}
+                <button
+                  onClick={() => {
+                    setView('admin-utenti')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-utenti' || currentView === 'admin'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Gestione Utenti</span>
+                </button>
+
+                {/* Tabellone Storico */}
+                <button
+                  onClick={() => {
+                    setView('admin-storico')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-storico'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <History className="w-4 h-4 flex-shrink-0" />
+                  <span>Tabellone Storico</span>
+                </button>
+
+                {/* Gestione Equipaggi */}
+                <button
+                  onClick={() => {
+                    setView('admin-equipaggi')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-equipaggi'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <span>Gestione Equipaggi</span>
+                </button>
+
+                {/* Gestione Dipendenti */}
+                <button
+                  onClick={() => {
+                    setView('admin-dipendenti')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-dipendenti'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Gestione Dipendenti</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Inserisci Disponibilità (Bulk Modal) */}

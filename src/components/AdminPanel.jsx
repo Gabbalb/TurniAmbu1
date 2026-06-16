@@ -5,8 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Users, History, ShieldAlert, Key, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Search, Filter, ChevronLeft, CheckCircle, CircleDollarSign, Landmark, Check, AlertCircle, Loader2, Pencil, X } from 'lucide-react'
 
-export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState('utenti') // 'utenti' | 'storico' | 'equipaggi'
+export default function AdminPanel({ activeTab = 'utenti' }) {
   const [profiles, setProfiles] = useState([])
   const [crews, setCrews] = useState([])
   const [pastBookings, setPastBookings] = useState([])
@@ -515,7 +514,17 @@ export default function AdminPanel() {
         <div>
           <h2 className="text-lg font-bold text-slate-100">Pannello Amministratore</h2>
           <span className="text-[10px] text-rose-400 uppercase tracking-wider font-semibold">
-            {editingProfile ? `Modifica Profilo: ${editingProfile.username}` : 'Area Amministrazione'}
+            {editingProfile 
+              ? `Modifica Profilo: ${editingProfile.username}` 
+              : activeTab === 'utenti' 
+                ? 'Gestione Utenti' 
+                : activeTab === 'storico' 
+                  ? 'Tabellone Storico' 
+                  : activeTab === 'equipaggi' 
+                    ? 'Gestione Equipaggi' 
+                    : activeTab === 'dipendenti' 
+                      ? 'Gestione Dipendenti' 
+                      : 'Area Amministrazione'}
           </span>
         </div>
       </div>
@@ -724,41 +733,6 @@ export default function AdminPanel() {
       ) : (
         /* VISTA TABELLA E LISTE REGOLARI */
         <>
-          {/* Tabs di navigazione interna */}
-          <div className="grid grid-cols-4 bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
-            <button
-              onClick={() => setActiveTab('utenti')}
-              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                activeTab === 'utenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Utenti</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('storico')}
-              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                activeTab === 'storico' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <History className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Storico</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('equipaggi')}
-              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                activeTab === 'equipaggi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Equipaggi</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('dipendenti')}
-              className={`px-1 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                activeTab === 'dipendenti' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Dipendenti</span>
-            </button>
-          </div>
 
           {/* CONTENUTO TAB: UTENTI */}
           {activeTab === 'utenti' && (

@@ -196,9 +196,9 @@ function AppContent() {
       {view === 'hours-history' && (
         <StoricoOre />
       )}
-      {view === 'admin' && (
+      {view.startsWith('admin') && (
         profile?.ruolo === 'admin' ? (
-          <AdminPanel />
+          <AdminPanel activeTab={view === 'admin' ? 'utenti' : view.replace('admin-', '')} />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-3 animate-fade-in">
             <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center shadow-lg">
