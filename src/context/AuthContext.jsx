@@ -69,6 +69,19 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Questo account è stato disattivato.')
       }
 
+      // Se l'utente è un admin, genera e aggiorna il session_token
+      if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
+        const newToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
+        localStorage.setItem('admin_session_token', newToken)
+        
+        await supabase
+          .from('profiles')
+          .update({ session_token: newToken })
+          .eq('id', userProfile.id)
+        
+        userProfile.session_token = newToken
+      }
+
       setUser(data.user)
       setProfile(userProfile)
       return { success: true }
@@ -84,6 +97,7 @@ export const AuthProvider = ({ children }) => {
     setError(null)
     setLoading(true)
     try {
+      localStorage.removeItem('admin_session_token')
       await supabase.auth.signOut()
       setUser(null)
       setProfile(null)
@@ -106,10 +120,37 @@ export const AuthProvider = ({ children }) => {
           const userProfile = await fetchProfile(session.user.id)
           
           if (userProfile && userProfile.attivo) {
+            // Se l'utente è un admin, controlla il session_token
+            if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
+              let localToken = localStorage.getItem('admin_session_token')
+              if (!localToken) {
+                // Se non c'è, lo generiamo e lo impostiamo nel DB
+                localToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
+                localStorage.setItem('admin_session_token', localToken)
+                
+                await supabase
+                  .from('profiles')
+                  .update({ session_token: localToken })
+                  .eq('id', userProfile.id)
+                
+                userProfile.session_token = localToken
+              } else {
+                // Se c'è ma non corrisponde a quello del DB, scollega (accesso da altro dispositivo)
+                if (userProfile.session_token && userProfile.session_token !== localToken) {
+                  await supabase.auth.signOut()
+                  setUser(null)
+                  setProfile(null)
+                  setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+                  setLoading(false)
+                  return
+                }
+              }
+            }
+
             setUser(session.user)
             setProfile(userProfile)
             
-            // Abilita la sottoscrizione real-time per rilevare disattivazioni o cambi ruolo
+            // Abilita la sottoscrizione real-time per rilevare disattivazioni, cambi ruolo o sessioni concorrenti
             profileSubscription = supabase
               .channel(`profile-${session.user.id}`)
               .on(
@@ -122,6 +163,20 @@ export const AuthProvider = ({ children }) => {
                 },
                 (payload) => {
                   const updatedProfile = payload.new
+                  
+                  // Se l'utente è un admin, controlla se il session_token è stato modificato da un altro accesso
+                  if (updatedProfile.ruolo === 'admin' || updatedProfile.stato === 'admin') {
+                    const localToken = localStorage.getItem('admin_session_token')
+                    if (updatedProfile.session_token && updatedProfile.session_token !== localToken) {
+                      supabase.auth.signOut().then(() => {
+                        setUser(null)
+                        setProfile(null)
+                        setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+                      })
+                      return
+                    }
+                  }
+
                   setProfile(updatedProfile)
                   
                   // Se l'admin disattiva l'utente, effettua il logout forzato
@@ -129,7 +184,7 @@ export const AuthProvider = ({ children }) => {
                     supabase.auth.signOut().then(() => {
                       setUser(null)
                       setProfile(null)
-                      setError('Il tuo account è stato disattivato dall\'amministratore.')
+                      setError("Il tuo account è stato disattivato dall'amministratore.")
                     })
                   }
                 }
@@ -158,6 +213,31 @@ export const AuthProvider = ({ children }) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const userProfile = await fetchProfile(session.user.id)
           if (userProfile && userProfile.attivo) {
+            // Se l'utente è un admin, controlla/imposta il token
+            if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
+              let localToken = localStorage.getItem('admin_session_token')
+              if (!localToken || event === 'SIGNED_IN') {
+                localToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
+                localStorage.setItem('admin_session_token', localToken)
+                
+                await supabase
+                  .from('profiles')
+                  .update({ session_token: localToken })
+                  .eq('id', userProfile.id)
+                
+                userProfile.session_token = localToken
+              } else {
+                if (userProfile.session_token && userProfile.session_token !== localToken) {
+                  await supabase.auth.signOut()
+                  setUser(null)
+                  setProfile(null)
+                  setError("Hai effettuato l'accesso da un altro dispositivo. Sessione chiusa.")
+                  setLoading(false)
+                  return
+                }
+              }
+            }
+
             setUser(session.user)
             setProfile(userProfile)
             setError(null)
@@ -170,6 +250,7 @@ export const AuthProvider = ({ children }) => {
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setProfile(null)
+          localStorage.removeItem('admin_session_token')
           if (profileSubscription) {
             supabase.removeChannel(profileSubscription)
           }

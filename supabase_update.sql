@@ -49,3 +49,7 @@ CREATE POLICY "Consenti eliminazione timbrature ad admin"
   ON public.clocked_shifts FOR DELETE
   TO authenticated
   USING (public.es_admin());
+
+-- 5. Aggiungi il campo session_token alla tabella profiles per forzare sessioni singole per gli admin
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS session_token text;
