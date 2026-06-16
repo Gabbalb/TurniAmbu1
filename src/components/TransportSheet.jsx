@@ -61,27 +61,36 @@ function LuogoField({ label, prefix, value, onChange }) {
 
       {(tipo === "ospedale" || tipo === "rsa") && (
         <div className="flex flex-col gap-2">
-          <input
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
-            placeholder={placeholderReparto}
-            value={value[`${prefix}_reparto`] || ""}
-            onChange={(e) => onChange({ [`${prefix}_reparto`]: e.target.value })}
-          />
-          <input
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
-            placeholder={placeholderNome}
-            value={value[`${prefix}_nome`] || ""}
-            onChange={(e) => onChange({ [`${prefix}_nome`]: e.target.value })}
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-400 w-16 uppercase text-right">Reparto:</span>
+            <input
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder={placeholderReparto}
+              value={value[`${prefix}_reparto`] || ""}
+              onChange={(e) => onChange({ [`${prefix}_reparto`]: e.target.value })}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-400 w-16 uppercase text-right">Nome: <span className="text-rose-500">*</span></span>
+            <input
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder={placeholderNome}
+              value={value[`${prefix}_nome`] || ""}
+              onChange={(e) => onChange({ [`${prefix}_nome`]: e.target.value })}
+            />
+          </div>
         </div>
       )}
       {tipo === "abitazione" && (
-        <input
-          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
-          placeholder="Via, civico, comune"
-          value={value[`${prefix}_via`] || ""}
-          onChange={(e) => onChange({ [`${prefix}_via`]: e.target.value })}
-        />
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-[11px] font-bold text-slate-400 w-16 uppercase text-right">Via: <span className="text-rose-500">*</span></span>
+          <input
+            className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+            placeholder="Via, civico, comune"
+            value={value[`${prefix}_via`] || ""}
+            onChange={(e) => onChange({ [`${prefix}_via`]: e.target.value })}
+          />
+        </div>
       )}
     </div>
   );
