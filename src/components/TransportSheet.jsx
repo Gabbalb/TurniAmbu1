@@ -258,9 +258,65 @@ export default function TransportSheet() {
         {/* BODY */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 scroll-smooth">
           
-          {/* TIPO */}
+          {/* EQUIPAGGIO */}
+          <section id="sec-equipaggio" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider m-0">Equipaggio</h4>
+              <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
+                const sugg = suggestCrew(t.ora_servizio);
+                if (sugg) patch({ ce: sugg.ce, autista: sugg.autista });
+              }}>Prendi da tabellone</button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">CE *</label>
+                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => patch({ ce: e.target.value })}>
+                  <option value="">Seleziona...</option>
+                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">AS *</label>
+                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => patch({ autista: e.target.value })}>
+                  <option value="">Seleziona...</option>
+                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* DATI TRASPORTO */}
           <section id="sec-tipo" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-4">Tipo trasporto</h4>
+            <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-4">Dati Trasporto</h4>
+            
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Mezzo *</label>
+                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.vehicle_id || ""} onChange={e => patch({ vehicle_id: e.target.value, km_iniziali: getLastKmForVehicle(e.target.value) })}>
+                  <option value="">Seleziona...</option>
+                  {mezzi.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km Iniziali *</label>
+                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_iniziali || ""} onChange={e => patch({ km_iniziali: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Ora servizio</label>
+                <input type="time" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ora_servizio || ""} onChange={(e) => {
+                  const val = e.target.value;
+                  const p = { ora_servizio: val };
+                  const sugg = suggestCrew(val);
+                  if (sugg && !t.ce && !t.autista) {
+                    p.ce = sugg.ce;
+                    p.autista = sugg.autista;
+                  }
+                  patch(p);
+                }} />
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2 mb-4">
               {["dimissione", "visita", "trasferimento", "altro"].map((opt) => (
                 <button
@@ -272,12 +328,9 @@ export default function TransportSheet() {
                 </button>
               ))}
             </div>
-            {t.tipo_trasporto === "altro" && (
-              <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 mb-3 focus:border-indigo-500 focus:outline-none" placeholder="Specifica..." value={t.altro_descrizione || ""} onChange={(e) => patch({ altro_descrizione: e.target.value })} />
-            )}
+            
             {showAR && (
               <div className="mb-4">
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-2">Variante A/R</label>
                 <div className="flex gap-2">
                   {[ { v: "andata_ritorno", l: "A/R" }, { v: "andata", l: "Andata" }, { v: "ritorno", l: "Ritorno" } ].map((o) => (
                     <button key={o.v} className={`px-3 py-1.5 rounded-full text-[12.5px] border transition-all ${t.variante_ar === o.v ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400'}`} onClick={() => patch({ variante_ar: o.v })}>{o.l}</button>
@@ -285,80 +338,17 @@ export default function TransportSheet() {
                 </div>
               </div>
             )}
-            <div>
-              <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Ora servizio</label>
-              <input type="time" className="w-32 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ora_servizio || ""} onChange={(e) => {
-                const val = e.target.value;
-                const p = { ora_servizio: val };
-                const sugg = suggestCrew(val);
-                if (sugg && !t.ce && !t.autista) {
-                  p.ce = sugg.ce;
-                  p.autista = sugg.autista;
-                }
-                patch(p);
-              }} />
-            </div>
+
+            {t.tipo_trasporto === "altro" && (
+              <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" placeholder="Specifica altro..." value={t.altro_descrizione || ""} onChange={(e) => patch({ altro_descrizione: e.target.value })} />
+            )}
           </section>
 
           {/* PERCORSO */}
           <section id="sec-percorso" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-4">Percorso</h4>
-            <LuogoField label="Da" prefix="da" value={t} onChange={patch} />
-            <LuogoField label="A" prefix="a" value={t} onChange={patch} />
-          </section>
-
-          {/* EQUIPAGGIO */}
-          <section id="sec-equipaggio" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider m-0">Equipaggio e mezzo</h4>
-              <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
-                const sugg = suggestCrew(t.ora_servizio);
-                if (sugg) patch({ ce: sugg.ce, autista: sugg.autista });
-              }}>Prendi da tabellone</button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">CE *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => patch({ ce: e.target.value })}>
-                  <option value="">Seleziona...</option>
-                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Autista *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => patch({ autista: e.target.value })}>
-                  <option value="">Seleziona...</option>
-                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="mb-3">
-              <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Soccorritore</label>
-              <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.soccorritore || ""} onChange={e => patch({ soccorritore: e.target.value })}>
-                <option value="">Nessuno</option>
-                {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Mezzo *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.vehicle_id || ""} onChange={e => patch({ vehicle_id: e.target.value, km_iniziali: getLastKmForVehicle(e.target.value) })}>
-                  <option value="">Seleziona...</option>
-                  {mezzi.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km iniziali *</label>
-                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_iniziali || ""} onChange={e => patch({ km_iniziali: e.target.value })} />
-              </div>
-            </div>
-            {t.stato !== 'bozza' && (
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km finali</label>
-                <input type="number" className="w-1/2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_finali || ""} onChange={e => patch({ km_finali: e.target.value })} disabled={t.stato === "terminato"} />
-              </div>
-            )}
+            <LuogoField label="Da *" prefix="da" value={t} onChange={patch} />
+            <div className="h-6"></div>
+            <LuogoField label="A *" prefix="a" value={t} onChange={patch} />
           </section>
 
           {/* PAZIENTE */}
@@ -371,7 +361,7 @@ export default function TransportSheet() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Telefono *</label>
+                  <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Telefono</label>
                   <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.paziente_tel || ""} onChange={e => patch({ paziente_tel: e.target.value })} />
                 </div>
                 <div>
@@ -380,33 +370,33 @@ export default function TransportSheet() {
                 </div>
               </div>
               <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Email</label>
-                <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" type="email" value={t.paziente_email || ""} onChange={e => patch({ paziente_email: e.target.value })} />
-              </div>
-              <div>
                 <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Note</label>
-                <textarea rows={3} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.note || ""} onChange={e => patch({ note: e.target.value })} placeholder="Le note di cambio equipaggio vengono aggiunte qui..."></textarea>
+                <textarea rows={3} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.note || ""} onChange={e => patch({ note: e.target.value })}></textarea>
               </div>
             </div>
           </section>
 
-          {/* PAGAMENTO */}
+          {/* PAGAMENTO E KM FINALI */}
           <section id="sec-pagamento" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
             <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-4">Pagamento</h4>
+            
+            <div className="flex gap-2 mb-4">
+              {[{v: "contante", l: "Contanti"}, {v: "pos", l: "POS"}, {v: "altro", l: "Altro..."}].map(o => (
+                <label key={o.v} className="flex items-center gap-2 cursor-pointer bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 flex-1">
+                  <input type="radio" name="pagamento" checked={t.tipo_pagamento === o.v} onChange={() => patch({ tipo_pagamento: o.v })} className="text-indigo-600 focus:ring-indigo-500 bg-slate-800 border-slate-600" />
+                  <span className="text-[12.5px] text-slate-300 font-bold">{o.l}</span>
+                </label>
+              ))}
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Importo (€)</label>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Importo € {t.tipo_pagamento ? '*' : ''}</label>
                 <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.importo || ""} onChange={e => patch({ importo: e.target.value })} />
               </div>
               <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Tipo {t.importo ? '*' : ''}</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.tipo_pagamento || ""} onChange={e => patch({ tipo_pagamento: e.target.value })}>
-                  <option value="">Seleziona...</option>
-                  <option value="contante">Contante</option>
-                  <option value="pos">POS</option>
-                  <option value="bonifico">Bonifico</option>
-                  <option value="altro">Altro</option>
-                </select>
+                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">Km finali *</label>
+                <input type="number" className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.km_finali || ""} onChange={e => patch({ km_finali: e.target.value })} disabled={t.stato === "terminato"} />
               </div>
             </div>
           </section>
