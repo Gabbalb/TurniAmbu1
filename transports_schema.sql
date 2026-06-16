@@ -64,28 +64,39 @@ CREATE TABLE IF NOT EXISTS public.transports (
   creato_da uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   precompilato_da_admin boolean DEFAULT false NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL,
-  updated_at timestamptz DEFAULT now() NOT NULL,
-  CONSTRAINT chk_altro_richiede_descrizione
-    CHECK (stato = 'bozza' OR tipo_trasporto <> 'altro' OR altro_descrizione IS NOT NULL),
-  CONSTRAINT chk_ar_solo_visita_altro
-    CHECK (variante_ar IS NULL OR tipo_trasporto IN ('visita', 'altro')),
-  CONSTRAINT chk_da_ospedale_richiede_nome
-    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'ospedale' OR da_nome IS NOT NULL),
-  CONSTRAINT chk_da_rsa_richiede_nome
-    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'rsa' OR da_nome IS NOT NULL),
-  CONSTRAINT chk_da_abitazione_richiede_via
-    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'abitazione' OR da_via IS NOT NULL),
-  CONSTRAINT chk_a_ospedale_richiede_nome
-    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'ospedale' OR a_nome IS NOT NULL),
-  CONSTRAINT chk_a_rsa_richiede_nome
-    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'rsa' OR a_nome IS NOT NULL),
-  CONSTRAINT chk_a_abitazione_richiede_via
-    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'abitazione' OR a_via IS NOT NULL),
-  CONSTRAINT chk_km_finali_dopo_iniziali
-    CHECK (km_finali IS NULL OR km_iniziali IS NULL OR km_finali >= km_iniziali),
-  CONSTRAINT chk_terminato_ha_ora_fine
-    CHECK (stato <> 'terminato' OR ora_fine IS NOT NULL)
+  updated_at timestamptz DEFAULT now() NOT NULL
 );
+
+-- Forza l'aggiornamento dei constraints in caso la tabella esistesse già
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_altro_richiede_descrizione;
+ALTER TABLE public.transports ADD CONSTRAINT chk_altro_richiede_descrizione CHECK (stato <> 'terminato' OR tipo_trasporto <> 'altro' OR altro_descrizione IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_ar_solo_visita_altro;
+ALTER TABLE public.transports ADD CONSTRAINT chk_ar_solo_visita_altro CHECK (variante_ar IS NULL OR tipo_trasporto IN ('visita', 'altro'));
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_da_ospedale_richiede_nome;
+ALTER TABLE public.transports ADD CONSTRAINT chk_da_ospedale_richiede_nome CHECK (stato <> 'terminato' OR da_tipo_luogo <> 'ospedale' OR da_nome IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_da_rsa_richiede_nome;
+ALTER TABLE public.transports ADD CONSTRAINT chk_da_rsa_richiede_nome CHECK (stato <> 'terminato' OR da_tipo_luogo <> 'rsa' OR da_nome IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_da_abitazione_richiede_via;
+ALTER TABLE public.transports ADD CONSTRAINT chk_da_abitazione_richiede_via CHECK (stato <> 'terminato' OR da_tipo_luogo <> 'abitazione' OR da_via IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_a_ospedale_richiede_nome;
+ALTER TABLE public.transports ADD CONSTRAINT chk_a_ospedale_richiede_nome CHECK (stato <> 'terminato' OR a_tipo_luogo <> 'ospedale' OR a_nome IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_a_rsa_richiede_nome;
+ALTER TABLE public.transports ADD CONSTRAINT chk_a_rsa_richiede_nome CHECK (stato <> 'terminato' OR a_tipo_luogo <> 'rsa' OR a_nome IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_a_abitazione_richiede_via;
+ALTER TABLE public.transports ADD CONSTRAINT chk_a_abitazione_richiede_via CHECK (stato <> 'terminato' OR a_tipo_luogo <> 'abitazione' OR a_via IS NOT NULL);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_km_finali_dopo_iniziali;
+ALTER TABLE public.transports ADD CONSTRAINT chk_km_finali_dopo_iniziali CHECK (km_finali IS NULL OR km_iniziali IS NULL OR km_finali >= km_iniziali);
+
+ALTER TABLE public.transports DROP CONSTRAINT IF EXISTS chk_terminato_ha_ora_fine;
+ALTER TABLE public.transports ADD CONSTRAINT chk_terminato_ha_ora_fine CHECK (stato <> 'terminato' OR ora_fine IS NOT NULL);
 
 CREATE INDEX IF NOT EXISTS idx_transports_data ON public.transports(data);
 CREATE INDEX IF NOT EXISTS idx_transports_stato ON public.transports(stato);

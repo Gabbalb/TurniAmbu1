@@ -204,6 +204,7 @@ export const TransportProvider = ({ children }) => {
       await fetchTransports();
     } catch (err) {
       console.error('Errore attivazione', err);
+      throw err; // propagates to the UI
     }
   };
 

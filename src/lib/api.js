@@ -1368,6 +1368,72 @@ export const api = {
       console.error('Errore nel caricamento dei dipendenti:', err)
       return { error: err }
     }
+  },
+  // ==========================================
+  // METODI ADMIN: VEICOLI E TRASPORTI
+  // ==========================================
+
+  adminGetVehicles: async () => {
+    if (USE_MOCK) return { data: [], error: null }
+    const { data, error } = await supabase.from('vehicles').select('*').order('nome')
+    return { data, error }
+  },
+  adminCreateVehicle: async (vehicle) => {
+    if (USE_MOCK) return { error: null }
+    const { error } = await supabase.from('vehicles').insert([vehicle])
+    return { error }
+  },
+  adminUpdateVehicle: async (id, updates) => {
+    if (USE_MOCK) return { error: null }
+    const { error } = await supabase.from('vehicles').update(updates).eq('id', id)
+    return { error }
+  },
+  adminDeleteVehicle: async (id) => {
+    if (USE_MOCK) return { error: null }
+    const { error } = await supabase.from('vehicles').delete().eq('id', id)
+    return { error }
+  },
+
+  adminGetTransports: async (date) => {
+    if (USE_MOCK) return { data: [], error: null }
+    let query = supabase.from('transports').select('*, transport_crew(*, profiles(nome, cognome, username)), vehicles(nome), profiles!creato_da(nome, cognome, username)')
+    if (date) {
+      query = query.eq('data', date)
+    }
+    const { data, error } = await query.order('id', { ascending: false })
+    return { data, error }
+  },
+  adminCreateTransport: async (transportPayload, crewArray) => {
+    if (USE_MOCK) return { error: null }
+    try {
+      const { data: tData, error: tErr } = await supabase.from('transports').insert([{
+        ...transportPayload,
+        precompilato_da_admin: true,
+        stato: 'bozza'
+      }]).select().single()
+      
+      if (tErr) throw tErr
+      
+      if (crewArray && crewArray.length > 0) {
+        const inserts = crewArray.map(c => ({
+          transport_id: tData.id,
+          user_id: c.user_id,
+          ruolo: c.ruolo,
+          vehicle_id: transportPayload.vehicle_id || null,
+          is_partial: false
+        }))
+        const { error: cErr } = await supabase.from('transport_crew').insert(inserts)
+        if (cErr) throw cErr
+      }
+      return { error: null }
+    } catch (err) {
+      return { error: err }
+    }
+  },
+  adminDeleteTransport: async (id) => {
+    if (USE_MOCK) return { error: null }
+    const { error } = await supabase.from('transports').delete().eq('id', id)
+    return { error }
   }
 }
 

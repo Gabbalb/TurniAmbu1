@@ -196,8 +196,8 @@ export default function TransportSheet() {
   const showAR = t.tipo_trasporto === "visita" || t.tipo_trasporto === "altro";
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[80] flex justify-end">
-      <div className="w-full max-w-md bg-slate-900 shadow-2xl h-full flex flex-col translate-x-0 transition-transform border-l border-slate-800 overflow-hidden relative">
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[80] flex flex-col justify-end">
+      <div className="w-full bg-slate-900 shadow-2xl h-[90vh] sm:h-full flex flex-col rounded-t-3xl sm:rounded-none border-t border-slate-800 overflow-hidden relative mt-auto translate-y-0 transition-transform animate-layout-transition-enter-active">
         
         {/* HEADER */}
         <div className="flex items-center gap-3 p-4 bg-slate-900 border-b border-slate-800 shrink-0 relative z-10">
@@ -406,7 +406,18 @@ export default function TransportSheet() {
         {/* FOOTER */}
         <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
           {t.stato === "bozza" && (
-            <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50" onClick={() => attivaTurno(t.id)}>
+            <button 
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all" 
+              onClick={() => {
+                // Autocompilazione all'attivazione del turno
+                const ora = t.ora_servizio || new Date().toTimeString().slice(0,5);
+                const sugg = suggestCrew(ora);
+                if (sugg && (!t.ce && !t.autista)) {
+                  patch({ ce: sugg.ce, autista: sugg.autista, ora_servizio: ora });
+                }
+                attivaTurno(t.id).catch(err => alert("Errore del server: " + err.message));
+              }}
+            >
               Attiva turno
             </button>
           )}
@@ -415,7 +426,12 @@ export default function TransportSheet() {
               <button className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2" onClick={() => setConfirmPassaggio(true)}>
                 <ArrowRightLeft size={16} /> Passa
               </button>
-              <button className="flex-[2] bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition-all" onClick={() => {
+              <button className="flex-[2] bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => {
+                const completato = sections.every(s => s.complete);
+                if (!completato) {
+                  alert("Compila tutti i campi obbligatori (le sezioni col check verde) prima di terminare!");
+                  return;
+                }
                 if (!t.km_finali) alert("Inserisci i km finali per terminare il servizio");
                 else terminaServizio(t.id, t.km_finali);
               }}>

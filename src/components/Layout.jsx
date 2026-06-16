@@ -257,8 +257,40 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                       : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
                   }`}
                 >
-                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <Users className="w-4 h-4 flex-shrink-0" />
                   <span>Gestione Equipaggi</span>
+                </button>
+
+                {/* Gestione Veicoli */}
+                <button
+                  onClick={() => {
+                    setView('admin-veicoli')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-veicoli'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Truck className="w-4 h-4 flex-shrink-0" />
+                  <span>Gestione Veicoli</span>
+                </button>
+
+                {/* Gestione Trasporti (Admin) */}
+                <button
+                  onClick={() => {
+                    setView('admin-trasporti')
+                    setIsSidebarOpen(false)
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    currentView === 'admin-trasporti'
+                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
+                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span>Gestione Trasporti</span>
                 </button>
 
                 {/* Gestione Dipendenti (Convalida Turni) */}
