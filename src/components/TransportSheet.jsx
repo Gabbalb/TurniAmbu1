@@ -177,6 +177,8 @@ export default function TransportSheet() {
     suggestCrew, getLastKmForVehicle, operatori, mezzi 
   } = useTransports();
 
+  const operatoreNome = (id) => operatori.find((o) => o.id === id)?.nome || "—";
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmPassaggio, setConfirmPassaggio] = useState(false);
   const [editCrew, setEditCrew] = useState(false);
