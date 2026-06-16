@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, Building2, Home as HomeIcon, Stethoscope, ArrowRightLeft, Check, Circle, MapPin } from 'lucide-react';
+import { Menu, X, ChevronRight, Building2, Home as HomeIcon, Stethoscope, ArrowRightLeft, Check, Circle, MapPin, Edit2 } from 'lucide-react';
 import { useTransports } from '../context/TransportContext';
 
 const LUOGO_ICONS = { ospedale: Stethoscope, rsa: Building2, abitazione: HomeIcon };
@@ -13,8 +13,8 @@ function sectionStatus(t) {
   sections.push({
     key: "percorso", label: "Percorso (Da / A)",
     complete: Boolean(t.da_tipo_luogo) && Boolean(t.a_tipo_luogo) &&
-      (t.da_tipo_luogo !== "abitazione" ? Boolean(t.da_nome) : Boolean(t.da_via)) &&
-      (t.a_tipo_luogo !== "abitazione" ? Boolean(t.a_nome) : Boolean(t.a_via)),
+      (t.da_tipo_luogo !== "abitazione" ? Boolean(t.da_nome) && Boolean(t.da_reparto) : Boolean(t.da_via)) &&
+      (t.a_tipo_luogo !== "abitazione" ? Boolean(t.a_nome) && Boolean(t.a_reparto) : Boolean(t.a_via)),
   });
   sections.push({
     key: "equipaggio", label: "Equipaggio e mezzo",
@@ -62,7 +62,7 @@ function LuogoField({ label, prefix, value, onChange }) {
       {(tipo === "ospedale" || tipo === "rsa") && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-400 w-16 uppercase text-right">Reparto:</span>
+            <span className="text-[11px] font-bold text-slate-400 w-16 uppercase text-right">Reparto: <span className="text-rose-500">*</span></span>
             <input
               className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-[13.5px] text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               placeholder={placeholderReparto}
@@ -179,6 +179,7 @@ export default function TransportSheet() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmPassaggio, setConfirmPassaggio] = useState(false);
+  const [editCrew, setEditCrew] = useState(false);
   const [localDraft, setLocalDraft] = useState(null);
 
   // Sync local draft con context quando si apre
@@ -262,28 +263,49 @@ export default function TransportSheet() {
           <section id="sec-equipaggio" className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider m-0">Equipaggio</h4>
-              <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
-                const sugg = suggestCrew(t.ora_servizio);
-                if (sugg) patch({ ce: sugg.ce, autista: sugg.autista });
-              }}>Prendi da tabellone</button>
+              {!editCrew ? (
+                <button className="text-slate-400 hover:text-white" onClick={() => setEditCrew(true)}>
+                  <Edit2 size={16} />
+                </button>
+              ) : (
+                <button className="text-indigo-400 text-[12px] font-bold hover:text-indigo-300" onClick={() => {
+                  const sugg = suggestCrew(t.ora_servizio);
+                  if (sugg) patch({ ce: sugg.ce, autista: sugg.autista });
+                  setEditCrew(false);
+                }}>Prendi da tabellone</button>
+              )}
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">CE *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => patch({ ce: e.target.value })}>
-                  <option value="">Seleziona...</option>
-                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                </select>
+            {!editCrew ? (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
+                <div className="text-[13.5px] font-medium text-yellow-200/80">
+                  <span className="font-bold text-yellow-400">CE:</span> {operatoreNome(t.ce)}
+                </div>
+                <div className="text-[13.5px] font-medium text-yellow-200/80 mt-1">
+                  <span className="font-bold text-yellow-400">AS:</span> {operatoreNome(t.autista)}
+                </div>
               </div>
-              <div>
-                <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">AS *</label>
-                <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => patch({ autista: e.target.value })}>
-                  <option value="">Seleziona...</option>
-                  {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                </select>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">CE *</label>
+                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.ce || ""} onChange={e => patch({ ce: e.target.value })}>
+                    <option value="">Seleziona...</option>
+                    {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[12.5px] font-bold text-slate-300 mb-1.5">AS *</label>
+                  <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-[13.5px] text-slate-200 focus:border-indigo-500 focus:outline-none" value={t.autista || ""} onChange={e => patch({ autista: e.target.value })}>
+                    <option value="">Seleziona...</option>
+                    {operatori.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2 flex justify-end mt-1">
+                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-1.5 px-4 rounded-lg" onClick={() => setEditCrew(false)}>Chiudi</button>
+                </div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* DATI TRASPORTO */}
@@ -317,11 +339,11 @@ export default function TransportSheet() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               {["dimissione", "visita", "trasferimento", "altro"].map((opt) => (
                 <button
                   key={opt}
-                  className={`px-3 py-1.5 rounded-full text-[12.5px] border transition-all ${t.tipo_trasporto === opt ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400'}`}
+                  className={`py-3 rounded-xl text-[13.5px] border transition-all flex items-center justify-center ${t.tipo_trasporto === opt ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-950 border-slate-700 text-slate-400 font-semibold hover:bg-slate-800'}`}
                   onClick={() => patch({ tipo_trasporto: opt, variante_ar: opt === "dimissione" || opt === "trasferimento" ? "" : t.variante_ar })}
                 >
                   {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -411,10 +433,12 @@ export default function TransportSheet() {
                 // Autocompilazione all'attivazione del turno
                 const ora = t.ora_servizio || new Date().toTimeString().slice(0,5);
                 const sugg = suggestCrew(ora);
-                if (sugg && (!t.ce && !t.autista)) {
-                  patch({ ce: sugg.ce, autista: sugg.autista, ora_servizio: ora });
+                let updates = { ora_servizio: ora };
+                if (sugg && !t.ce && !t.autista) {
+                  updates.ce = sugg.ce;
+                  updates.autista = sugg.autista;
                 }
-                attivaTurno(t.id).catch(err => alert("Errore del server: " + err.message));
+                attivaTurno(t.id, updates).catch(err => alert("Errore del server: " + err.message));
               }}
             >
               Attiva turno

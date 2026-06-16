@@ -104,8 +104,21 @@ CREATE INDEX IF NOT EXISTS idx_transports_stato ON public.transports(stato);
 ALTER TABLE public.transports ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Lettura trasporti a tutti gli utenti loggati" ON public.transports;
-CREATE POLICY "Lettura trasporti a tutti gli utenti loggati"
-  ON public.transports FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Lettura trasporti" ON public.transports;
+CREATE POLICY "Lettura trasporti"
+  ON public.transports FOR SELECT TO authenticated
+  USING (
+    public.es_admin() 
+    OR EXISTS (SELECT 1 FROM public.transport_crew tc WHERE tc.transport_id = id AND tc.user_id = auth.uid())
+    OR (
+      stato = 'bozza' 
+      AND EXISTS (
+        SELECT 1 FROM public.shifts s 
+        JOIN public.bookings b ON s.id = b.shift_id 
+        WHERE s.data = transports.data AND b.user_id = auth.uid()
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "Inserimento trasporti personale o admin" ON public.transports;
 CREATE POLICY "Inserimento trasporti personale o admin"

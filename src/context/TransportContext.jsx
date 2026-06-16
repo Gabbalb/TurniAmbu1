@@ -194,8 +194,11 @@ export const TransportProvider = ({ children }) => {
     }
   };
 
-  const attivaTurno = async (id) => {
+  const attivaTurno = async (id, updates = null) => {
     try {
+      if (updates) {
+        await updateTransport({ id, ...updates, stato: 'bozza' });
+      }
       const { error } = await supabase
         .from('transports')
         .update({ stato: 'attivo', ora_inizio: new Date().toISOString() })
@@ -245,11 +248,32 @@ export const TransportProvider = ({ children }) => {
   const suggestCrew = useCallback((oraServizio) => {
     if (!oraServizio) return null;
     
+    const normalize = (t) => t ? t.slice(0, 5) : "";
+    const os = normalize(oraServizio);
+
     for (const shift of tabelloneOggi) {
-      if (oraServizio >= shift.ora_inizio && oraServizio <= shift.ora_fine) {
-        // Cerca chi copre questa fascia
-        const ce = shift.bookings.find(b => b.ruolo_turno === 'CE' && (!b.is_partial || (oraServizio >= (b.ora_inizio_effettiva||shift.ora_inizio) && oraServizio <= (b.ora_fine_effettiva||shift.ora_fine))));
-        const autista = shift.bookings.find(b => b.ruolo_turno === 'autista' && (!b.is_partial || (oraServizio >= (b.ora_inizio_effettiva||shift.ora_inizio) && oraServizio <= (b.ora_fine_effettiva||shift.ora_fine))));
+      const sInizio = normalize(shift.ora_inizio);
+      const sFine = normalize(shift.ora_fine);
+      
+      // Controlla se l'ora del servizio ricade nell'orario del turno principale
+      if (os >= sInizio && os <= sFine) {
+        
+        // Cerca chi copre questa fascia considerando anche l'orario parziale
+        const ce = shift.bookings.find(b => {
+          if (b.ruolo_turno !== 'CE') return false;
+          if (!b.is_partial) return true;
+          const bInizio = normalize(b.ora_inizio_effettiva || shift.ora_inizio);
+          const bFine = normalize(b.ora_fine_effettiva || shift.ora_fine);
+          return os >= bInizio && os <= bFine;
+        });
+        
+        const autista = shift.bookings.find(b => {
+          if (b.ruolo_turno !== 'autista') return false;
+          if (!b.is_partial) return true;
+          const bInizio = normalize(b.ora_inizio_effettiva || shift.ora_inizio);
+          const bFine = normalize(b.ora_fine_effettiva || shift.ora_fine);
+          return os >= bInizio && os <= bFine;
+        });
         
         if (ce || autista) {
           return {
