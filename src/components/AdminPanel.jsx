@@ -1081,21 +1081,34 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2.5">
-                      {employees.filter(emp => {
-                        const fullName = `${emp.nome || ''} ${emp.cognome || ''} ${emp.username || ''}`.toLowerCase()
-                        return fullName.includes(empSearch.toLowerCase())
-                      }).map(emp => {
-                        const unpaidCount = emp.shifts.filter(s => !s.pagato && s.end_time).length
-                        return (
-                          <button
-                            key={emp.id}
-                            onClick={() => {
-                              setSelectedEmployee(emp)
-                              const unpaidIds = emp.shifts.filter(s => !s.pagato && s.end_time).map(s => s.id)
-                              setSelectedShiftIds(unpaidIds)
-                            }}
-                            className="bg-slate-900 border border-slate-800/80 p-3.5 rounded-2xl text-left hover:border-indigo-500/40 active:scale-[0.98] transition-all flex items-center justify-between gap-4 cursor-pointer"
-                          >
+                      {employees
+                        .filter(emp => {
+                          const fullName = `${emp.nome || ''} ${emp.cognome || ''} ${emp.username || ''}`.toLowerCase()
+                          return fullName.includes(empSearch.toLowerCase())
+                        })
+                        .sort((a, b) => {
+                          const aUnpaid = a.shifts.filter(s => !s.pagato && s.end_time).length
+                          const bUnpaid = b.shifts.filter(s => !s.pagato && s.end_time).length
+                          if (aUnpaid > 0 && bUnpaid === 0) return -1
+                          if (aUnpaid === 0 && bUnpaid > 0) return 1
+                          return 0
+                        })
+                        .map(emp => {
+                          const unpaidCount = emp.shifts.filter(s => !s.pagato && s.end_time).length
+                          return (
+                            <button
+                              key={emp.id}
+                              onClick={() => {
+                                setSelectedEmployee(emp)
+                                const unpaidIds = emp.shifts.filter(s => !s.pagato && s.end_time).map(s => s.id)
+                                setSelectedShiftIds(unpaidIds)
+                              }}
+                              className={`bg-slate-900 p-3.5 rounded-2xl text-left hover:border-indigo-500/40 active:scale-[0.98] transition-all flex items-center justify-between gap-4 cursor-pointer border ${
+                                unpaidCount > 0 
+                                  ? 'border-slate-200/90 shadow-[0_0_10px_rgba(255,255,255,0.06)]' 
+                                  : 'border-slate-800/80'
+                              }`}
+                            >
                             <div className="flex flex-col gap-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-200 truncate">
