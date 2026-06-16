@@ -36,6 +36,72 @@ const getDeviceUniqueId = () => {
   return deviceId
 }
 
+// Recupera il nome leggibile del dispositivo in uso
+const getDeviceFriendlyName = () => {
+  const ua = navigator.userAgent
+  let os = "Dispositivo Sconosciuto"
+  
+  if (/android/i.test(ua)) {
+    const androidMatch = ua.match(/Android\s+([0-9\.]+)/i)
+    const androidVer = androidMatch ? `Android ${androidMatch[1]}` : "Android"
+    const modelMatch = ua.match(/Android\s+[0-9\.]+;\s+([^;)]+)/i)
+    const model = modelMatch ? modelMatch[1].split('Build/')[0].trim() : ""
+    os = model ? `${androidVer} (${model})` : androidVer
+  } else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
+    const iosMatch = ua.match(/OS\s+([0-9_]+)\s+like/i) || ua.match(/iPhone OS\s+([0-9_]+)/i)
+    const iosVer = iosMatch ? iosMatch[1].replace(/_/g, '.') : ""
+    const isIpad = /iPad/.test(ua)
+    const name = isIpad ? "iPad" : "iPhone"
+    os = iosVer ? `${isIpad ? 'iPadOS' : 'iOS'} ${iosVer} su ${name}` : `${isIpad ? 'iPadOS' : 'iOS'} su ${name}`
+  } else if (/Macintosh/i.test(ua)) {
+    const macMatch = ua.match(/Mac OS X\s+([0-9_]+)/i)
+    const macVer = macMatch ? macMatch[1].replace(/_/g, '.') : ""
+    os = macVer ? `macOS ${macVer}` : "macOS"
+  } else if (/Windows/i.test(ua)) {
+    const winMatch = ua.match(/Windows NT\s+([0-9\.]+)/i)
+    let winVer = "Windows"
+    if (winMatch) {
+      const ntVer = winMatch[1]
+      if (ntVer === "10.0") winVer = "Windows 10/11"
+      else if (winMatch[1] === "6.3") winVer = "Windows 8.1"
+      else if (winMatch[1] === "6.2") winVer = "Windows 8"
+      else if (winMatch[1] === "6.1") winVer = "Windows 7"
+      else winVer = `Windows NT ${ntVer}`
+    }
+    os = winVer
+  } else if (/Linux/i.test(ua)) {
+    os = "Linux"
+  }
+
+  let browser = "Browser Sconosciuto"
+  if (/chrome|crios/i.test(ua) && !/edge|opr/i.test(ua)) browser = "Chrome"
+  else if (/safari/i.test(ua) && !/chrome|crios|edge|opr/i.test(ua)) browser = "Safari"
+  else if (/firefox|iceweasel/i.test(ua)) browser = "Firefox"
+  else if (/edge/i.test(ua)) browser = "Edge"
+  else if (/opr/i.test(ua)) browser = "Opera"
+
+  return `${os} con browser ${browser}`
+}
+
+// Invia una notifica di accesso admin su Telegram tramite inserimento nel database
+const sendAccessNotification = async (profile, deviceId) => {
+  const deviceName = getDeviceFriendlyName()
+  const nomeCognome = profile.nome && profile.cognome ? `${profile.nome} ${profile.cognome}` : profile.username
+  const msg = `l'amministratore ${nomeCognome} si è collegato all'interfaccia admin tramite il dispositivo e ${deviceName} [ID: ${deviceId}]`
+  
+  try {
+    await supabase.from('notifications').insert([
+      {
+        tipo: 'accesso_admin',
+        messaggio: msg,
+        creato_da: profile.username
+      }
+    ])
+  } catch (err) {
+    console.error('Errore nell\'invio della notifica di accesso admin:', err)
+  }
+}
+
 const AuthContext = createContext({
   user: null,
   profile: null,
@@ -168,14 +234,24 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Questo account è stato disattivato.')
       }
 
-      // Se l'utente è un admin, genera e aggiorna il session_token
+      // Se l'utente è un admin, genera e aggiorna il session_token e il last_device_id
       if (userProfile.ruolo === 'admin' || userProfile.stato === 'admin') {
         const newToken = Math.random().toString(36).substring(2) + Date.now().toString(36)
         localStorage.setItem('admin_session_token', newToken)
         
+        const deviceId = getDeviceUniqueId()
+        const isDifferentDevice = userProfile.last_device_id !== deviceId
+
+        if (isDifferentDevice) {
+          await sendAccessNotification(userProfile, deviceId)
+        }
+
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({ session_token: newToken })
+          .update({ 
+            session_token: newToken,
+            last_device_id: deviceId
+          })
           .eq('id', userProfile.id)
         
         if (updateError) {
@@ -183,6 +259,7 @@ export const AuthProvider = ({ children }) => {
         }
         
         userProfile.session_token = newToken
+        userProfile.last_device_id = deviceId
         setupProfileSubscription(userProfile.id)
       } else {
         // Se non è admin, assicuriamoci di pulire eventuali vecchi canali
@@ -341,92 +418,6 @@ export const AuthProvider = ({ children }) => {
       }
     }
   }
-
-  // Notifica accesso admin su Telegram
-  useEffect(() => {
-    if (profile && (profile.ruolo === 'admin' || profile.stato === 'admin')) {
-      const alreadyNotified = sessionStorage.getItem('admin_notified_session')
-      if (!alreadyNotified) {
-        sessionStorage.setItem('admin_notified_session', 'true')
-        
-        const getDeviceFriendlyName = () => {
-          const ua = navigator.userAgent
-          let os = "Dispositivo Sconosciuto"
-          
-          if (/android/i.test(ua)) {
-            const androidMatch = ua.match(/Android\s+([0-9\.]+)/i)
-            const androidVer = androidMatch ? `Android ${androidMatch[1]}` : "Android"
-            const modelMatch = ua.match(/Android\s+[0-9\.]+;\s+([^;)]+)/i)
-            const model = modelMatch ? modelMatch[1].split('Build/')[0].trim() : ""
-            os = model ? `${androidVer} (${model})` : androidVer
-          } else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
-            const iosMatch = ua.match(/OS\s+([0-9_]+)\s+like/i) || ua.match(/iPhone OS\s+([0-9_]+)/i)
-            const iosVer = iosMatch ? iosMatch[1].replace(/_/g, '.') : ""
-            const isIpad = /iPad/.test(ua)
-            const name = isIpad ? "iPad" : "iPhone"
-            os = iosVer ? `${isIpad ? 'iPadOS' : 'iOS'} ${iosVer} su ${name}` : `${isIpad ? 'iPadOS' : 'iOS'} su ${name}`
-          } else if (/Macintosh/i.test(ua)) {
-            const macMatch = ua.match(/Mac OS X\s+([0-9_]+)/i)
-            const macVer = macMatch ? macMatch[1].replace(/_/g, '.') : ""
-            os = macVer ? `macOS ${macVer}` : "macOS"
-          } else if (/Windows/i.test(ua)) {
-            const winMatch = ua.match(/Windows NT\s+([0-9\.]+)/i)
-            let winVer = "Windows"
-            if (winMatch) {
-              const ntVer = winMatch[1]
-              if (ntVer === "10.0") winVer = "Windows 10/11"
-              else if (ntVer === "6.3") winVer = "Windows 8.1"
-              else if (ntVer === "6.2") winVer = "Windows 8"
-              else if (ntVer === "6.1") winVer = "Windows 7"
-              else winVer = `Windows NT ${ntVer}`
-            }
-            os = winVer
-          } else if (/Linux/i.test(ua)) {
-            os = "Linux"
-          }
-
-          let browser = "Browser Sconosciuto"
-          if (/chrome|crios/i.test(ua) && !/edge|opr/i.test(ua)) browser = "Chrome"
-          else if (/safari/i.test(ua) && !/chrome|crios|edge|opr/i.test(ua)) browser = "Safari"
-          else if (/firefox|iceweasel/i.test(ua)) browser = "Firefox"
-          else if (/edge/i.test(ua)) browser = "Edge"
-          else if (/opr/i.test(ua)) browser = "Opera"
-
-          return `${os} con browser ${browser}`
-        }
-
-        const getDeviceUniqueId = () => {
-          let deviceId = localStorage.getItem('device_unique_id')
-          if (!deviceId) {
-            deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10).toUpperCase()
-            localStorage.setItem('device_unique_id', deviceId)
-          }
-          return deviceId
-        }
-
-        const notifyAccess = async () => {
-          const deviceName = getDeviceFriendlyName()
-          const deviceId = getDeviceUniqueId()
-          const nomeCognome = profile.nome && profile.cognome ? `${profile.nome} ${profile.cognome}` : profile.username
-          const msg = `l'amministratore ${nomeCognome} si è collegato all'interfaccia admin tramite il dispositivo e ${deviceName} [ID: ${deviceId}]`
-          
-          try {
-            await supabase.from('notifications').insert([
-              {
-                tipo: 'accesso_admin',
-                messaggio: msg,
-                creato_da: profile.username
-              }
-            ])
-          } catch (err) {
-            console.error('Errore nell\'invio della notifica di accesso admin:', err)
-          }
-        }
-
-        notifyAccess()
-      }
-    }
-  }, [profile])
 
   // Polling e focus check per velocizzare e forzare lo sloggamento se session_token cambia
   useEffect(() => {
