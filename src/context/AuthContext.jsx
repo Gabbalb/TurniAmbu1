@@ -195,6 +195,55 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Notifica accesso admin su Telegram
+  useEffect(() => {
+    if (profile && (profile.ruolo === 'admin' || profile.stato === 'admin')) {
+      const alreadyNotified = sessionStorage.getItem('admin_notified_session')
+      if (!alreadyNotified) {
+        sessionStorage.setItem('admin_notified_session', 'true')
+        
+        const getDeviceFriendlyName = () => {
+          const ua = navigator.userAgent
+          let device = "Dispositivo Sconosciuto"
+          if (/android/i.test(ua)) device = "Android"
+          else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) device = "iOS"
+          else if (/Macintosh/i.test(ua)) device = "Mac"
+          else if (/Windows/i.test(ua)) device = "Windows"
+          else if (/Linux/i.test(ua)) device = "Linux"
+
+          let browser = "Browser Sconosciuto"
+          if (/chrome|crios/i.test(ua) && !/edge|opr/i.test(ua)) browser = "Chrome"
+          else if (/safari/i.test(ua) && !/chrome|crios|edge|opr/i.test(ua)) browser = "Safari"
+          else if (/firefox|iceweasel/i.test(ua)) browser = "Firefox"
+          else if (/edge/i.test(ua)) browser = "Edge"
+          else if (/opr/i.test(ua)) browser = "Opera"
+
+          return `${device} (${browser})`
+        }
+
+        const notifyAccess = async () => {
+          const deviceName = getDeviceFriendlyName()
+          const nomeCognome = profile.nome && profile.cognome ? `${profile.nome} ${profile.cognome}` : profile.username
+          const msg = `l'amministratore ${nomeCognome} si è collegato all'interfaccia admin tramite il dispositivo e ${deviceName}`
+          
+          try {
+            await supabase.from('notifications').insert([
+              {
+                tipo: 'accesso_admin',
+                messaggio: msg,
+                creato_da: profile.username
+              }
+            ])
+          } catch (err) {
+            console.error('Errore nell\'invio della notifica di accesso admin:', err)
+          }
+        }
+
+        notifyAccess()
+      }
+    }
+  }, [profile])
+
   return (
     <AuthContext.Provider
       value={{
