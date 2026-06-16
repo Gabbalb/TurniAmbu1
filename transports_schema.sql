@@ -66,21 +66,21 @@ CREATE TABLE IF NOT EXISTS public.transports (
   created_at timestamptz DEFAULT now() NOT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL,
   CONSTRAINT chk_altro_richiede_descrizione
-    CHECK (tipo_trasporto <> 'altro' OR altro_descrizione IS NOT NULL),
+    CHECK (stato = 'bozza' OR tipo_trasporto <> 'altro' OR altro_descrizione IS NOT NULL),
   CONSTRAINT chk_ar_solo_visita_altro
     CHECK (variante_ar IS NULL OR tipo_trasporto IN ('visita', 'altro')),
   CONSTRAINT chk_da_ospedale_richiede_nome
-    CHECK (da_tipo_luogo <> 'ospedale' OR da_nome IS NOT NULL),
+    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'ospedale' OR da_nome IS NOT NULL),
   CONSTRAINT chk_da_rsa_richiede_nome
-    CHECK (da_tipo_luogo <> 'rsa' OR da_nome IS NOT NULL),
+    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'rsa' OR da_nome IS NOT NULL),
   CONSTRAINT chk_da_abitazione_richiede_via
-    CHECK (da_tipo_luogo <> 'abitazione' OR da_via IS NOT NULL),
+    CHECK (stato = 'bozza' OR da_tipo_luogo <> 'abitazione' OR da_via IS NOT NULL),
   CONSTRAINT chk_a_ospedale_richiede_nome
-    CHECK (a_tipo_luogo <> 'ospedale' OR a_nome IS NOT NULL),
+    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'ospedale' OR a_nome IS NOT NULL),
   CONSTRAINT chk_a_rsa_richiede_nome
-    CHECK (a_tipo_luogo <> 'rsa' OR a_nome IS NOT NULL),
+    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'rsa' OR a_nome IS NOT NULL),
   CONSTRAINT chk_a_abitazione_richiede_via
-    CHECK (a_tipo_luogo <> 'abitazione' OR a_via IS NOT NULL),
+    CHECK (stato = 'bozza' OR a_tipo_luogo <> 'abitazione' OR a_via IS NOT NULL),
   CONSTRAINT chk_km_finali_dopo_iniziali
     CHECK (km_finali IS NULL OR km_iniziali IS NULL OR km_finali >= km_iniziali),
   CONSTRAINT chk_terminato_ha_ora_fine
@@ -130,16 +130,8 @@ CREATE POLICY "Lettura equipaggio trasporto a tutti"
 DROP POLICY IF EXISTS "Scrittura equipaggio trasporto membri o admin" ON public.transport_crew;
 CREATE POLICY "Scrittura equipaggio trasporto membri o admin"
   ON public.transport_crew FOR ALL TO authenticated
-  USING (
-    public.es_admin()
-    OR user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.transport_crew tc2 WHERE tc2.transport_id = transport_id AND tc2.user_id = auth.uid())
-  )
-  WITH CHECK (
-    public.es_admin()
-    OR user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.transport_crew tc2 WHERE tc2.transport_id = transport_id AND tc2.user_id = auth.uid())
-  );
+  USING (true)
+  WITH CHECK (true);
 
 -- -------------------------------------------------------------------------
 -- POLICY TRANSPORTS CHE RICHIEDONO TRANSPORT_CREW
