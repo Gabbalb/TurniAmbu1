@@ -8,6 +8,9 @@ import DatiPersonali from './components/DatiPersonali'
 import DisponibilitaModal from './components/DisponibilitaModal'
 import TimbraTurno from './components/TimbraTurno'
 import StoricoOre from './components/StoricoOre'
+import Trasporti from './components/Trasporti'
+import TransportSheet, { ActiveTransportBar } from './components/TransportSheet'
+import { TransportProvider } from './context/TransportContext'
 import { ShieldCheck, ShieldAlert, RefreshCw, Key, User } from 'lucide-react'
 
 function AppContent() {
@@ -193,6 +196,9 @@ function AppContent() {
       {view === 'clock-shift' && (
         <TimbraTurno />
       )}
+      {view === 'trasporti' && (
+        <Trasporti />
+      )}
       {view === 'hours-history' && (
         <StoricoOre />
       )}
@@ -220,12 +226,18 @@ function AppContent() {
           setBoardRefreshKey(prev => prev + 1)
         }}
       />
+      
+      {/* Componenti Globali Trasporti */}
+      <TransportSheet />
+      <ActiveTransportBar />
     </Layout>
   )
 }
 
 export default function App() {
   return (
-    <AppContent />
+    <TransportProvider>
+      <AppContent />
+    </TransportProvider>
   )
 }
