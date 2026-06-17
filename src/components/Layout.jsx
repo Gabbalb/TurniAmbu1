@@ -258,6 +258,7 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                   }`}
                 >
                   <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Convalida Ore</span>
                 </button>
 
                 {/* Interfaccia Desktop PC */}

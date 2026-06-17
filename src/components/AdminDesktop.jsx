@@ -82,11 +82,11 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
           : 0
 
-        sliced.push(shift)
-        cumulativeHours += duration
-        if (cumulativeHours >= limit) {
+        if (cumulativeHours + duration > limit) {
           break
         }
+        sliced.push(shift)
+        cumulativeHours += duration
       }
       shifts = sliced
     }
