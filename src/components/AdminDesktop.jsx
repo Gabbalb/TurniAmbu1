@@ -3,34 +3,26 @@ import { api } from '../lib/api'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
 import {
-  LayoutDashboard,
   Users,
   Calendar,
-  Shield,
   CircleDollarSign,
-  BellRing,
-  Smartphone,
   LogOut,
   Plus,
   Search,
   Filter,
   Trash2,
   Edit2,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
   RefreshCw,
-  Send,
   Check,
-  Eye,
   Pencil,
   ShieldAlert,
-  Sparkles,
-  AlertTriangle,
-  FileText,
-  UserPlus,
   Clock,
-  Printer
+  Home,
+  ShieldCheck,
+  X,
+  PlusCircle,
+  CheckCircle
 } from 'lucide-react'
 
 export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile }) {
@@ -641,7 +633,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
               }`}
             >
-              <LayoutDashboard className="w-5 h-5" />
+              <Home className="w-5 h-5" />
               <span>Dashboard Generale</span>
             </button>
 
@@ -677,7 +669,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
               }`}
             >
-              <Shield className="w-5 h-5" />
+              <ShieldCheck className="w-5 h-5" />
               <span>Gestione Equipaggi</span>
             </button>
 
@@ -701,7 +693,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
               }`}
             >
-              <BellRing className="w-5 h-5" />
+              <AlertCircle className="w-5 h-5" />
               <span>Audit Log & Telegram</span>
             </button>
           </nav>
@@ -720,7 +712,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
             onClick={onBackToMobile}
             className="flex items-center justify-center gap-2.5 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-700/60 shadow cursor-pointer"
           >
-            <Smartphone className="w-4 h-4" />
+            <Home className="w-4 h-4" />
             <span>Torna all'App Mobile</span>
           </button>
 
@@ -854,7 +846,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Log ed Eventi</span>
                     <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
-                      <BellRing className="w-5 h-5" />
+                      <AlertCircle className="w-5 h-5" />
                     </div>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -1043,7 +1035,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                           </>
                         ) : (
                           <>
-                            <Send className="w-3.5 h-3.5" />
+                            <PlusCircle className="w-3.5 h-3.5" />
                             <span>Invia a Telegram</span>
                           </>
                         )}
@@ -1137,7 +1129,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                       onClick={() => setShowCreateForm(true)}
                       className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer"
                     >
-                      <UserPlus className="w-4 h-4" />
+                      <PlusCircle className="w-4 h-4" />
                       <span>Nuovo Utente</span>
                     </button>
                   </div>
@@ -1230,7 +1222,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-4 animate-slide-up text-left">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                       <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                        <UserPlus className="w-4.5 h-4.5 text-indigo-400" />
+                        <PlusCircle className="w-4.5 h-4.5 text-indigo-400" />
                         <span>Aggiungi Nuovo Utente</span>
                       </h3>
                       <button 
@@ -1827,7 +1819,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                         onClick={() => window.print()}
                         className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/60 shadow flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Printer className="w-4 h-4" />
+                        <Plus className="w-4 h-4" />
                         <span>Stampa Foglio Presenze</span>
                       </button>
                     </div>
@@ -2051,7 +2043,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   </h3>
 
                   <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Send className="w-5 h-5" />
+                    <PlusCircle className="w-5 h-5" />
                   </div>
 
                   <p className="text-xs text-slate-500 leading-relaxed">
@@ -2088,7 +2080,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                         </>
                       ) : (
                         <>
-                          <Send className="w-4 h-4" />
+                          <PlusCircle className="w-4 h-4" />
                           <span>Pubblica Annuncio</span>
                         </>
                       )}
@@ -2117,7 +2109,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
                     <div className="flex items-center gap-2">
                       <span className="bg-rose-500/15 text-rose-400 p-1.5 rounded-lg border border-rose-500/15">
-                        <XCircle className="w-3.5 h-3.5" />
+                        <X className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-semibold text-slate-300">prenotazione_cancellata</span>
                     </div>
@@ -2131,7 +2123,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
                     <div className="flex items-center gap-2">
                       <span className="bg-purple-500/15 text-purple-400 p-1.5 rounded-lg border border-purple-500/15">
-                        <Send className="w-3.5 h-3.5" />
+                        <PlusCircle className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-semibold text-slate-300">annuncio (Telegram / Avviso)</span>
                     </div>
@@ -2368,7 +2360,7 @@ function getNotificationBadgeStyle(tipo) {
         bg: 'bg-rose-500/10',
         color: 'text-rose-400',
         border: 'border-rose-500/15',
-        icon: <XCircle className="w-4 h-4" />
+        icon: <X className="w-4 h-4" />
       }
     case 'timbratura_inizio':
     case 'timbratura_fine':
@@ -2383,7 +2375,7 @@ function getNotificationBadgeStyle(tipo) {
         bg: 'bg-purple-500/10',
         color: 'text-purple-400',
         border: 'border-purple-500/15',
-        icon: <Send className="w-4 h-4" />
+        icon: <PlusCircle className="w-4 h-4" />
       }
     case 'accesso_admin':
       return {
