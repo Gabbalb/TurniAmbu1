@@ -138,7 +138,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
       const { data: todayS } = await api.fetchShifts(todayStr, todayStr)
       setTodayShifts(todayS || [])
       const { data: todayB } = await api.fetchBookings(todayStr, todayStr)
-      setTodayBookings(todayB || [])
+      const validTodayB = (todayB || []).filter(b => b.shifts && b.shifts.data === todayStr)
+      setTodayBookings(validTodayB)
 
     } catch (err) {
       console.error('Errore nel caricamento dati desktop admin:', err)
@@ -183,6 +184,14 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
     } catch (e) {
       return ''
     }
+  }
+
+  const decimalToHHMM = (decimalHours) => {
+    if (isNaN(decimalHours) || decimalHours < 0) return '00:00'
+    const totalMinutes = Math.round(decimalHours * 60)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
   }
 
   // Invio Annuncio Telegram
@@ -439,7 +448,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
       if (error) throw error
 
-      alert('Ore convalidate e pagate registrate con successo!')
+      alert('Ore convalidate registrate con successo!')
       
       // Ricarica e aggiorna lo stato locale
       const { data: emps } = await api.fetchEmployeesWithPayments()
@@ -604,7 +613,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
   })
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans w-full text-left">
+    <>
+      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans w-full text-left print:hidden">
       {/* SIDEBAR */}
       <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between flex-shrink-0 z-20">
         <div>
@@ -681,8 +691,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
               }`}
             >
-              <CircleDollarSign className="w-5 h-5" />
-              <span>Convalida Ore & Paga</span>
+              <Clock className="w-5 h-5" />
+              <span>Convalida Ore</span>
             </button>
 
             <button
@@ -733,7 +743,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
         <header className="h-20 bg-slate-900/60 border-b border-slate-800 px-8 flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-extrabold capitalize text-slate-100">
-              {activeTab === 'ore' ? 'Convalida Ore & Pagamenti' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab}
+              {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab}
             </h1>
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
           </div>
@@ -826,17 +836,17 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl relative overflow-hidden group hover:border-amber-500/30 transition-all shadow-lg shadow-indigo-950/5">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Ore da Liquidare</span>
+                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Ore da Convalidare</span>
                     <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center">
-                      <CircleDollarSign className="w-5 h-5" />
+                      <Clock className="w-5 h-5" />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-3xl font-extrabold text-slate-100">{totalUnpaidHours.toFixed(1)}h</span>
-                    <span className="text-xs font-bold text-amber-400">~ €{totalUnpaidCost.toFixed(2)}</span>
+                    <span className="text-xs font-bold text-amber-400">({decimalToHHMM(totalUnpaidHours)})</span>
                   </div>
                   <div className="text-[10px] text-slate-500 mt-3 font-medium">
-                    Stima stipendi non ancora convalidati da dipendenti
+                    Ore complessive registrate da convalidare
                   </div>
                 </div>
 
@@ -1772,17 +1782,16 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                         <span className="text-xs font-bold text-slate-200 truncate">
                           {emp.nome && emp.cognome ? `${emp.nome} ${emp.cognome}` : emp.username}
                         </span>
-                        <span className="text-[10px] text-slate-500">Paga Base: €{emp.paga_oraria || '0.00'}/h</span>
                       </div>
 
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         {emp.unpaidHours > 0 ? (
                           <span className="bg-amber-500/10 text-amber-400 border border-amber-500/15 px-2 py-0.5 rounded text-[9px] font-bold">
-                            {emp.unpaidHours.toFixed(1)}h da pagare
+                            {emp.unpaidHours.toFixed(1)}h ({decimalToHHMM(emp.unpaidHours)}) da convalidare
                           </span>
                         ) : (
                           <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-[9px] font-bold">
-                            Liquidato
+                            Convalidato
                           </span>
                         )}
                       </div>
@@ -1819,7 +1828,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                         onClick={() => window.print()}
                         className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/60 shadow flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Plus className="w-4 h-4" />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect><polyline points="6 9 6 2 18 2 18 9"></polyline></svg>
                         <span>Stampa Foglio Presenze</span>
                       </button>
                     </div>
@@ -1828,25 +1837,22 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                     <div className="grid grid-cols-3 gap-4 bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl">
                       <div className="flex flex-col">
                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore Totali Registrate</span>
-                        <span className="text-xl font-extrabold text-slate-200 mt-1">{selectedEmployee.totalHours || 0}h</span>
+                        <span className="text-base font-extrabold text-slate-200 mt-1">{(selectedEmployee.totalHours || 0).toFixed(2)}h</span>
+                        <span className="text-[10px] text-slate-500">({decimalToHHMM(selectedEmployee.totalHours || 0)})</span>
                       </div>
                       
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore non liquidate</span>
-                        <span className="text-xl font-extrabold text-amber-400 mt-1">{selectedEmployee.unpaidHours || 0}h</span>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore da Convalidare</span>
+                        <span className="text-base font-extrabold text-amber-400 mt-1">{(selectedEmployee.unpaidHours || 0).toFixed(2)}h</span>
+                        <span className="text-[10px] text-amber-500">({decimalToHHMM(selectedEmployee.unpaidHours || 0)})</span>
                       </div>
 
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Compenso da liquidare</span>
-                        <span className="text-xl font-extrabold text-emerald-400 mt-1 font-mono">
-                          €{(selectedEmployee.shifts?.reduce((sum, s) => {
-                            if (!s.pagato && s.end_time) {
-                              const hrs = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
-                              return sum + hrs * (s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
-                            }
-                            return sum
-                          }, 0) || 0).toFixed(2)}
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore Convalidate</span>
+                        <span className="text-base font-extrabold text-emerald-400 mt-1">
+                          {(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0).toFixed(2)}h
                         </span>
+                        <span className="text-[10px] text-emerald-500">({decimalToHHMM(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0)})</span>
                       </div>
                     </div>
 
@@ -1854,14 +1860,14 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                     {selectedShiftIds.length > 0 && (
                       <div className="bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-2xl flex items-center justify-between gap-4 animate-slide-up">
                         <span className="text-xs font-bold text-indigo-300">
-                          {selectedShiftIds.length} timbrature selezionate per la convalida / pagamento
+                          {selectedShiftIds.length} timbrature selezionate per la convalida
                         </span>
                         
                         <button
                           onClick={() => setPaymentModalOpen(true)}
                           className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md cursor-pointer"
                         >
-                          Convalida e Paga Selezionati
+                          Convalida Selezionati
                         </button>
                       </div>
                     )}
@@ -1887,9 +1893,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                             </th>
                             <th className="py-2.5 px-3">Inizio Turno (Entrata)</th>
                             <th className="py-2.5 px-3">Fine Turno (Uscita)</th>
-                            <th className="py-2.5 px-3 text-center">Durata</th>
-                            <th className="py-2.5 px-3 text-center">Paga Oraria</th>
-                            <th className="py-2.5 px-3 text-right font-mono">Lordo Stimato</th>
+                            <th className="py-2.5 px-3 text-center">Durata (Decimale)</th>
+                            <th className="py-2.5 px-3 text-center">Durata (HH:MM)</th>
                             <th className="py-2.5 px-3 text-center">Stato</th>
                             <th className="py-2.5 px-3 text-right">Modifica</th>
                           </tr>
@@ -1899,9 +1904,6 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                             const duration = shift.end_time 
                               ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
                               : 0
-                            
-                            const rate = shift.paga_oraria_storica || selectedEmployee.paga_oraria || 0
-                            const gross = duration * rate
 
                             return (
                               <tr key={shift.id} className="hover:bg-slate-800/25 transition-colors">
@@ -1931,16 +1933,13 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                                   {shift.end_time ? `${duration.toFixed(2)} ore` : '-'}
                                 </td>
                                 <td className="py-3 px-3 text-center text-slate-400 font-mono">
-                                  €{rate.toFixed(2)}/h
-                                </td>
-                                <td className="py-3 px-3 text-right text-slate-300 font-mono">
-                                  {shift.end_time ? `€${gross.toFixed(2)}` : '-'}
+                                  {shift.end_time ? decimalToHHMM(duration) : '-'}
                                 </td>
                                 <td className="py-3 px-3 text-center">
                                   {shift.pagato ? (
-                                    <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/15 text-[9px] font-bold">PAGATO</span>
+                                    <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/15 text-[9px] font-bold">CONVALIDATO</span>
                                   ) : (
-                                    <span className="text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/15 text-[9px] font-bold">DA PAGARE</span>
+                                    <span className="text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/15 text-[9px] font-bold">DA CONVALIDARE</span>
                                   )}
                                 </td>
                                 <td className="py-3 px-3 text-right">
@@ -1968,7 +1967,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 ) : (
                   <div className="flex flex-col items-center justify-center py-32 text-center gap-3">
                     <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-3xl flex items-center justify-center shadow-lg">
-                      <CircleDollarSign className="w-6 h-6" />
+                      <Clock className="w-6 h-6" />
                     </div>
                     <span className="text-sm font-bold text-slate-300">Seleziona un dipendente</span>
                     <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
@@ -2139,65 +2138,69 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
       </div>
 
-      {/* MODALE DI CONVALIDA PAGAMENTO (DIPENDENTI) */}
-      {paymentModalOpen && selectedEmployee && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 text-left shadow-2xl animate-scale-up font-sans">
-            <h3 className="text-base font-extrabold text-slate-100">Riconosci Liquidazione Turni</h3>
-            
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Stai per convalidare definitivamente <strong>{selectedShiftIds.length}</strong> timbrature per il dipendente <strong>{selectedEmployee.nome} {selectedEmployee.cognome}</strong>. 
-            </p>
+      {/* MODALE DI CONVALIDA (DIPENDENTI) */}
+      {paymentModalOpen && selectedEmployee && (() => {
+        const selectedShiftsHrs = selectedEmployee.shifts
+          ?.filter(s => selectedShiftIds.includes(s.id))
+          .reduce((sum, s) => {
+            if (s.end_time) {
+              const hrs = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
+              return sum + hrs
+            }
+            return sum
+          }, 0) || 0;
 
-            <div className="bg-slate-950 p-4 rounded-2xl flex flex-col gap-2 border border-slate-800 font-sans">
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Paga Oraria:</span>
-                <span className="font-bold text-slate-200">€{selectedEmployee.paga_oraria?.toFixed(2)}/h</span>
-              </div>
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Timbrature Selezionate:</span>
-                <span className="font-bold text-slate-200">{selectedShiftIds.length} turni</span>
-              </div>
-              <div className="h-px bg-slate-800 my-1" />
-              <div className="flex justify-between text-sm font-extrabold text-slate-200">
-                <span>Totale Stipendio Riconosciuto:</span>
-                <span className="text-emerald-400 font-mono">
-                  €{(selectedEmployee.shifts?.filter(s => selectedShiftIds.includes(s.id)).reduce((sum, s) => {
-                    if (s.end_time) {
-                      const hrs = (new Date(s.end_time) - new Date(s.start_time)) / (1000 * 60 * 60)
-                      return sum + hrs * (s.paga_oraria_storica || selectedEmployee.paga_oraria || 0)
-                    }
-                    return sum
-                  }, 0) || 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
+        return (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 text-left shadow-2xl animate-scale-up font-sans">
+              <h3 className="text-base font-extrabold text-slate-100">Conferma Convalida Turni</h3>
+              
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Stai per convalidare definitivamente <strong>{selectedShiftIds.length}</strong> timbrature per il dipendente <strong>{selectedEmployee.nome} {selectedEmployee.cognome}</strong>. 
+              </p>
 
-            <div className="flex items-center gap-3 mt-1">
-              <button
-                onClick={() => setPaymentModalOpen(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs py-3 rounded-xl transition-all cursor-pointer"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleConfirmPayment}
-                disabled={empLoading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {empLoading ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Convalida...</span>
-                  </>
-                ) : (
-                  <span>Convalida e Paga</span>
-                )}
-              </button>
+              <div className="bg-slate-950 p-4 rounded-2xl flex flex-col gap-2 border border-slate-800 font-sans">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Timbrature Selezionate:</span>
+                  <span className="font-bold text-slate-200">{selectedShiftIds.length} turni</span>
+                </div>
+                <div className="h-px bg-slate-800 my-1" />
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Totale Ore (Decimale):</span>
+                  <span className="font-bold text-slate-200 font-mono">{selectedShiftsHrs.toFixed(2)} h</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Totale Ore (HH:MM):</span>
+                  <span className="font-bold text-slate-200 font-mono">{decimalToHHMM(selectedShiftsHrs)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-1">
+                <button
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs py-3 rounded-xl transition-all cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleConfirmPayment}
+                  disabled={empLoading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {empLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Convalida...</span>
+                    </>
+                  ) : (
+                    <span>Conferma Convalida</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODALE DI MODIFICA TIMBRATURA SINGOLA */}
       {editingShift && selectedEmployee && (
@@ -2324,7 +2327,143 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
         </div>
       )}
 
-    </div>
+      </div>
+
+      {/* SEZIONE PER LA STAMPA PDF */}
+      {selectedEmployee && (
+        <div className="hidden print:block w-full text-slate-900 bg-white p-8 font-sans leading-relaxed text-left">
+          {/* Header del Report */}
+          <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-0.5 border border-slate-300">
+                <img src="/logo.png" alt="COOP GM Pubblica Assistenza Logo" className="w-full h-full object-contain rounded-full" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold uppercase tracking-wide text-slate-900">COOP GM Pubblica Assistenza</h1>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-none mt-1">Foglio Presenze e Ore Lavorate</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Data Stampa: <span className="font-bold text-slate-800">{new Date().toLocaleDateString('it-IT')}</span></p>
+              <p className="text-[10px] text-slate-400">Documento Amministrativo</p>
+            </div>
+          </div>
+
+          {/* Dati Dipendente */}
+          <div className="grid grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-slate-400">Dipendente</p>
+              <p className="text-sm font-extrabold text-slate-900 font-sans">
+                {selectedEmployee.nome && selectedEmployee.cognome ? `${selectedEmployee.nome} ${selectedEmployee.cognome}` : selectedEmployee.username}
+              </p>
+              <p className="text-xs text-slate-600 mt-1">Username: <span className="font-mono text-slate-800 font-bold">{selectedEmployee.username}</span></p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-slate-400">Codice Fiscale</p>
+              <p className="text-xs font-mono font-bold text-slate-800 mt-1">{selectedEmployee.codice_fiscale || 'N/D'}</p>
+            </div>
+          </div>
+
+          {/* Tabella Timbrature */}
+          <div className="mb-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2.5">Elenco Timbrature</h3>
+            <table className="w-full text-left text-xs border-collapse border border-slate-300">
+              <thead>
+                <tr className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-300">
+                  <th className="py-2 px-3 border border-slate-300">Entrata (Inizio)</th>
+                  <th className="py-2 px-3 border border-slate-300">Uscita (Fine)</th>
+                  <th className="py-2 px-3 text-center border border-slate-300">Durata (Decimale)</th>
+                  <th className="py-2 px-3 text-center border border-slate-300">Durata (HH:MM)</th>
+                  <th className="py-2 px-3 text-center border border-slate-300">Stato Convalida</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-800 divide-y divide-slate-200">
+                {(selectedEmployee.shifts || []).map(shift => {
+                  const duration = shift.end_time 
+                    ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
+                    : 0
+                  return (
+                    <tr key={shift.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 border border-slate-300 font-medium">
+                        {formatItalianDateTime(shift.start_time)}
+                      </td>
+                      <td className="py-2.5 px-3 border border-slate-300 font-medium">
+                        {shift.end_time ? formatItalianDateTime(shift.end_time) : 'In corso / Attivo'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center border border-slate-300 font-mono font-bold text-slate-900">
+                        {shift.end_time ? `${duration.toFixed(2)} h` : '-'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center border border-slate-300 font-mono font-bold text-slate-900">
+                        {shift.end_time ? decimalToHHMM(duration) : '-'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center border border-slate-300">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          shift.pagato 
+                            ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' 
+                            : 'text-amber-700 bg-amber-50 border border-amber-200'
+                        }`}>
+                          {shift.pagato ? 'CONVALIDATO' : 'DA CONVALIDARE'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {(!selectedEmployee.shifts || selectedEmployee.shifts.length === 0) && (
+              <div className="text-center py-6 text-slate-500 font-bold border border-slate-300 border-t-0 bg-slate-50">
+                Nessun turno timbrato registrato per questo dipendente.
+              </div>
+            )}
+          </div>
+
+          {/* Riepilogo Totali */}
+          <div className="grid grid-cols-3 gap-4 mb-10 bg-slate-100 p-4 rounded-xl border border-slate-300">
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Totale Ore Registrate</span>
+              <span className="text-base font-extrabold text-slate-900 mt-0.5">
+                {(selectedEmployee.totalHours || 0).toFixed(2)}h
+              </span>
+              <span className="text-xs text-slate-600 font-mono">
+                ({decimalToHHMM(selectedEmployee.totalHours || 0)})
+              </span>
+            </div>
+            
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore Convalidate</span>
+              <span className="text-base font-extrabold text-emerald-800 mt-0.5">
+                {(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0).toFixed(2)}h
+              </span>
+              <span className="text-xs text-slate-600 font-mono">
+                ({decimalToHHMM(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0)})
+              </span>
+            </div>
+
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore da Convalidare</span>
+              <span className="text-base font-extrabold text-amber-800 mt-0.5">
+                {(selectedEmployee.unpaidHours || 0).toFixed(2)}h
+              </span>
+              <span className="text-xs text-slate-600 font-mono">
+                ({decimalToHHMM(selectedEmployee.unpaidHours || 0)})
+              </span>
+            </div>
+          </div>
+
+          {/* Firme per accettazione */}
+          <div className="mt-16 grid grid-cols-2 gap-12 text-center">
+            <div className="flex flex-col items-center">
+              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
+              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma del Dipendente</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
+              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma dell'Amministratore</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
