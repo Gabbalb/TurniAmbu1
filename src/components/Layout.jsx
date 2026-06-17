@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus, Monitor } from 'lucide-react'
 
-export default function Layout({ children, currentView, setView, onOpenBulkModal }) {
+export default function Layout({ children, currentView, setView, onOpenBulkModal, onNavigateToAdmin }) {
   const { profile, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
@@ -258,7 +258,18 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                   }`}
                 >
                   <Users className="w-4 h-4 flex-shrink-0" />
-                  <span>Convalida Turni</span>
+                </button>
+
+                {/* Interfaccia Desktop PC */}
+                <button
+                  onClick={() => {
+                    if (onNavigateToAdmin) onNavigateToAdmin()
+                    setIsSidebarOpen(false)
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-xs font-bold text-indigo-400 bg-indigo-950/45 border border-indigo-800/40 hover:bg-indigo-900/40 hover:text-indigo-300 transition-all mt-1.5 cursor-pointer"
+                >
+                  <Monitor className="w-4 h-4 flex-shrink-0" />
+                  <span>Apri Interfaccia PC Admin</span>
                 </button>
               </div>
             </div>

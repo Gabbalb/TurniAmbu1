@@ -113,6 +113,38 @@ if (USE_MOCK) {
   if (!localStorage.getItem('ta_clocked_shifts')) {
     localStorage.setItem('ta_clocked_shifts', JSON.stringify([]))
   }
+  if (!localStorage.getItem('ta_notifications')) {
+    localStorage.setItem('ta_notifications', JSON.stringify([
+      {
+        id: 1,
+        tipo: 'accesso_admin',
+        messaggio: "L'amministratore admin.system si è collegato all'interfaccia admin tramite il dispositivo Windows con browser Chrome [ID: mock-device-id].",
+        creato_da: 'admin.system',
+        created_at: new Date(Date.now() - 600000).toISOString()
+      },
+      {
+        id: 2,
+        tipo: 'timbratura_inizio',
+        messaggio: "L'utente mario.rossi ha iniziato il turno.",
+        creato_da: 'mario.rossi',
+        created_at: new Date(Date.now() - 3600000).toISOString()
+      },
+      {
+        id: 3,
+        tipo: 'prenotazione_effettuata',
+        messaggio: "L'utente giulia.verdi si è prenotata per il ruolo 'CE' del turno.",
+        creato_da: 'giulia.verdi',
+        created_at: new Date(Date.now() - 14400000).toISOString()
+      },
+      {
+        id: 4,
+        tipo: 'registrazione',
+        messaggio: 'Nuovo utente registrato in piattaforma: "giulia.verdi" con stato "volontario".',
+        creato_da: 'giulia.verdi',
+        created_at: new Date(Date.now() - 86400000 * 2).toISOString()
+      }
+    ]))
+  }
 }
 
 // Helper per generare ID numerico incrementale
@@ -1366,6 +1398,60 @@ export const api = {
       return { data: result, error: null }
     } catch (err) {
       console.error('Errore nel caricamento dei dipendenti:', err)
+      return { error: err }
+    }
+  },
+
+  // =========================================================================
+  // NOTIFICHE (AUDIT & TELEGRAM)
+  // =========================================================================
+
+  fetchNotifications: async () => {
+    if (USE_MOCK) {
+      const notifications = JSON.parse(localStorage.getItem('ta_notifications')) || []
+      notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      return { data: notifications, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      return { data, error }
+    } catch (err) {
+      console.error('Errore nel caricamento delle notifiche:', err)
+      return { error: err }
+    }
+  },
+
+  createAnnouncement: async (message, username) => {
+    if (USE_MOCK) {
+      const notifications = JSON.parse(localStorage.getItem('ta_notifications')) || []
+      const newNotification = {
+        id: getNextId(notifications),
+        tipo: 'annuncio',
+        messaggio: message,
+        creato_da: username,
+        created_at: new Date().toISOString()
+      }
+      notifications.push(newNotification)
+      localStorage.setItem('ta_notifications', JSON.stringify(notifications))
+      return { data: newNotification, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            tipo: 'annuncio',
+            messaggio: message,
+            creato_da: username
+          }
+        ])
+      return { data, error }
+    } catch (err) {
+      console.error('Errore nell\'invio dell\'annuncio:', err)
       return { error: err }
     }
   }
