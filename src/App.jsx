@@ -8,12 +8,7 @@ import DatiPersonali from './components/DatiPersonali'
 import DisponibilitaModal from './components/DisponibilitaModal'
 import TimbraTurno from './components/TimbraTurno'
 import StoricoOre from './components/StoricoOre'
-import Trasporti from './components/Trasporti'
-import TransportSheet, { ActiveTransportBar } from './components/TransportSheet'
-import { TransportProvider } from './context/TransportContext'
 import { ShieldCheck, ShieldAlert, RefreshCw, Key, User } from 'lucide-react'
-import AdminVeicoli from './components/AdminVeicoli'
-import AdminTrasporti from './components/AdminTrasporti'
 
 function AppContent() {
   const { user, profile, loading, login, error: authError } = useAuth()
@@ -198,22 +193,12 @@ function AppContent() {
       {view === 'clock-shift' && (
         <TimbraTurno />
       )}
-      {view === 'trasporti' && (
-        <Trasporti />
-      )}
       {view === 'hours-history' && (
         <StoricoOre />
       )}
-      {/* VISTE ADMIN */}
       {view.startsWith('admin') && (
         profile?.ruolo === 'admin' ? (
-          view === 'admin-veicoli' ? (
-            <AdminVeicoli />
-          ) : view === 'admin-trasporti' ? (
-            <AdminTrasporti />
-          ) : (
-            <AdminPanel activeTab={view === 'admin' ? 'utenti' : view.replace('admin-', '')} />
-          )
+          <AdminPanel activeTab={view === 'admin' ? 'utenti' : view.replace('admin-', '')} />
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-3 animate-fade-in">
             <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center shadow-lg">
@@ -235,18 +220,12 @@ function AppContent() {
           setBoardRefreshKey(prev => prev + 1)
         }}
       />
-      
-      {/* Componenti Globali Trasporti */}
-      <TransportSheet />
-      <ActiveTransportBar />
     </Layout>
   )
 }
 
 export default function App() {
   return (
-    <TransportProvider>
-      <AppContent />
-    </TransportProvider>
+    <AppContent />
   )
 }

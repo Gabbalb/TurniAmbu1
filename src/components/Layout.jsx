@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus, Truck } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus } from 'lucide-react'
 
 export default function Layout({ children, currentView, setView, onOpenBulkModal }) {
   const { profile, logout } = useAuth()
@@ -139,22 +139,6 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
             <span>Tabellone</span>
           </button>
 
-          {/* Trasporti */}
-          <button
-            onClick={() => {
-              setView('trasporti')
-              setIsSidebarOpen(false)
-            }}
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              currentView === 'trasporti'
-                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
-            }`}
-          >
-            <Truck className="w-4.5 h-4.5" />
-            <span>Trasporti</span>
-          </button>
-
           {/* Dati personali */}
           <button
             onClick={() => {
@@ -257,40 +241,8 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
                       : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
                   }`}
                 >
-                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <Plus className="w-4 h-4 flex-shrink-0" />
                   <span>Gestione Equipaggi</span>
-                </button>
-
-                {/* Gestione Veicoli */}
-                <button
-                  onClick={() => {
-                    setView('admin-veicoli')
-                    setIsSidebarOpen(false)
-                  }}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                    currentView === 'admin-veicoli'
-                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
-                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
-                  }`}
-                >
-                  <Truck className="w-4 h-4 flex-shrink-0" />
-                  <span>Gestione Veicoli</span>
-                </button>
-
-                {/* Gestione Trasporti (Admin) */}
-                <button
-                  onClick={() => {
-                    setView('admin-trasporti')
-                    setIsSidebarOpen(false)
-                  }}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                    currentView === 'admin-trasporti'
-                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/15'
-                      : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-100 border border-transparent'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 flex-shrink-0" />
-                  <span>Gestione Trasporti</span>
                 </button>
 
                 {/* Gestione Dipendenti (Convalida Turni) */}
@@ -368,19 +320,6 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
         >
           <Calendar className="w-6 h-6" />
           <span className="text-[10px] font-semibold">Tabellone</span>
-        </button>
-
-        {/* Trasporti Link */}
-        <button
-          onClick={() => setView('trasporti')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
-            currentView === 'trasporti'
-              ? 'text-indigo-400 scale-105 font-bold'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Truck className="w-6 h-6" />
-          <span className="text-[10px] font-semibold">Trasporti</span>
         </button>
 
         {/* Aggiungi Link */}
