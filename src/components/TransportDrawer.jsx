@@ -131,12 +131,10 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
       setLocalPazienteCF(activeTransport.paziente_codice_fiscale || '')
       setLocalPazienteTel(activeTransport.paziente_telefono || '')
       setLocalImporto(activeTransport.importo || '')
-      setLocalAltroPagamento(
-        activeTransport.tipo_pagamento && 
-        !['Contante', 'POS', 'Buono', 'convenzione'].includes(activeTransport.tipo_pagamento)
-          ? activeTransport.tipo_pagamento
-          : ''
-      )
+      const payVal = activeTransport.tipo_pagamento || ''
+      const payValLower = payVal.toLowerCase()
+      const isCustomPay = payValLower && !['contante', 'pos', 'buono', 'convenzione'].includes(payValLower)
+      setLocalAltroPagamento(isCustomPay ? payVal : '')
     }
   }, [activeTransport])
 
@@ -155,15 +153,15 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
         return !activeTransport.vehicle_id || !localOraServizio || !localKmIniziali
       case 'tipo':
         if (!activeTransport.tipo_trasporto) return true
-        if (activeTransport.tipo_trasporto === 'Altro' && !localAltroDescrizione) return true
+        if (activeTransport.tipo_trasporto.toLowerCase() === 'altro' && !localAltroDescrizione) return true
         return false
       case 'percorsoDa':
         if (!activeTransport.da_tipo_luogo) return true
-        if (activeTransport.da_tipo_luogo === 'Abitazione') return !localDaVia
+        if (activeTransport.da_tipo_luogo.toLowerCase() === 'abitazione') return !localDaVia
         return !localDaNome
       case 'percorsoA':
         if (!activeTransport.a_tipo_luogo) return true
-        if (activeTransport.a_tipo_luogo === 'Abitazione') return !localAVia
+        if (activeTransport.a_tipo_luogo.toLowerCase() === 'abitazione') return !localAVia
         return !localANome
       case 'paziente':
         return !localPazienteNome
@@ -644,7 +642,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={t}
                   type="button"
                   onClick={() => {
-                    handleSaveField('tipo_trasporto', t)
+                    handleSaveField('tipo_trasporto', t.toLowerCase())
                     if (t !== 'Altro') {
                       setLocalAltroDescrizione('')
                       handleSaveField('altro_descrizione', null)
@@ -654,7 +652,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     }
                   }}
                   className={`py-3 px-4 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
-                    activeTransport.tipo_trasporto === t
+                    activeTransport.tipo_trasporto?.toLowerCase() === t.toLowerCase()
                       ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/15'
                       : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                   }`}
@@ -664,7 +662,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
               ))}
             </div>
 
-            {activeTransport.tipo_trasporto === 'Altro' && (
+            {activeTransport.tipo_trasporto?.toLowerCase() === 'altro' && (
               <div className="space-y-1.5 animate-fade-in">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Specifica Altro *</label>
                 <input
@@ -681,7 +679,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
         </section>
 
         {/* SECTION 4: VARIANTE A/R */}
-        {(activeTransport.tipo_trasporto === 'Visita' || activeTransport.tipo_trasporto === 'Altro') && (
+        {(activeTransport.tipo_trasporto?.toLowerCase() === 'visita' || activeTransport.tipo_trasporto?.toLowerCase() === 'altro') && (
           <section className="space-y-3 text-left border-t border-slate-800 pt-5 animate-fade-in">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
               4. Variante A/R
@@ -692,9 +690,9 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                 <button
                   key={v}
                   type="button"
-                  onClick={() => handleSaveField('variante_ar', v)}
+                  onClick={() => handleSaveField('variante_ar', v === 'A/R' ? 'ar' : v.toLowerCase())}
                   className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    activeTransport.variante_ar === v
+                    (activeTransport.variante_ar === 'ar' && v === 'A/R') || activeTransport.variante_ar === v.toLowerCase()
                       ? 'bg-indigo-600 border-indigo-500 text-white'
                       : 'bg-slate-900/65 border-slate-800 text-slate-400'
                   }`}
@@ -720,7 +718,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={l}
                   type="button"
                   onClick={() => {
-                    handleSaveField('da_tipo_luogo', l)
+                    handleSaveField('da_tipo_luogo', l.toLowerCase())
                     setLocalDaReparto('')
                     setLocalDaNome('')
                     setLocalDaVia('')
@@ -729,7 +727,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     handleSaveField('da_via', null)
                   }}
                   className={`flex-1 py-2.5 px-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    activeTransport.da_tipo_luogo === l
+                    activeTransport.da_tipo_luogo?.toLowerCase() === l.toLowerCase()
                       ? 'bg-indigo-600 border-indigo-500 text-white'
                       : 'bg-slate-900/60 border-slate-800 text-slate-400'
                   }`}
@@ -739,7 +737,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
               ))}
             </div>
 
-            {activeTransport.da_tipo_luogo === 'Abitazione' ? (
+            {activeTransport.da_tipo_luogo?.toLowerCase() === 'abitazione' ? (
               <div className="space-y-1.5 animate-fade-in">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo Abitazione *</label>
                 <input
@@ -760,7 +758,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     value={localDaReparto}
                     onChange={(e) => setLocalDaReparto(e.target.value)}
                     onBlur={() => handleSaveField('da_reparto', localDaReparto)}
-                    placeholder={activeTransport.da_tipo_luogo === 'Ospedale' ? 'Es. P.S.' : 'Es. Girasole'}
+                    placeholder={activeTransport.da_tipo_luogo?.toLowerCase() === 'ospedale' ? 'Es. P.S.' : 'Es. Girasole'}
                     className="w-full bg-slate-950 border border-slate-805 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all placeholder:text-slate-800"
                   />
                 </div>
@@ -771,7 +769,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     value={localDaNome}
                     onChange={(e) => setLocalDaNome(e.target.value)}
                     onBlur={() => handleSaveField('da_nome', localDaNome)}
-                    placeholder={activeTransport.da_tipo_luogo === 'Ospedale' ? 'Es. Chiari' : 'Es. RSA Rovato'}
+                    placeholder={activeTransport.da_tipo_luogo?.toLowerCase() === 'ospedale' ? 'Es. Chiari' : 'Es. RSA Rovato'}
                     className="w-full bg-slate-950 border border-slate-805 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all placeholder:text-slate-800"
                   />
                 </div>
@@ -794,7 +792,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={l}
                   type="button"
                   onClick={() => {
-                    handleSaveField('a_tipo_luogo', l)
+                    handleSaveField('a_tipo_luogo', l.toLowerCase())
                     setLocalAReparto('')
                     setLocalANome('')
                     setLocalAVia('')
@@ -803,9 +801,9 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     handleSaveField('a_via', null)
                   }}
                   className={`flex-1 py-2.5 px-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    activeTransport.a_tipo_luogo === l
+                    activeTransport.a_tipo_luogo?.toLowerCase() === l.toLowerCase()
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-405'
                   }`}
                 >
                   {l}
@@ -813,7 +811,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
               ))}
             </div>
 
-            {activeTransport.a_tipo_luogo === 'Abitazione' ? (
+            {activeTransport.a_tipo_luogo?.toLowerCase() === 'abitazione' ? (
               <div className="space-y-1.5 animate-fade-in">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo Abitazione *</label>
                 <input
@@ -834,7 +832,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     value={localAReparto}
                     onChange={(e) => setLocalAReparto(e.target.value)}
                     onBlur={() => handleSaveField('a_reparto', localAReparto)}
-                    placeholder={activeTransport.a_tipo_luogo === 'Ospedale' ? 'Es. Zaffiro' : 'Es. Iris'}
+                    placeholder={activeTransport.a_tipo_luogo?.toLowerCase() === 'ospedale' ? 'Es. Zaffiro' : 'Es. Iris'}
                     className="w-full bg-slate-950 border border-slate-805 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all placeholder:text-slate-800"
                   />
                 </div>
@@ -845,7 +843,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     value={localANome}
                     onChange={(e) => setLocalANome(e.target.value)}
                     onBlur={() => handleSaveField('a_nome', localANome)}
-                    placeholder={activeTransport.a_tipo_luogo === 'Ospedale' ? 'Es. Mellini' : 'Es. RSA Girasole'}
+                    placeholder={activeTransport.a_tipo_luogo?.toLowerCase() === 'ospedale' ? 'Es. Mellini' : 'Es. RSA Girasole'}
                     className="w-full bg-slate-950 border border-slate-805 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all placeholder:text-slate-800"
                   />
                 </div>
@@ -923,9 +921,10 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
           <div className="bg-slate-950/40 border border-slate-800 p-4 rounded-3xl space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {['Contante', 'POS', 'Buono', 'convenzione', 'Altro...'].map(p => {
+                const dbPay = activeTransport.tipo_pagamento?.toLowerCase() || ''
                 const isSelected = p === 'Altro...'
-                  ? (activeTransport.tipo_pagamento && !['Contante', 'POS', 'Buono', 'convenzione'].includes(activeTransport.tipo_pagamento))
-                  : activeTransport.tipo_pagamento === p
+                  ? (dbPay && !['contante', 'pos', 'buono', 'convenzione'].includes(dbPay))
+                  : dbPay === p.toLowerCase()
 
                 return (
                   <button
@@ -937,8 +936,8 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                         handleSaveField('tipo_pagamento', '')
                       } else {
                         setLocalAltroPagamento('')
-                        handleSaveField('tipo_pagamento', p)
-                        if (p === 'convenzione') {
+                        handleSaveField('tipo_pagamento', p.toLowerCase())
+                        if (p.toLowerCase() === 'convenzione') {
                           setLocalImporto('')
                           handleSaveField('importo', null)
                         }
@@ -958,7 +957,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
 
             {activeTransport.tipo_pagamento !== undefined &&
               activeTransport.tipo_pagamento !== null &&
-              !['Contante', 'POS', 'Buono', 'convenzione'].includes(activeTransport.tipo_pagamento) && (
+              !['contante', 'pos', 'buono', 'convenzione'].includes(activeTransport.tipo_pagamento.toLowerCase()) && (
                 <div className="space-y-1.5 animate-fade-in">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Specifica Pagamento *</label>
                   <input
@@ -972,7 +971,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                 </div>
               )}
 
-            {activeTransport.tipo_pagamento !== 'convenzione' && (
+            {activeTransport.tipo_pagamento?.toLowerCase() !== 'convenzione' && (
               <div className="space-y-1.5 animate-fade-in">
                 <label className="text-xs font-semibold text-slate-400">Importo (€)</label>
                 <input

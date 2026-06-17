@@ -1670,9 +1670,9 @@ export const api = {
       data: todayStr,
       stato: 'attivo',
       ora_inizio: nowIso,
-      tipo_trasporto: 'Dimissione',
-      da_tipo_luogo: 'Ospedale',
-      a_tipo_luogo: 'Abitazione',
+      tipo_trasporto: 'dimissione',
+      da_tipo_luogo: 'ospedale',
+      a_tipo_luogo: 'abitazione',
       creato_da: userId,
       precompilato_da_admin: false
     }
