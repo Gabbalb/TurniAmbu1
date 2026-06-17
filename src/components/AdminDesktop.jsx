@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Clock,
   Home,
-  ShieldCheck
+  ShieldCheck,
+  Truck
 } from 'lucide-react'
 
 // Import Split Components
@@ -20,9 +21,11 @@ import AdminHistoryTab from './AdminHistoryTab'
 import AdminCrewsTab from './AdminCrewsTab'
 import AdminHoursTab from './AdminHoursTab'
 import AdminNotificationsTab from './AdminNotificationsTab'
+import AdminTransportsTab from './AdminTransportsTab'
+import AdminVehiclesTab from './AdminVehiclesTab'
 
 export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile }) {
-  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'utenti' | 'storico' | 'equipaggi' | 'ore' | 'notifiche'
+  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'utenti' | 'storico' | 'equipaggi' | 'ore' | 'notifiche' | 'trasporti' | 'mezzi'
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState([])
   const [crews, setCrews] = useState([])
@@ -301,6 +304,30 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 <AlertCircle className="w-5 h-5" />
                 <span>Log & Telegram</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('trasporti')}
+                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'trasporti'
+                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
+                }`}
+              >
+                <Truck className="w-5 h-5" />
+                <span>Registro Trasporti</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('mezzi')}
+                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  activeTab === 'mezzi'
+                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
+                }`}
+              >
+                <Truck className="w-5 h-5" />
+                <span>Gestione Mezzi</span>
+              </button>
             </nav>
           </div>
 
@@ -330,7 +357,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           <header className="h-20 bg-slate-900/60 border-b border-slate-800 px-8 flex items-center justify-between flex-shrink-0 z-10 font-sans">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-extrabold capitalize text-slate-100 font-sans">
-                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab}
+                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
               </h1>
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
             </div>
@@ -442,6 +469,16 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 formatItalianDateTime={formatItalianDateTime}
                 onRefresh={onRefresh}
               />
+            )}
+
+            {/* TAB 7: REGISTRO TRASPORTI */}
+            {activeTab === 'trasporti' && (
+              <AdminTransportsTab />
+            )}
+
+            {/* TAB 8: GESTIONE MEZZI */}
+            {activeTab === 'mezzi' && (
+              <AdminVehiclesTab />
             )}
 
           </main>

@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus, Monitor } from 'lucide-react'
+import { Calendar, User, LogOut, ShieldAlert, ShieldCheck, Home, Menu, X, PlusCircle, Clock, History, Users, Plus, Monitor, Truck, ChevronUp } from 'lucide-react'
 
-export default function Layout({ children, currentView, setView, onOpenBulkModal, onNavigateToAdmin }) {
+export default function Layout({ children, currentView, setView, onOpenBulkModal, onNavigateToAdmin, activeTransport, isDrawerOpen, onExpandDrawer }) {
   const { profile, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
@@ -187,6 +187,22 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
             <span>Storico Ore</span>
           </button>
 
+          {/* Trasporti */}
+          <button
+            onClick={() => {
+              setView('transport')
+              setIsSidebarOpen(false)
+            }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              currentView === 'transport'
+                ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 border border-transparent'
+            }`}
+          >
+            <Truck className="w-4.5 h-4.5" />
+            <span>Trasporti</span>
+          </button>
+
           {/* Sezione Amministrazione (Riquadro) */}
           {profile?.ruolo === 'admin' && (
             <div className="mt-2 mb-1 bg-slate-950/40 border border-slate-800/80 rounded-2xl p-2.5 flex flex-col gap-1 shadow-inner">
@@ -306,6 +322,26 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
         </div>
       </div>
 
+      {/* Minimized Active Transport Bar */}
+      {activeTransport && !isDrawerOpen && currentView !== 'transport' && (
+        <div 
+          onClick={onExpandDrawer}
+          className="absolute bottom-[80px] left-4 right-4 bg-slate-900/95 border border-slate-800 hover:border-slate-700/80 p-3.5 rounded-2xl flex items-center justify-between shadow-2xl z-30 cursor-pointer animate-fade-in backdrop-blur-md"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-bold text-slate-200">Scheda attiva in corso</span>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+            <span>Espandi</span>
+            <ChevronUp className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      )}
+
       {/* Bottom Navigation Bar */}
       <nav className="absolute bottom-0 left-0 right-0 max-w-md mx-auto glass-nav py-2.5 px-4 z-40 rounded-t-2xl shadow-xl flex-shrink-0 flex justify-around items-center">
         {/* Home Link */}
@@ -332,6 +368,19 @@ export default function Layout({ children, currentView, setView, onOpenBulkModal
         >
           <Calendar className="w-6 h-6" />
           <span className="text-[10px] font-semibold">Tabellone</span>
+        </button>
+
+        {/* Trasporti Link */}
+        <button
+          onClick={() => setView('transport')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all duration-200 ${
+            currentView === 'transport'
+              ? 'text-indigo-400 scale-105 font-bold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Truck className="w-6 h-6" />
+          <span className="text-[10px] font-semibold">Trasporti</span>
         </button>
 
         {/* Aggiungi Link */}

@@ -53,3 +53,13 @@ CREATE POLICY "Consenti eliminazione timbrature ad admin"
 -- 5. Aggiungi il campo session_token alla tabella profiles per forzare sessioni singole per gli admin
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS session_token text;
+
+-- 6. Inserisci veicoli di prova se non esistono
+INSERT INTO public.vehicles (nome, targa, attivo, km_attuali)
+VALUES 
+  ('Ambulanza 1 (Fiat Ducato)', 'AM123BU', true, 120500),
+  ('Ambulanza 2 (VW Crafter)', 'AM456BU', true, 89400),
+  ('Auto Medica (Subaru Forester)', 'MD789MD', true, 45200),
+  ('Mezzo Disabili (Fiat Doblò)', 'DS321DB', true, 15300)
+ON CONFLICT (id) DO NOTHING;
+

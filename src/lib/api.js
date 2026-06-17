@@ -145,6 +145,23 @@ if (USE_MOCK) {
       }
     ]))
   }
+  if (!localStorage.getItem('ta_vehicles')) {
+    localStorage.setItem('ta_vehicles', JSON.stringify([
+      { id: 1, nome: 'Ambulanza 1 (Fiat Ducato)', targa: 'AM123BU', attivo: true, km_attuali: 120500 },
+      { id: 2, nome: 'Ambulanza 2 (VW Crafter)', targa: 'AM456BU', attivo: true, km_attuali: 89400 },
+      { id: 3, nome: 'Auto Medica (Subaru Forester)', targa: 'MD789MD', attivo: true, km_attuali: 45200 },
+      { id: 4, nome: 'Mezzo Disabili (Fiat Doblò)', targa: 'DS321DB', attivo: true, km_attuali: 15300 }
+    ]))
+  }
+  if (!localStorage.getItem('ta_transports')) {
+    localStorage.setItem('ta_transports', JSON.stringify([]))
+  }
+  if (!localStorage.getItem('ta_transport_crew')) {
+    localStorage.setItem('ta_transport_crew', JSON.stringify([]))
+  }
+  if (!localStorage.getItem('ta_transport_handoffs')) {
+    localStorage.setItem('ta_transport_handoffs', JSON.stringify([]))
+  }
 }
 
 // Helper per generare ID numerico incrementale
@@ -1452,6 +1469,447 @@ export const api = {
       return { data, error }
     } catch (err) {
       console.error('Errore nell\'invio dell\'annuncio:', err)
+      return { error: err }
+    }
+  },
+
+  fetchVehicles: async () => {
+    if (USE_MOCK) {
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      return { data: vehicles.filter(v => v.attivo), error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('attivo', true)
+        .order('nome', { ascending: true })
+      return { data, error }
+    } catch (err) {
+      console.error('Errore nel caricamento veicoli:', err)
+      return { error: err }
+    }
+  },
+
+  fetchAllVehiclesForAdmin: async () => {
+    if (USE_MOCK) {
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      return { data: vehicles, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('nome', { ascending: true })
+      return { data, error }
+    } catch (err) {
+      console.error('Errore nel caricamento veicoli per admin:', err)
+      return { error: err }
+    }
+  },
+
+  createVehicle: async (vehicle) => {
+    if (USE_MOCK) {
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      const newV = {
+        id: getNextId(vehicles),
+        nome: vehicle.nome,
+        targa: vehicle.targa || '',
+        attivo: vehicle.attivo !== undefined ? vehicle.attivo : true,
+        km_attuali: Number(vehicle.km_attuali || 0)
+      }
+      vehicles.push(newV)
+      localStorage.setItem('ta_vehicles', JSON.stringify(vehicles))
+      return { data: newV, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .insert([vehicle])
+        .select()
+        .single()
+      return { data, error }
+    } catch (err) {
+      console.error('Errore creazione veicolo:', err)
+      return { error: err }
+    }
+  },
+
+  updateVehicle: async (vehicleId, updates) => {
+    if (USE_MOCK) {
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      const index = vehicles.findIndex(v => String(v.id) === String(vehicleId))
+      if (index !== -1) {
+        vehicles[index] = { ...vehicles[index], ...updates }
+        localStorage.setItem('ta_vehicles', JSON.stringify(vehicles))
+        return { data: vehicles[index], error: null }
+      }
+      return { error: new Error('Veicolo non trovato') }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .update(updates)
+        .eq('id', vehicleId)
+        .select()
+        .single()
+      return { data, error }
+    } catch (err) {
+      console.error('Errore aggiornamento veicolo:', err)
+      return { error: err }
+    }
+  },
+
+  deleteVehicle: async (vehicleId) => {
+    if (USE_MOCK) {
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      const index = vehicles.findIndex(v => String(v.id) === String(vehicleId))
+      if (index !== -1) {
+        vehicles[index].attivo = false
+        localStorage.setItem('ta_vehicles', JSON.stringify(vehicles))
+        return { data: vehicles[index], error: null }
+      }
+      return { error: new Error('Veicolo non trovato') }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .update({ attivo: false })
+        .eq('id', vehicleId)
+        .select()
+        .single()
+      return { data, error }
+    } catch (err) {
+      console.error('Errore cancellazione veicolo:', err)
+      return { error: err }
+    }
+  },
+
+  fetchLastKmForVehicle: async (vehicleId) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const sorted = transports
+        .filter(t => String(t.vehicle_id) === String(vehicleId) && t.stato === 'terminato' && t.km_finali)
+        .sort((a, b) => new Date(b.ora_fine || b.created_at) - new Date(a.ora_fine || a.created_at))
+      if (sorted.length > 0) {
+        return { km: Number(sorted[0].km_finali), error: null }
+      }
+      const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+      const vehicle = vehicles.find(v => String(v.id) === String(vehicleId))
+      return { km: vehicle ? Number(vehicle.km_attuali) : 0, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .select('km_finali, ora_fine')
+        .eq('vehicle_id', vehicleId)
+        .eq('stato', 'terminato')
+        .not('km_finali', 'is', null)
+        .order('ora_fine', { ascending: false })
+        .limit(1)
+      
+      if (error) throw error
+      if (data && data.length > 0) {
+        return { km: Number(data[0].km_finali), error: null }
+      }
+      
+      const { data: veh, error: vError } = await supabase
+        .from('vehicles')
+        .select('km_attuali')
+        .eq('id', vehicleId)
+        .single()
+      if (vError) throw vError
+      return { km: veh ? Number(veh.km_attuali) : 0, error: null }
+    } catch (err) {
+      console.error('Errore recupero ultimi km veicolo:', err)
+      return { km: 0, error: err }
+    }
+  },
+
+  fetchActiveTransport: async (userId) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const active = transports.find(t => t.creato_da === userId && t.stato === 'attivo')
+      if (!active) return { data: null, error: null }
+
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      const activeCrew = crew.filter(c => c.transport_id === active.id && c.attivo)
+
+      return { data: { ...active, crew: activeCrew }, error: null }
+    }
+    try {
+      const { data: transport, error: tError } = await supabase
+        .from('transports')
+        .select('*')
+        .eq('creato_da', userId)
+        .eq('stato', 'attivo')
+        .maybeSingle()
+
+      if (tError) throw tError
+      if (!transport) return { data: null, error: null }
+
+      const { data: crew, error: cError } = await supabase
+        .from('transport_crew')
+        .select('*')
+        .eq('transport_id', transport.id)
+        .eq('attivo', true)
+
+      if (cError) throw cError
+
+      return { data: { ...transport, crew: crew || [] }, error: null }
+    } catch (err) {
+      console.error('Errore recupero trasporto attivo:', err)
+      return { error: err }
+    }
+  },
+
+  createTransport: async (userId) => {
+    const todayStr = new Date().toISOString().split('T')[0]
+    const nowIso = new Date().toISOString()
+    const defaultTransport = {
+      data: todayStr,
+      stato: 'attivo',
+      ora_inizio: nowIso,
+      tipo_trasporto: 'Dimissione',
+      da_tipo_luogo: 'Ospedale',
+      a_tipo_luogo: 'Abitazione',
+      creato_da: userId,
+      precompilato_da_admin: false
+    }
+
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const newTransport = {
+        id: getNextId(transports),
+        ...defaultTransport,
+        created_at: nowIso,
+        updated_at: nowIso
+      }
+      transports.push(newTransport)
+      localStorage.setItem('ta_transports', JSON.stringify(transports))
+      return { data: { ...newTransport, crew: [] }, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .insert([defaultTransport])
+        .select()
+        .single()
+      if (error) throw error
+      return { data: { ...data, crew: [] }, error: null }
+    } catch (err) {
+      console.error('Errore creazione trasporto:', err)
+      return { error: err }
+    }
+  },
+
+  updateTransportField: async (transportId, field, value) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const index = transports.findIndex(t => String(t.id) === String(transportId))
+      if (index !== -1) {
+        transports[index][field] = value
+        transports[index].updated_at = nowIso
+        localStorage.setItem('ta_transports', JSON.stringify(transports))
+        return { data: transports[index], error: null }
+      }
+      return { error: new Error('Trasporto non trovato') }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .update({ [field]: value, updated_at: nowIso })
+        .eq('id', transportId)
+        .select()
+        .single()
+      return { data, error }
+    } catch (err) {
+      console.error(`Errore aggiornamento campo ${field}:`, err)
+      return { error: err }
+    }
+  },
+
+  updateTransportCrewMember: async (transportId, role, userId) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      const activeIdx = crew.findIndex(c => String(c.transport_id) === String(transportId) && c.ruolo === role && c.attivo)
+      if (activeIdx !== -1) {
+        crew[activeIdx].attivo = false
+        crew[activeIdx].ora_fine_ruolo = nowIso
+      }
+      
+      if (userId) {
+        const newCrewMember = {
+          id: getNextId(crew),
+          transport_id: Number(transportId),
+          user_id: userId,
+          ruolo: role,
+          vehicle_id: null,
+          attivo: true,
+          ora_inizio_ruolo: nowIso,
+          ora_fine_ruolo: null,
+          is_partial: false,
+          created_at: nowIso
+        }
+        crew.push(newCrewMember)
+      }
+      localStorage.setItem('ta_transport_crew', JSON.stringify(crew))
+      return { error: null }
+    }
+    try {
+      const { error: updErr } = await supabase
+        .from('transport_crew')
+        .update({ attivo: false, ora_fine_ruolo: nowIso })
+        .eq('transport_id', transportId)
+        .eq('ruolo', role)
+        .eq('attivo', true)
+      
+      if (updErr) throw updErr
+
+      if (userId) {
+        const { error: insErr } = await supabase
+          .from('transport_crew')
+          .insert([
+            {
+              transport_id: transportId,
+              user_id: userId,
+              ruolo: role,
+              attivo: true,
+              ora_inizio_ruolo: nowIso
+            }
+          ])
+        if (insErr) throw insErr
+      }
+      return { error: null }
+    } catch (err) {
+      console.error('Errore aggiornamento equipaggio:', err)
+      return { error: err }
+    }
+  },
+
+  terminateTransport: async (transportId, kmFinali, vehicleId) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const index = transports.findIndex(t => String(t.id) === String(transportId))
+      if (index !== -1) {
+        transports[index].stato = 'terminato'
+        transports[index].km_finali = Number(kmFinali)
+        transports[index].ora_fine = nowIso
+        transports[index].updated_at = nowIso
+        localStorage.setItem('ta_transports', JSON.stringify(transports))
+
+        const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+        crew.forEach(c => {
+          if (String(c.transport_id) === String(transportId) && c.attivo) {
+            c.attivo = false
+            c.ora_fine_ruolo = nowIso
+          }
+        })
+        localStorage.setItem('ta_transport_crew', JSON.stringify(crew))
+
+        if (vehicleId) {
+          const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+          const vIdx = vehicles.findIndex(v => String(v.id) === String(vehicleId))
+          if (vIdx !== -1) {
+            vehicles[vIdx].km_attuali = Number(kmFinali)
+            localStorage.setItem('ta_vehicles', JSON.stringify(vehicles))
+          }
+        }
+        return { data: transports[index], error: null }
+      }
+      return { error: new Error('Trasporto non trovato') }
+    }
+    try {
+      const { data: trans, error: tError } = await supabase
+        .from('transports')
+        .update({
+          stato: 'terminato',
+          km_finali: Number(kmFinali),
+          ora_fine: nowIso,
+          updated_at: nowIso
+        })
+        .eq('id', transportId)
+        .select()
+        .single()
+
+      if (tError) throw tError
+
+      const { error: cError } = await supabase
+        .from('transport_crew')
+        .update({ attivo: false, ora_fine_ruolo: nowIso })
+        .eq('transport_id', transportId)
+        .eq('attivo', true)
+
+      if (cError) throw cError
+
+      if (vehicleId) {
+        const { error: vError } = await supabase
+          .from('vehicles')
+          .update({ km_attuali: Number(kmFinali) })
+          .eq('id', vehicleId)
+
+        if (vError) throw vError
+      }
+
+      return { data: trans, error: null }
+    } catch (err) {
+      console.error('Errore chiusura trasporto:', err)
+      return { error: err }
+    }
+  },
+
+  fetchTransportsList: async () => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const sorted = [...transports].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      return { data: sorted, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .select('*, vehicles(nome, targa), profiles:creato_da(nome, cognome, username)')
+        .order('created_at', { ascending: false })
+      return { data, error }
+    } catch (err) {
+      console.error('Errore nel caricamento della lista trasporti:', err)
+      return { error: err }
+    }
+  },
+
+  fetchActiveShiftsAndBookingsForDate: async (dateStr) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+
+      const dayShifts = shifts.filter(s => s.data === dateStr)
+      const enrichedShifts = dayShifts.map(s => {
+        const shiftBookings = bookings
+          .filter(b => b.shift_id === s.id)
+          .map(b => ({
+            ...b,
+            user: profiles.find(p => p.id === b.user_id) || {}
+          }))
+        return {
+          ...s,
+          bookings: shiftBookings
+        }
+      })
+      return { data: enrichedShifts, error: null }
+    }
+    try {
+      const { data: shifts, error: sError } = await supabase
+        .from('shifts')
+        .select('*, bookings(*, user:profiles(*))')
+        .eq('data', dateStr)
+
+      if (sError) throw sError
+      return { data: shifts, error: null }
+    } catch (err) {
+      console.error('Errore nel caricamento turni per autocompilazione:', err)
       return { error: err }
     }
   }
