@@ -1,6 +1,7 @@
 -- Abilita le estensioni necessarie
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_net";
 
 -- =========================================================================
 -- 1. TABELLE E STRUTTURA
@@ -10,8 +11,20 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   username text UNIQUE NOT NULL,
-  ruolo text NOT NULL CHECK (ruolo IN ('admin', 'dipendente')),
-  attivo boolean DEFAULT true NOT NULL
+  ruolo text NOT NULL,
+  attivo boolean DEFAULT true NOT NULL,
+  nome text,
+  cognome text,
+  codice_fiscale text,
+  email text,
+  telefono text,
+  data_nascita date,
+  stato text,
+  qualifica text,
+  paga_oraria numeric,
+  credito_surplus numeric DEFAULT 0.00 NOT NULL,
+  session_token text,
+  last_device_id text
 );
 
 -- Tabella Equipaggi
@@ -37,19 +50,120 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   shift_id bigint REFERENCES public.shifts(id) ON DELETE CASCADE NOT NULL,
   user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  ruolo_turno text NOT NULL CHECK (ruolo_turno IN ('CE', 'autista')),
+  ruolo_turno text NOT NULL,
   ora_inizio_effettiva time,
   ora_fine_effettiva time,
   is_partial boolean DEFAULT false NOT NULL,
   nota_parziale text,
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- Tabella Timbrature (Clocked Shifts)
+CREATE TABLE IF NOT EXISTS public.clocked_shifts (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  start_time timestamptz NOT NULL,
+  end_time timestamptz,
+  pagato boolean DEFAULT false NOT NULL,
+  paga_oraria_storica numeric NOT NULL
+);
+
+-- Tabella Veicoli
+CREATE TABLE IF NOT EXISTS public.vehicles (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nome text NOT NULL,
+  targa text,
+  attivo boolean DEFAULT true NOT NULL,
+  km_attuali numeric DEFAULT 0 NOT NULL
+);
+
+-- Tabella Trasporti
+CREATE TABLE IF NOT EXISTS public.transports (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  shift_id bigint REFERENCES public.shifts(id) ON DELETE SET NULL,
+  data date NOT NULL,
+  stato text NOT NULL,
+  ora_inizio timestamptz,
+  ora_fine timestamptz,
+  ora_servizio time,
+  tipo_trasporto text NOT NULL,
+  altro_descrizione text,
+  variante_ar text,
+  da_tipo_luogo text NOT NULL,
+  da_reparto text,
+  da_nome text,
+  da_via text,
+  a_tipo_luogo text NOT NULL,
+  a_reparto text,
+  a_nome text,
+  a_via text,
+  vehicle_id bigint REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  km_iniziali numeric,
+  km_finali numeric,
+  paziente_cognome_nome text,
+  paziente_codice_fiscale text,
+  paziente_telefono text,
+  paziente_email text,
+  note text,
+  tipo_pagamento text,
+  importo numeric,
+  creato_da uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  precompilato_da_admin boolean DEFAULT false NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL,
-  -- Garantisce max 1 CE e 1 Autista per equipaggio per turno (Rimosso per supportare turni parziali multipli)
-  -- CONSTRAINT unique_shift_role UNIQUE (shift_id, ruolo_turno)
+  updated_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- Tabella Equipaggio Trasporti
+CREATE TABLE IF NOT EXISTS public.transport_crew (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  transport_id bigint REFERENCES public.transports(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  ruolo text NOT NULL,
+  vehicle_id bigint REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  attivo boolean DEFAULT true NOT NULL,
+  ora_inizio_ruolo timestamptz NOT NULL,
+  ora_fine_ruolo timestamptz,
+  is_partial boolean DEFAULT false NOT NULL,
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+
+-- Tabella Passaggi di Consegne
+CREATE TABLE IF NOT EXISTS public.transport_handoffs (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  transport_id bigint REFERENCES public.transports(id) ON DELETE CASCADE NOT NULL,
+  da_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  a_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  vehicle_id_precedente bigint REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  vehicle_id_nuovo bigint REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  km_al_passaggio numeric,
+  motivo text,
+  avvenuto_a timestamptz DEFAULT now() NOT NULL
+);
+
+-- Tabella Notifiche (Audit Log)
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tipo text NOT NULL,
+  messaggio text NOT NULL,
+  creato_da text NOT NULL,
+  created_at timestamptz DEFAULT now() NOT NULL
 );
 
 -- =========================================================================
--- 2. FUNZIONI E TRIGGER
+-- 2. ROW LEVEL SECURITY (RLS) POLICIES
 -- =========================================================================
+
+-- Abilita RLS su tutte le tabelle
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clocked_shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transport_crew ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transport_handoffs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Funzione helper per verificare se l'utente è un admin (evita ricorsione RLS)
 CREATE OR REPLACE FUNCTION public.es_admin()
@@ -63,6 +177,255 @@ AS $$
     WHERE id = auth.uid() AND ruolo = 'admin' AND attivo = true
   );
 $$;
+
+-- Policies per PROFILES
+DROP POLICY IF EXISTS "Consenti lettura profili a tutti gli utenti loggati" ON public.profiles;
+CREATE POLICY "Consenti lettura profili a tutti gli utenti loggati"
+  ON public.profiles FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti scrittura profili solo ad admin" ON public.profiles;
+CREATE POLICY "Consenti scrittura profili solo ad admin"
+  ON public.profiles FOR ALL
+  TO authenticated
+  USING (public.es_admin())
+  WITH CHECK (public.es_admin());
+
+-- Policies per CREWS
+DROP POLICY IF EXISTS "Consenti lettura equipaggi a tutti gli utenti loggati" ON public.crews;
+CREATE POLICY "Consenti lettura equipaggi a tutti gli utenti loggati"
+  ON public.crews FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti gestione equipaggi solo ad admin" ON public.crews;
+CREATE POLICY "Consenti gestione equipaggi solo ad admin"
+  ON public.crews FOR ALL
+  TO authenticated
+  USING (public.es_admin())
+  WITH CHECK (public.es_admin());
+
+-- Policies per SHIFTS
+DROP POLICY IF EXISTS "Consenti lettura turni a tutti gli utenti loggati" ON public.shifts;
+CREATE POLICY "Consenti lettura turni a tutti gli utenti loggati"
+  ON public.shifts FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento turni a tutti gli utenti loggati" ON public.shifts;
+CREATE POLICY "Consenti inserimento turni a tutti gli utenti loggati"
+  ON public.shifts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti modifica turni solo ad admin" ON public.shifts;
+CREATE POLICY "Consenti modifica turni solo ad admin"
+  ON public.shifts FOR UPDATE
+  TO authenticated
+  USING (public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti cancellazione turni solo ad admin" ON public.shifts;
+CREATE POLICY "Consenti cancellazione turni solo ad admin"
+  ON public.shifts FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- Policies per BOOKINGS
+DROP POLICY IF EXISTS "Consenti lettura prenotazioni a tutti gli utenti loggati" ON public.bookings;
+CREATE POLICY "Consenti lettura prenotazioni a tutti gli utenti loggati"
+  ON public.bookings FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento prenotazioni personali o admin" ON public.bookings;
+CREATE POLICY "Consenti inserimento prenotazioni personali o admin"
+  ON public.bookings FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND attivo = true))
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "Consenti modifica prenotazioni solo ad admin" ON public.bookings;
+CREATE POLICY "Consenti modifica prenotazioni solo ad admin"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (public.es_admin())
+  WITH CHECK (public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti cancellazione prenotazioni personali o admin" ON public.bookings;
+CREATE POLICY "Consenti cancellazione prenotazioni personali o admin"
+  ON public.bookings FOR DELETE
+  TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR public.es_admin()
+  );
+
+-- Policies per CLOCKED_SHIFTS
+DROP POLICY IF EXISTS "Consenti lettura timbrature personali o admin" ON public.clocked_shifts;
+CREATE POLICY "Consenti lettura timbrature personali o admin"
+  ON public.clocked_shifts FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid() OR public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti inserimento timbrature personali o admin" ON public.clocked_shifts;
+CREATE POLICY "Consenti inserimento timbrature personali o admin"
+  ON public.clocked_shifts FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid() OR public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti modifica timbrature personali o admin" ON public.clocked_shifts;
+CREATE POLICY "Consenti modifica timbrature personali o admin"
+  ON public.clocked_shifts FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid() OR public.es_admin())
+  WITH CHECK (user_id = auth.uid() OR public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti eliminazione timbrature ad admin" ON public.clocked_shifts;
+CREATE POLICY "Consenti eliminazione timbrature ad admin"
+  ON public.clocked_shifts FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- Policies per VEHICLES
+DROP POLICY IF EXISTS "Consenti lettura veicoli a tutti gli utenti loggati" ON public.vehicles;
+CREATE POLICY "Consenti lettura veicoli a tutti gli utenti loggati"
+  ON public.vehicles FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento veicoli ad admin" ON public.vehicles;
+CREATE POLICY "Consenti inserimento veicoli ad admin"
+  ON public.vehicles FOR INSERT
+  TO authenticated
+  WITH CHECK (public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti modifica veicoli a utenti loggati" ON public.vehicles;
+CREATE POLICY "Consenti modifica veicoli a utenti loggati"
+  ON public.vehicles FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti eliminazione veicoli ad admin" ON public.vehicles;
+CREATE POLICY "Consenti eliminazione veicoli ad admin"
+  ON public.vehicles FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- Policies per TRANSPORTS
+DROP POLICY IF EXISTS "Consenti lettura trasporti a tutti gli utenti loggati" ON public.transports;
+CREATE POLICY "Consenti lettura trasporti a tutti gli utenti loggati"
+  ON public.transports FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento trasporti a tutti gli utenti loggati" ON public.transports;
+CREATE POLICY "Consenti inserimento trasporti a tutti gli utenti loggati"
+  ON public.transports FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti modifica trasporti a tutti gli utenti loggati" ON public.transports;
+CREATE POLICY "Consenti modifica trasporti a tutti gli utenti loggati"
+  ON public.transports FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti cancellazione trasporti solo ad admin" ON public.transports;
+CREATE POLICY "Consenti cancellazione trasporti solo ad admin"
+  ON public.transports FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- Policies per TRANSPORT_CREW
+DROP POLICY IF EXISTS "Consenti lettura equipaggio trasporti a tutti gli utenti loggati" ON public.transport_crew;
+CREATE POLICY "Consenti lettura equipaggio trasporti a tutti gli utenti loggati"
+  ON public.transport_crew FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento equipaggio trasporti a tutti gli utenti loggati" ON public.transport_crew;
+CREATE POLICY "Consenti inserimento equipaggio trasporti a tutti gli utenti loggati"
+  ON public.transport_crew FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti modifica equipaggio trasporti a tutti gli utenti loggati" ON public.transport_crew;
+CREATE POLICY "Consenti modifica equipaggio trasporti a tutti gli utenti loggati"
+  ON public.transport_crew FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti cancellazione equipaggio trasporti ad admin o interessato" ON public.transport_crew;
+CREATE POLICY "Consenti cancellazione equipaggio trasporti ad admin o interessato"
+  ON public.transport_crew FOR DELETE
+  TO authenticated
+  USING (user_id = auth.uid() OR public.es_admin());
+
+-- Policies per TRANSPORT_HANDOFFS
+DROP POLICY IF EXISTS "Consenti lettura passaggi di consegne a tutti gli utenti loggati" ON public.transport_handoffs;
+CREATE POLICY "Consenti lettura passaggi di consegne a tutti gli utenti loggati"
+  ON public.transport_handoffs FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Consenti inserimento passaggi di consegne a tutti gli utenti loggati" ON public.transport_handoffs;
+CREATE POLICY "Consenti inserimento passaggi di consegne a tutti gli utenti loggati"
+  ON public.transport_handoffs FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti modifica passaggi di consegne a tutti gli utenti loggati" ON public.transport_handoffs;
+CREATE POLICY "Consenti modifica passaggi di consegne a tutti gli utenti loggati"
+  ON public.transport_handoffs FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Consenti cancellazione passaggi di consegne ad admin" ON public.transport_handoffs;
+CREATE POLICY "Consenti cancellazione passaggi di consegne ad admin"
+  ON public.transport_handoffs FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- Policies per NOTIFICATIONS
+DROP POLICY IF EXISTS "Consenti lettura notifiche solo ad admin" ON public.notifications;
+CREATE POLICY "Consenti lettura notifiche solo ad admin"
+  ON public.notifications FOR SELECT
+  TO authenticated
+  USING (public.es_admin());
+
+DROP POLICY IF EXISTS "Consenti inserimento notifiche a tutti" ON public.notifications;
+CREATE POLICY "Consenti inserimento notifiche a tutti"
+  ON public.notifications FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+
+-- =========================================================================
+-- 3. FUNZIONI E TRIGGER COMUNI/UTENTI
+-- =========================================================================
+
+-- Trigger per auto-aggiornare updated_at in public.transports
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_transports_updated_at ON public.transports;
+CREATE TRIGGER tr_transports_updated_at
+  BEFORE UPDATE ON public.transports
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 
 -- Trigger prima dell'inserimento in auth.users per auto-confermare l'account
 CREATE OR REPLACE FUNCTION public.handle_auth_before_insert()
@@ -92,14 +455,24 @@ AS $$
 DECLARE
   username_val text;
   ruolo_val text;
+  nome_val text;
+  cognome_val text;
+  email_val text;
 BEGIN
   username_val := COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1));
   ruolo_val := COALESCE(NEW.raw_user_meta_data ->> 'ruolo', 'dipendente');
+  nome_val := NEW.raw_user_meta_data ->> 'nome';
+  cognome_val := NEW.raw_user_meta_data ->> 'cognome';
+  email_val := NEW.email;
 
-  INSERT INTO public.profiles (id, username, ruolo, attivo)
-  VALUES (NEW.id, username_val, ruolo_val, true)
+  INSERT INTO public.profiles (id, username, ruolo, attivo, nome, cognome, email)
+  VALUES (NEW.id, username_val, ruolo_val, true, nome_val, cognome_val, email_val)
   ON CONFLICT (id) DO UPDATE
-  SET username = EXCLUDED.username, ruolo = EXCLUDED.ruolo;
+  SET username = EXCLUDED.username, 
+      ruolo = EXCLUDED.ruolo,
+      nome = COALESCE(profiles.nome, EXCLUDED.nome),
+      cognome = COALESCE(profiles.cognome, EXCLUDED.cognome),
+      email = COALESCE(profiles.email, EXCLUDED.email);
   
   RETURN NEW;
 END;
@@ -147,102 +520,6 @@ BEGIN
   WHERE id = target_user_id;
 END;
 $$;
-
--- =========================================================================
--- 3. ROW LEVEL SECURITY (RLS) POLICIES
--- =========================================================================
-
--- Abilita RLS
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.crews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
-
--- Policies per PROFILES
-DROP POLICY IF EXISTS "Consenti lettura profili a tutti gli utenti loggati" ON public.profiles;
-CREATE POLICY "Consenti lettura profili a tutti gli utenti loggati"
-  ON public.profiles FOR SELECT
-  TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Consenti scrittura profili solo ad admin" ON public.profiles;
-CREATE POLICY "Consenti scrittura profili solo ad admin"
-  ON public.profiles FOR ALL
-  TO authenticated
-  USING (public.es_admin())
-  WITH CHECK (public.es_admin());
-
--- Policies per CREWS
-DROP POLICY IF EXISTS "Consenti lettura equipaggi a tutti gli utenti loggati" ON public.crews;
-CREATE POLICY "Consenti lettura equipaggi a tutti gli utenti loggati"
-  ON public.crews FOR SELECT
-  TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Consenti gestione equipaggi solo ad admin" ON public.crews;
-CREATE POLICY "Consenti gestione equipaggi solo ad admin"
-  ON public.crews FOR ALL
-  TO authenticated
-  USING (public.es_admin())
-  WITH CHECK (public.es_admin());
-
--- Policies per SHIFTS
-DROP POLICY IF EXISTS "Consenti lettura turni a tutti gli utenti loggati" ON public.shifts;
-CREATE POLICY "Consenti lettura turni a tutti gli utenti loggati"
-  ON public.shifts FOR SELECT
-  TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Consenti inserimento turni a tutti gli utenti loggati" ON public.shifts;
-CREATE POLICY "Consenti inserimento turni a tutti gli utenti loggati"
-  ON public.shifts FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Consenti modifica e cancellazione turni solo ad admin" ON public.shifts;
-DROP POLICY IF EXISTS "Consenti modifica turni solo ad admin" ON public.shifts;
-CREATE POLICY "Consenti modifica turni solo ad admin"
-  ON public.shifts FOR UPDATE
-  TO authenticated
-  USING (public.es_admin());
-
-DROP POLICY IF EXISTS "Consenti cancellazione turni solo ad admin" ON public.shifts;
-CREATE POLICY "Consenti cancellazione turni solo ad admin"
-  ON public.shifts FOR DELETE
-  TO authenticated
-  USING (public.es_admin());
-
--- Policies per BOOKINGS
-DROP POLICY IF EXISTS "Consenti lettura prenotazioni a tutti gli utenti loggati" ON public.bookings;
-CREATE POLICY "Consenti lettura prenotazioni a tutti gli utenti loggati"
-  ON public.bookings FOR SELECT
-  TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Consenti inserimento prenotazioni personali o admin" ON public.bookings;
-CREATE POLICY "Consenti inserimento prenotazioni personali o admin"
-  ON public.bookings FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND attivo = true))
-    OR public.es_admin()
-  );
-
-DROP POLICY IF EXISTS "Consenti modifica prenotazioni solo ad admin" ON public.bookings;
-CREATE POLICY "Consenti modifica prenotazioni solo ad admin"
-  ON public.bookings FOR UPDATE
-  TO authenticated
-  USING (public.es_admin())
-  WITH CHECK (public.es_admin());
-
-DROP POLICY IF EXISTS "Consenti cancellazione prenotazioni personali o admin" ON public.bookings;
-CREATE POLICY "Consenti cancellazione prenotazioni personali o admin"
-  ON public.bookings FOR DELETE
-  TO authenticated
-  USING (
-    user_id = auth.uid()
-    OR public.es_admin()
-  );
 
 -- =========================================================================
 -- 4. SEED DATA (CREAZIONE ADMIN DI DEFAULT E EQUIPAGGIO INIZIALE)
@@ -318,32 +595,6 @@ END $$;
 -- 5. TABELLA NOTIFICHE E TRIGGER AUDIT LOG (PER TELEGRAM E PANNELLO)
 -- =========================================================================
 
--- Tabella Notifiche per l'audit log e l'invio delle email
-CREATE TABLE IF NOT EXISTS public.notifications (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  tipo text NOT NULL, -- 'registrazione', 'prenotazione_creata', 'prenotazione_cancellata', 'prenotazione_modificata', 'profilo_modificato'
-  messaggio text NOT NULL,
-  creato_da text NOT NULL, -- username di chi ha fatto l'azione
-  created_at timestamptz DEFAULT now() NOT NULL
-);
-
--- Abilita RLS
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-
--- Le notifiche possono essere lette solo dagli admin
-DROP POLICY IF EXISTS "Consenti lettura notifiche solo ad admin" ON public.notifications;
-CREATE POLICY "Consenti lettura notifiche solo ad admin"
-  ON public.notifications FOR SELECT
-  TO authenticated
-  USING (public.es_admin());
-
--- Consenti inserimento a tutti (necessario per i trigger che girano come auth.uid)
-DROP POLICY IF EXISTS "Consenti inserimento notifiche a tutti" ON public.notifications;
-CREATE POLICY "Consenti inserimento notifiche a tutti"
-  ON public.notifications FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
 -- Trigger 1: Registrazione di un nuovo profilo
 CREATE OR REPLACE FUNCTION public.on_profile_created()
 RETURNS trigger
@@ -378,14 +629,14 @@ DECLARE
   actor_name text;
   msg text;
 BEGIN
-  IF OLD.stato <> NEW.stato OR OLD.attivo <> NEW.attivo THEN
+  IF OLD.stato IS DISTINCT FROM NEW.stato OR OLD.attivo IS DISTINCT FROM NEW.attivo THEN
     SELECT COALESCE(username, 'Sistema') INTO actor_name FROM public.profiles WHERE id = auth.uid();
     actor_name := COALESCE(actor_name, 'Sistema');
 
     msg := concat(
       'Profilo di ', COALESCE(NEW.username, 'Utente'), ' aggiornato: ',
-      CASE WHEN OLD.stato <> NEW.stato THEN concat('Stato modificato da ', OLD.stato, ' a ', NEW.stato, '. ') ELSE '' END,
-      CASE WHEN OLD.attivo <> NEW.attivo THEN concat('Stato attivo cambiato da ', OLD.attivo::text, ' a ', NEW.attivo::text, '.') ELSE '' END
+      CASE WHEN OLD.stato IS DISTINCT FROM NEW.stato THEN concat('Stato modificato da ', COALESCE(OLD.stato, 'N/D'), ' a ', COALESCE(NEW.stato, 'N/D'), '. ') ELSE '' END,
+      CASE WHEN OLD.attivo IS DISTINCT FROM NEW.attivo THEN concat('Stato attivo cambiato da ', OLD.attivo::text, ' a ', NEW.attivo::text, '.') ELSE '' END
     );
 
     INSERT INTO public.notifications (tipo, messaggio, creato_da)
@@ -405,7 +656,6 @@ CREATE TRIGGER tr_profile_update
   FOR EACH ROW EXECUTE PROCEDURE public.on_profile_update();
 
 -- Trigger 3: Creazione, Modifica o Cancellazione di prenotazioni turni
--- Rimuoviamo prima tutti i trigger esistenti (sia row-level che statement-level) per evitare errori di dipendenza
 DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
 DROP TRIGGER IF EXISTS tr_booking_insert ON public.bookings;
 DROP TRIGGER IF EXISTS tr_booking_update ON public.bookings;
@@ -642,8 +892,6 @@ END;
 $$;
 
 -- Collega i trigger di livello STATEMENT su public.bookings con transition tables
-DROP TRIGGER IF EXISTS tr_booking_change ON public.bookings;
-
 DROP TRIGGER IF EXISTS tr_booking_insert ON public.bookings;
 CREATE TRIGGER tr_booking_insert
   AFTER INSERT ON public.bookings
@@ -683,7 +931,7 @@ BEGIN
   -- Se il token o il chat_id non sono inseriti, esce senza errori
   IF telegram_token IS NULL OR telegram_token = 'IL_TUO_TOKEN_BOT_TELEGRAM' OR 
      telegram_chat_id IS NULL OR telegram_chat_id = 'IL_TUO_CHAT_ID_GRUPPO' THEN
-    RETURN NEW;
+     RETURN NEW;
   END IF;
 
   -- Determina il titolo del messaggio in base al tipo di notifica
@@ -735,7 +983,6 @@ END;
 $$;
 
 -- Collega il trigger alla nuova funzione di Telegram
-DROP TRIGGER IF EXISTS tr_send_notification_email ON public.notifications;
 DROP TRIGGER IF EXISTS tr_send_notification_telegram ON public.notifications;
 CREATE TRIGGER tr_send_notification_telegram
   AFTER INSERT ON public.notifications
