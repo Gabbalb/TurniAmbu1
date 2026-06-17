@@ -44,19 +44,7 @@ export default function AdminDashboardTab({
     }
   }, [crews])
 
-  // Statistiche Dashboard
-  const activeUsersCount = profiles.length
-  const employeeCount = profiles.filter(p => p.stato === 'dipendente' || p.ruolo === 'dipendente').length
-  const volunteerCount = profiles.filter(p => p.stato === 'volontario' || p.ruolo === 'volontario').length
 
-  const totalUnpaidHours = employees.reduce((sum, emp) => sum + (emp.unpaidHours || 0), 0)
-
-  // Copertura dei turni di oggi
-  const todayRequiredSlots = todayShifts.length * 2
-  const todayBookedSlots = todayBookings.length
-  const todayCoveragePercentage = todayRequiredSlots > 0 
-    ? Math.round((todayBookedSlots / todayRequiredSlots) * 100)
-    : 0
 
   // Invio Annuncio Telegram
   const handleSendAnnouncement = async (e) => {
@@ -119,86 +107,6 @@ export default function AdminDashboardTab({
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
-      {/* METRICS ROW */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        
-        {/* Metric Card 1 */}
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl relative overflow-hidden group hover:border-indigo-500/30 transition-all shadow-lg shadow-indigo-950/5">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/10 transition-colors" />
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Personale Attivo</span>
-            <div className="w-10 h-10 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-100">{activeUsersCount}</span>
-            <span className="text-[10px] text-slate-400">Utenti totali</span>
-          </div>
-          <div className="flex gap-3 mt-3 text-[10px] text-slate-500 font-medium">
-            <span>{employeeCount} Dipendenti</span>
-            <span>•</span>
-            <span>{volunteerCount} Volontari</span>
-          </div>
-        </div>
-
-        {/* Metric Card 2 */}
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl relative overflow-hidden group hover:border-cyan-500/30 transition-all shadow-lg shadow-indigo-950/5">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-cyan-500/10 transition-colors" />
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Copertura Turni Oggi</span>
-            <div className="w-10 h-10 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl flex items-center justify-center">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-100">{todayCoveragePercentage}%</span>
-            <span className="text-[10px] text-slate-400">posizioni coperte</span>
-          </div>
-          <div className="flex gap-2.5 mt-3 text-[10px] text-slate-500 font-medium">
-            <span className="text-cyan-400 font-bold">{todayBookedSlots} prenotazioni</span>
-            <span>su {todayRequiredSlots} slot disponibili</span>
-          </div>
-        </div>
-
-        {/* Metric Card 3 */}
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl relative overflow-hidden group hover:border-amber-500/30 transition-all shadow-lg shadow-indigo-950/5">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Ore da Convalidare</span>
-            <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-3xl font-extrabold text-slate-100">{totalUnpaidHours.toFixed(1)}h</span>
-            <span className="text-xs font-bold text-amber-400">({decimalToHHMM(totalUnpaidHours)})</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-3 font-medium">
-            Ore complessive registrate da convalidare
-          </div>
-        </div>
-
-        {/* Metric Card 4 */}
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl relative overflow-hidden group hover:border-emerald-500/30 transition-all shadow-lg shadow-indigo-950/5">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Log ed Eventi</span>
-            <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-100">{notifications.length}</span>
-            <span className="text-[10px] text-slate-400">notifiche registrate</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-3 font-medium">
-            Audit log storico delle azioni di sistema
-          </div>
-        </div>
-
-      </div>
-
       {/* SECOND ROW: 2 COLUMN PANELS */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
