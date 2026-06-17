@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { api } from '../lib/api'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -38,6 +38,94 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
   // Gestione Ore / Convalida (Shared for PDF printing)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [selectedShiftIds, setSelectedShiftIds] = useState([])
+
+  // Filtri di Stampa PDF
+  const [printStartDate, setPrintStartDate] = useState('')
+  const [printMaxHours, setPrintMaxHours] = useState('')
+  const [printStatusFilter, setPrintStatusFilter] = useState('unconvalidated')
+
+  // Reset print filters when selected employee changes
+  useEffect(() => {
+    setPrintStartDate('')
+    setPrintMaxHours('')
+    setPrintStatusFilter('unconvalidated')
+  }, [selectedEmployee?.id])
+
+  // Derive filtered shifts for the printable PDF
+  const pdfShifts = useMemo(() => {
+    if (!selectedEmployee || !selectedEmployee.shifts) return []
+
+    // 1. Clone and sort descending (from newest) to apply cumulative max hours limit
+    let shifts = [...selectedEmployee.shifts].sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
+
+    // 2. Filter by start date (start_time is an ISO string)
+    if (printStartDate) {
+      const startLimit = new Date(`${printStartDate}T00:00:00`)
+      shifts = shifts.filter(s => new Date(s.start_time) >= startLimit)
+    }
+
+    // 3. Filter by convalidation status ('all', 'convalidated', 'unconvalidated')
+    if (printStatusFilter === 'convalidated') {
+      shifts = shifts.filter(s => s.pagato)
+    } else if (printStatusFilter === 'unconvalidated') {
+      shifts = shifts.filter(s => !s.pagato)
+    }
+
+    // 4. Cumulative max hours limit
+    if (printMaxHours && !isNaN(Number(printMaxHours)) && Number(printMaxHours) > 0) {
+      const limit = Number(printMaxHours)
+      let cumulativeHours = 0
+      const sliced = []
+
+      for (const shift of shifts) {
+        const duration = shift.end_time 
+          ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
+          : 0
+
+        sliced.push(shift)
+        cumulativeHours += duration
+        if (cumulativeHours >= limit) {
+          break
+        }
+      }
+      shifts = sliced
+    }
+
+    // 5. Re-sort ascending (oldest first) for logical layout in the PDF table
+    return shifts.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+  }, [selectedEmployee, printStartDate, printMaxHours, printStatusFilter])
+
+  // Derive total hours from pdfShifts
+  const pdfTotalHours = useMemo(() => {
+    return pdfShifts.reduce((sum, shift) => {
+      const duration = shift.end_time 
+        ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
+        : 0
+      return sum + duration
+    }, 0)
+  }, [pdfShifts])
+
+  const handlePrintPDF = () => {
+    if (!selectedEmployee) return
+    const originalTitle = document.title
+
+    const namePart = `${selectedEmployee.nome || ''}${selectedEmployee.cognome || ''}`.replace(/\s+/g, '') || selectedEmployee.username || 'Dipendente'
+
+    let filename = ''
+    if (printStartDate) {
+      filename = `${namePart}_${printStartDate}`
+    } else {
+      const todayStr = new Date().toISOString().split('T')[0]
+      filename = `${namePart}_DiSempre_${todayStr}`
+    }
+
+    document.title = filename
+    window.print()
+
+    setTimeout(() => {
+      document.title = originalTitle
+    }, 1000)
+  }
 
   // Caricamento Dati
   const loadData = async () => {
@@ -337,6 +425,13 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 decimalToHHMM={decimalToHHMM}
                 formatItalianDateTime={formatItalianDateTime}
                 onRefresh={onRefresh}
+                printStartDate={printStartDate}
+                setPrintStartDate={setPrintStartDate}
+                printMaxHours={printMaxHours}
+                setPrintMaxHours={setPrintMaxHours}
+                printStatusFilter={printStatusFilter}
+                setPrintStatusFilter={setPrintStatusFilter}
+                handlePrintPDF={handlePrintPDF}
               />
             )}
 
@@ -404,7 +499,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 </tr>
               </thead>
               <tbody className="text-slate-800 divide-y divide-slate-200">
-                {(selectedEmployee.shifts || []).map(shift => {
+                {pdfShifts.map(shift => {
                   const duration = shift.end_time 
                     ? (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
                     : 0
@@ -436,42 +531,26 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 })}
               </tbody>
             </table>
-            {(!selectedEmployee.shifts || selectedEmployee.shifts.length === 0) && (
+            {pdfShifts.length === 0 && (
               <div className="text-center py-6 text-slate-500 font-bold border border-slate-300 border-t-0 bg-slate-50">
-                Nessun turno timbrato registrato per questo dipendente.
+                Nessun turno registrato soddisfa i filtri selezionati.
               </div>
             )}
           </div>
 
           {/* Riepilogo Totali */}
-          <div className="grid grid-cols-3 gap-4 mb-10 bg-slate-100 p-4 rounded-xl border border-slate-300">
+          <div className="mb-10 bg-slate-100 p-4 rounded-xl border border-slate-300 max-w-xs">
             <div className="flex flex-col text-left">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Totale Ore Registrate</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                {printStartDate 
+                  ? `Totale Ore (Dal ${printStartDate.split('-').reverse().join('/')})` 
+                  : 'Totale Ore (Di sempre)'}
+              </span>
               <span className="text-base font-extrabold text-slate-900 mt-0.5">
-                {(selectedEmployee.totalHours || 0).toFixed(2)}h
+                {pdfTotalHours.toFixed(2)}h
               </span>
               <span className="text-xs text-slate-600 font-mono">
-                ({decimalToHHMM(selectedEmployee.totalHours || 0)})
-              </span>
-            </div>
-            
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore Convalidate</span>
-              <span className="text-base font-extrabold text-emerald-800 mt-0.5">
-                {(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0).toFixed(2)}h
-              </span>
-              <span className="text-xs text-slate-600 font-mono">
-                ({decimalToHHMM(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0)})
-              </span>
-            </div>
-
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ore da Convalidare</span>
-              <span className="text-base font-extrabold text-amber-800 mt-0.5">
-                {(selectedEmployee.unpaidHours || 0).toFixed(2)}h
-              </span>
-              <span className="text-xs text-slate-600 font-mono">
-                ({decimalToHHMM(selectedEmployee.unpaidHours || 0)})
+                ({decimalToHHMM(pdfTotalHours)})
               </span>
             </div>
           </div>

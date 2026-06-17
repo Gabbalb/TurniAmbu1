@@ -11,7 +11,14 @@ export default function AdminHoursTab({
   setSelectedShiftIds,
   decimalToHHMM,
   formatItalianDateTime,
-  onRefresh
+  onRefresh,
+  printStartDate,
+  setPrintStartDate,
+  printMaxHours,
+  setPrintMaxHours,
+  printStatusFilter,
+  setPrintStatusFilter,
+  handlePrintPDF
 }) {
   const [empSearch, setEmpSearch] = useState('')
   const [empLoading, setEmpLoading] = useState(false)
@@ -250,7 +257,7 @@ export default function AdminHoursTab({
 
               {/* Print button */}
               <button
-                onClick={() => window.print()}
+                onClick={handlePrintPDF}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/60 shadow flex items-center gap-1.5 cursor-pointer font-sans"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect><polyline points="6 9 6 2 18 2 18 9"></polyline></svg>
@@ -278,6 +285,51 @@ export default function AdminHoursTab({
                   {(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0).toFixed(2)}h
                 </span>
                 <span className="text-[10px] text-emerald-500">({decimalToHHMM(selectedEmployee.totalHours - selectedEmployee.unpaidHours || 0)})</span>
+              </div>
+            </div>
+
+            {/* Filtri Stampa PDF */}
+            <div className="bg-slate-950/40 border border-slate-800/60 p-4 rounded-2xl flex flex-col gap-3 font-sans">
+              <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
+                <span className="text-xs font-bold text-indigo-400">Filtri Stampa PDF</span>
+                <span className="text-[10px] text-slate-500 font-semibold italic">Personalizza il foglio presenze prima di stamparlo</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Data Inizio</label>
+                  <input
+                    type="date"
+                    value={printStartDate}
+                    onChange={(e) => setPrintStartDate(e.target.value)}
+                    className="bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Limite Ore (Ultime N ore)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Es: 40 (Nessun limite)"
+                    value={printMaxHours}
+                    onChange={(e) => setPrintMaxHours(e.target.value)}
+                    className="bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Stato Convalida</label>
+                  <select
+                    value={printStatusFilter}
+                    onChange={(e) => setPrintStatusFilter(e.target.value)}
+                    className="bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="unconvalidated">Solo da convalidare</option>
+                    <option value="convalidated">Solo convalidate</option>
+                    <option value="all">Tutte le timbrature</option>
+                  </select>
+                </div>
               </div>
             </div>
 
