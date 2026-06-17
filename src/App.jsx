@@ -12,7 +12,7 @@ import StoricoOre from './components/StoricoOre'
 import { ShieldCheck, ShieldAlert, RefreshCw, Key, User } from 'lucide-react'
 
 function AppContent() {
-  const { user, profile, loading, login, error: authError } = useAuth()
+  const { user, profile, loading, login, logout, error: authError } = useAuth()
   const [view, setView] = useState('my-shifts') // 'board' | 'my-shifts' | 'admin'
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
 
