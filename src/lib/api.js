@@ -1634,8 +1634,12 @@ export const api = {
 
       const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
       const activeCrew = crew.filter(c => c.transport_id === active.id && c.attivo)
+      const mappedCrew = activeCrew.map(c => ({
+        ...c,
+        ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+      }))
 
-      return { data: { ...active, crew: activeCrew }, error: null }
+      return { data: { ...active, crew: mappedCrew }, error: null }
     }
     try {
       const { data: transport, error: tError } = await supabase
@@ -1656,7 +1660,12 @@ export const api = {
 
       if (cError) throw cError
 
-      return { data: { ...transport, crew: crew || [] }, error: null }
+      const mappedCrew = (crew || []).map(c => ({
+        ...c,
+        ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+      }))
+
+      return { data: { ...transport, crew: mappedCrew }, error: null }
     } catch (err) {
       console.error('Errore recupero trasporto attivo:', err)
       return { error: err }
@@ -1731,10 +1740,11 @@ export const api = {
   },
 
   updateTransportCrewMember: async (transportId, role, userId) => {
+    const dbRole = role === 'AS' ? 'autista' : role
     const nowIso = new Date().toISOString()
     if (USE_MOCK) {
       const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
-      const activeIdx = crew.findIndex(c => String(c.transport_id) === String(transportId) && c.ruolo === role && c.attivo)
+      const activeIdx = crew.findIndex(c => String(c.transport_id) === String(transportId) && c.ruolo === dbRole && c.attivo)
       if (activeIdx !== -1) {
         crew[activeIdx].attivo = false
         crew[activeIdx].ora_fine_ruolo = nowIso
@@ -1745,7 +1755,7 @@ export const api = {
           id: getNextId(crew),
           transport_id: Number(transportId),
           user_id: userId,
-          ruolo: role,
+          ruolo: dbRole,
           vehicle_id: null,
           attivo: true,
           ora_inizio_ruolo: nowIso,
@@ -1763,7 +1773,7 @@ export const api = {
         .from('transport_crew')
         .update({ attivo: false, ora_fine_ruolo: nowIso })
         .eq('transport_id', transportId)
-        .eq('ruolo', role)
+        .eq('ruolo', dbRole)
         .eq('attivo', true)
       
       if (updErr) throw updErr
@@ -1775,7 +1785,7 @@ export const api = {
             {
               transport_id: transportId,
               user_id: userId,
-              ruolo: role,
+              ruolo: dbRole,
               attivo: true,
               ora_inizio_ruolo: nowIso
             }
