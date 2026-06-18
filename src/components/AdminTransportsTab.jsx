@@ -8,7 +8,7 @@ import { it } from 'date-fns/locale'
 // Parse hidden JSON metadata from note field
 const parseExternalCrewFromNotes = (noteText) => {
   if (!noteText) return { notes: '', ce_esterno: '', as_esterno: '' }
-  const match = noteText.match(//)
+  const match = noteText.match()
   if (match) {
     try {
       const meta = JSON.parse(match[1])
