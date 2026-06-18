@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 import { Search, RefreshCw, Truck, X, Edit, Trash2, Download, User, Calendar, Clock, MapPin, DollarSign, CheckCircle, Save, AlertTriangle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 // Parse hidden JSON metadata from note field
 const parseExternalCrewFromNotes = (noteText) => {
@@ -275,29 +277,28 @@ export default function AdminTransportsTab() {
     }
   }
 
-  const handlePrintPDF = () => {
+  const handlePrintPDF = async () => {
     if (!selectedTransport) return
-    
+
     const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
     const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
-    
+
     const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
     const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
-    
+
     const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
-    
+
     const ceUser = activeCe?.user_id ? users.find(usr => usr.id === activeCe.user_id) : null
     const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
-    
+
     const asUser = activeAs?.user_id ? users.find(usr => usr.id === activeAs.user_id) : null
     const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
 
-    // Formatting date and time for filename as requested
-    const dayStr = selectedTransport.data 
-      ? format(parseISO(selectedTransport.data), 'dd-MM-yyyy') 
+    const dayStr = selectedTransport.data
+      ? format(parseISO(selectedTransport.data), 'dd-MM-yyyy')
       : 'N-D'
-    const timeStr = selectedTransport.ora_servizio 
-      ? selectedTransport.ora_servizio.slice(0, 5).replace(':', '-') 
+    const timeStr = selectedTransport.ora_servizio
+      ? selectedTransport.ora_servizio.slice(0, 5).replace(':', '-')
       : 'N-D'
     const patientNameClean = (selectedTransport.paziente_cognome_nome || 'N-D')
       .trim()
@@ -305,154 +306,368 @@ export default function AdminTransportsTab() {
 
     const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
 
+    // ---- Fetch logo as base64 so html2canvas can render it ----
+    let logoDataUrl = ''
+    try {
+      const resp = await fetch('/logo.png')
+      const blob = await resp.blob()
+      logoDataUrl = await new Promise(res => {
+        const reader = new FileReader()
+        reader.onloadend = () => res(reader.result)
+        reader.readAsDataURL(blob)
+      })
+    } catch (_) { /* logo omesso se non disponibile */ }
+
+    // ---- Colors ----
+    const isTerminated = selectedTransport.stato === 'terminato'
+    const statusColor  = isTerminated ? '#4b5563' : '#047857'
+    const statusBg     = isTerminated ? '#f1f5f9' : '#ecfdf5'
+    const statusBorder = isTerminated ? '#cbd5e1' : '#a7f3d0'
+
+    // ---- Helper: card section ----
+    const card = (accentColor, title, bodyHtml) => `
+      <div class="card">
+        <div class="card-title" style="color:${accentColor};border-color:${accentColor}22;">${title}</div>
+        ${bodyHtml}
+      </div>`
+
+    // ---- Helper: label+value field ----
+    const field = (label, value, span2 = false) =>
+      `<div class="field${span2 ? ' span2' : ''}">
+        <div class="label">${label}</div>
+        <div class="value">${value}</div>
+      </div>`
+
+    // ---- Helper: route location ----
+    const routeVal = (tipo, nome, reparto, via) =>
+      tipo === 'abitazione'
+        ? (via || 'N/D')
+        : `${nome || 'N/D'}${reparto ? ` <span class="tag">${reparto}</span>` : ''}`
+
     const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${pdfFilename}</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      color: #333;
-      margin: 40px;
-      line-height: 1.6;
-    }
-    .header {
-      border-bottom: 2px solid #4f46e5;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header h1 { margin: 0; color: #1e1b4b; font-size: 24px; }
-    .status {
-      padding: 6px 12px;
-      border-radius: 20px;
+      color: #1e293b;
+      background: #f8fafc;
+      padding: 28px 32px;
       font-size: 12px;
-      font-weight: bold;
-      text-transform: uppercase;
-      background-color: ${selectedTransport.stato === 'terminato' ? '#f3f4f6' : '#ecfdf5'};
-      color: ${selectedTransport.stato === 'terminato' ? '#4b5563' : '#047857'};
-      border: 1px solid ${selectedTransport.stato === 'terminato' ? '#e5e7eb' : '#a7f3d0'};
+      line-height: 1.5;
     }
-    .section { margin-bottom: 25px; }
-    .section-title {
-      font-size: 14px;
-      font-weight: bold;
-      color: #4f46e5;
+
+    /* ── HEADER ── */
+    .page-header {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: contain;
+      border: 2px solid #e2e8f0;
+    }
+    .brand-logo-placeholder {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #4f46e5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .brand-text h1 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e1b4b;
+      line-height: 1.2;
+    }
+    .brand-text p {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .doc-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .doc-id {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .status-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: ${statusBg};
+      color: ${statusColor};
+      border: 1px solid ${statusBorder};
+    }
+
+    /* ── TWO-COLUMN LAYOUT ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .card-title {
+      font-size: 9px;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 5px;
-      margin-bottom: 15px;
+      border-bottom: 1.5px solid;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    .field { margin-bottom: 10px; }
-    .label { font-size: 11px; color: #6b7280; font-weight: bold; text-transform: uppercase; }
-    .value { font-size: 14px; color: #111827; font-weight: 500; }
+    .card.full { grid-column: span 2; }
+
+    /* ── FIELDS ── */
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+    .fields.single { grid-template-columns: 1fr; }
+    .field { }
+    .field.span2 { grid-column: span 2; }
+    .label {
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #94a3b8;
+      margin-bottom: 1px;
+    }
+    .value {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .value strong { font-weight: 800; }
+    .value.mono { font-family: monospace; }
+    .value.highlight { color: #059669; font-weight: 700; }
+    .tag {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+
+    /* ── ROUTE ── */
+    .route-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+    }
+    .route-row + .route-row { border-top: 1px solid #f1f5f9; }
+    .route-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .route-info .route-tipo { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #94a3b8; }
+    .route-info .route-val  { font-size: 12px; font-weight: 600; color: #1e293b; }
+
+    /* ── NOTES ── */
     .notes-box {
-      background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      padding: 15px;
-      font-size: 13px;
+      padding: 10px 12px;
+      font-size: 11px;
       white-space: pre-wrap;
+      color: #475569;
+      margin-top: 4px;
     }
-    @media print { body { margin: 20px; } }
+
+    /* ── FOOTER ── */
+    .page-footer {
+      margin-top: 18px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>Scheda Registro Trasporto #${selectedTransport.id}</h1>
-      <p style="margin:5px 0 0 0;color:#6b7280;font-size:13px;">Data: ${formatDateString(selectedTransport.data)}</p>
-    </div>
-    <span class="status">${selectedTransport.stato}</span>
-  </div>
 
-  <div class="section">
-    <div class="section-title">1. Equipaggio</div>
-    <div class="grid">
-      <div class="field"><div class="label">Capo Equipaggio (CE)</div><div class="value">${ceName}</div></div>
-      <div class="field"><div class="label">Autista / Soccorritore (AS)</div><div class="value">${asName}</div></div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">2. Dati Servizio e Mezzo</div>
-    <div class="grid">
-      <div class="field"><div class="label">Mezzo Utilizzato</div><div class="value">${vehicleName}</div></div>
-      <div class="field"><div class="label">Ora Servizio</div><div class="value">${selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}</div></div>
-      <div class="field"><div class="label">Chilometri Iniziali</div><div class="value">${selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}</div></div>
-      <div class="field"><div class="label">Chilometri Finali</div><div class="value">${selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}</div></div>
-      <div class="field"><div class="label">Data e Ora Inizio</div><div class="value">${formatDateTimeString(selectedTransport.ora_inizio) || 'N/D'}</div></div>
-      <div class="field"><div class="label">Data e Ora Fine</div><div class="value">${formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'}</div></div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">3. Tipologia Trasporto</div>
-    <div class="grid">
-      <div class="field"><div class="label">Tipo Trasporto</div><div class="value" style="text-transform:capitalize;">${selectedTransport.tipo_trasporto}</div></div>
-      ${selectedTransport.tipo_trasporto === 'altro' ? `<div class="field"><div class="label">Descrizione Altro</div><div class="value">${selectedTransport.altro_descrizione || 'N/D'}</div></div>` : ''}
-      ${selectedTransport.variante_ar ? `<div class="field"><div class="label">Variante A/R</div><div class="value" style="text-transform:capitalize;">${selectedTransport.variante_ar.replace('_', ' ')}</div></div>` : ''}
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">4. Percorso (Da / A)</div>
-    <div class="grid">
-      <div class="field">
-        <div class="label">Partenza Da</div>
-        <div class="value">
-          <strong style="color:#6b7280;font-size:11px;text-transform:uppercase;">[${selectedTransport.da_tipo_luogo}]</strong><br/>
-          ${selectedTransport.da_tipo_luogo === 'abitazione' ? (selectedTransport.da_via || 'N/D') : `${selectedTransport.da_nome || 'N/D'} ${selectedTransport.da_reparto ? `(Reparto: ${selectedTransport.da_reparto})` : ''}`}
-        </div>
-      </div>
-      <div class="field">
-        <div class="label">Destinazione A</div>
-        <div class="value">
-          <strong style="color:#6b7280;font-size:11px;text-transform:uppercase;">[${selectedTransport.a_tipo_luogo}]</strong><br/>
-          ${selectedTransport.a_tipo_luogo === 'abitazione' ? (selectedTransport.a_via || 'N/D') : `${selectedTransport.a_nome || 'N/D'} ${selectedTransport.a_reparto ? `(Reparto: ${selectedTransport.a_reparto})` : ''}`}
-        </div>
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="brand">
+      ${logoDataUrl
+        ? `<img src="${logoDataUrl}" class="brand-logo" alt="GM Logo" />`
+        : `<div class="brand-logo-placeholder">GM</div>`}
+      <div class="brand-text">
+        <h1>COOP G.M. Pubblica Assistenza</h1>
+        <p>Scheda Registro Trasporto &mdash; Documento ufficiale</p>
       </div>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">5. Dati Paziente</div>
-    <div class="grid">
-      <div class="field"><div class="label">Cognome e Nome</div><div class="value" style="font-weight:bold;">${selectedTransport.paziente_cognome_nome || 'N/D'}</div></div>
-      <div class="field"><div class="label">Codice Fiscale</div><div class="value">${selectedTransport.paziente_codice_fiscale || 'N/D'}</div></div>
-      <div class="field" style="grid-column:span 2;"><div class="label">Contatti</div><div class="value">${selectedTransport.paziente_telefono ? `Telefono: ${selectedTransport.paziente_telefono}` : 'N/D'}</div></div>
+    <div class="header-right">
+      <div class="doc-title">Trasporto #${selectedTransport.id}</div>
+      <div class="doc-id">Data servizio: ${formatDateString(selectedTransport.data)}</div>
+      <div><span class="status-badge">${selectedTransport.stato}</span></div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-title">6. Pagamento</div>
-    <div class="grid">
-      <div class="field"><div class="label">Metodo Pagamento</div><div class="value" style="text-transform:capitalize;">${selectedTransport.tipo_pagamento || 'N/D'}</div></div>
-      <div class="field"><div class="label">Importo</div><div class="value" style="font-weight:bold;">${selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'}</div></div>
+  <!-- BODY GRID -->
+  <div class="two-col">
+
+    <!-- Paziente -->
+    ${card('#4f46e5', '👤 Paziente', `
+      <div class="fields">
+        ${field('Cognome e Nome', `<strong>${selectedTransport.paziente_cognome_nome || 'N/D'}</strong>`, true)}
+        ${field('Codice Fiscale', `<span class="mono">${selectedTransport.paziente_codice_fiscale || 'N/D'}</span>`)}
+        ${field('Telefono', selectedTransport.paziente_telefono || 'N/D')}
+      </div>`)}
+
+    <!-- Equipaggio -->
+    ${card('#059669', '🧑‍✈️ Equipaggio', `
+      <div class="fields">
+        ${field('Capo Equipaggio (CE)', ceName)}
+        ${field('Autista / Soccorritore (AS)', asName)}
+      </div>`)}
+
+    <!-- Servizio & Mezzo -->
+    ${card('#0284c7', '🚑 Servizio e Mezzo', `
+      <div class="fields">
+        ${field('Data', formatDateString(selectedTransport.data))}
+        ${field('Ora Servizio', selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0,5) : 'N/D')}
+        ${field('Mezzo Utilizzato', vehicleName, true)}
+        ${field('Km Iniziali', selectedTransport.km_iniziali !== null ? selectedTransport.km_iniziali + ' km' : 'N/D')}
+        ${field('Km Finali', selectedTransport.km_finali !== null ? selectedTransport.km_finali + ' km' : 'N/D')}
+        ${field('Data e Ora Inizio', formatDateTimeString(selectedTransport.ora_inizio) || 'N/D')}
+        ${field('Data e Ora Fine', formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)')}
+      </div>`)}
+
+    <!-- Tipologia -->
+    ${card('#7c3aed', '📋 Tipologia', `
+      <div class="fields">
+        ${field('Tipo Trasporto', (selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1))}
+        ${selectedTransport.variante_ar ? field('Variante A/R', selectedTransport.variante_ar.replace(/_/g, ' ')) : ''}
+        ${selectedTransport.tipo_trasporto === 'altro' && selectedTransport.altro_descrizione ? field('Descrizione', selectedTransport.altro_descrizione, true) : ''}
+      </div>`)}
+
+    <!-- Percorso full width -->
+    <div class="card full">
+      <div class="card-title" style="color:#4f46e5;border-color:#4f46e522;">📍 Percorso</div>
+      <div class="route-row">
+        <div class="route-dot" style="background:#4f46e5;"></div>
+        <div class="route-info">
+          <div class="route-tipo">Partenza Da &nbsp;<span class="tag">${selectedTransport.da_tipo_luogo}</span></div>
+          <div class="route-val">${routeVal(selectedTransport.da_tipo_luogo, selectedTransport.da_nome, selectedTransport.da_reparto, selectedTransport.da_via)}</div>
+        </div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:#e11d48;"></div>
+        <div class="route-info">
+          <div class="route-tipo">Destinazione A &nbsp;<span class="tag">${selectedTransport.a_tipo_luogo}</span></div>
+          <div class="route-val">${routeVal(selectedTransport.a_tipo_luogo, selectedTransport.a_nome, selectedTransport.a_reparto, selectedTransport.a_via)}</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Pagamento -->
+    ${card('#b45309', '💳 Pagamento', `
+      <div class="fields">
+        ${field('Metodo', selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D')}
+        ${field('Importo Riscosso', selectedTransport.importo !== null ? '<span class="highlight">€ ' + Number(selectedTransport.importo).toFixed(2) + '</span>' : 'Convenzionato / Gratis')}
+      </div>`)}
+
+    ${cleanNotes ? `
+    <!-- Note full width -->
+    <div class="card full">
+      <div class="card-title" style="color:#475569;border-color:#47556922;">📝 Note del Servizio</div>
+      <div class="notes-box">${cleanNotes}</div>
+    </div>` : ''}
+
   </div>
 
-  ${cleanNotes ? `<div class="section"><div class="section-title">Note</div><div class="notes-box">${cleanNotes}</div></div>` : ''}
+  <!-- FOOTER -->
+  <div class="page-footer">
+    <span>COOP G.M. Pubblica Assistenza &mdash; Documento generato automaticamente</span>
+    <span>Trasporto #${selectedTransport.id} &mdash; ${formatDateTimeString(selectedTransport.ora_inizio) || formatDateString(selectedTransport.data)}</span>
+  </div>
 
-  <script>window.onload = function() { window.print(); }</script>
 </body>
 </html>`
 
-    // Download diretto via Blob — nessun popup richiesto
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${pdfFilename}.html`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    // ---- Render in hidden container then export PDF ----
+    const container = document.createElement('div')
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:860px;background:#f8fafc;'
+    container.innerHTML = htmlContent
+    document.body.appendChild(container)
+
+    try {
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#f8fafc',
+        logging: false
+      })
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const imgW = pageW
+      const imgH = (canvas.height * imgW) / canvas.width
+
+      let yOffset = 0
+      while (yOffset < imgH) {
+        if (yOffset > 0) pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', 0, -yOffset, imgW, imgH)
+        yOffset += pageH
+      }
+
+      pdf.save(`${pdfFilename}.pdf`)
+    } finally {
+      document.body.removeChild(container)
+    }
   }
 
   // Filtered transports memo
