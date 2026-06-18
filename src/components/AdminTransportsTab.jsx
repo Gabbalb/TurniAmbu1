@@ -345,6 +345,7 @@ export default function AdminTransportsTab() {
   }, [transports, searchQuery, statusFilter, startDate, endDate])
 
   return (
+    <>
     <div className="space-y-6 animate-fade-in text-left bg-slate-50 p-6 rounded-3xl border border-slate-200">
       {/* Top Header Card */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1294,162 +1295,136 @@ export default function AdminTransportsTab() {
         </div>
       )}
     </div>
-  )
 
-  // ─── SEZIONE STAMPA (identica al resoconto ore) ───────────────────────────
-  function PrintSection() {
-    if (!selectedTransport) return null
+    {/* SEZIONE STAMPA - visibile solo durante window.print() */}
+    {selectedTransport && (() => {
+      const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
+      const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
+      const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+      const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+      const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
+      const ceUser = activeCe?.user_id ? users.find(u => u.id === activeCe.user_id) : null
+      const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
+      const asUser = activeAs?.user_id ? users.find(u => u.id === activeAs.user_id) : null
+      const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
+      const isTerminated = selectedTransport.stato === 'terminato'
 
-    const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
-    const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
-
-    const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
-    const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
-    const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
-    const ceUser = activeCe?.user_id ? users.find(u => u.id === activeCe.user_id) : null
-    const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
-    const asUser = activeAs?.user_id ? users.find(u => u.id === activeAs.user_id) : null
-    const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
-
-    const isTerminated = selectedTransport.stato === 'terminato'
-
-    const Row = ({ label, value, mono }) => (
-      <div>
-        <p className="text-[10px] uppercase font-bold text-slate-400">{label}</p>
-        <p className={`text-xs font-semibold text-slate-800 mt-0.5 ${mono ? 'font-mono' : ''}`}>{value || 'N/D'}</p>
-      </div>
-    )
-
-    const Section = ({ title, children }) => (
-      <div className="mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-3">{title}</h3>
-        {children}
-      </div>
-    )
-
-    return (
-      <div className="hidden print:block w-full text-slate-900 bg-white p-8 font-sans leading-relaxed text-left">
-
-        {/* Header */}
-        <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-0.5 border border-slate-300">
-              <img src="/logo.png" alt="COOP GM Pubblica Assistenza Logo" className="w-full h-full object-contain rounded-full" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold uppercase tracking-wide text-slate-900">COOP GM Pubblica Assistenza</h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-none mt-1">Scheda Registro Trasporto</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Trasporto <span className="font-bold text-slate-800">#{selectedTransport.id}</span></p>
-            <p className="text-xs text-slate-500">Data servizio: <span className="font-bold text-slate-800">{formatDateString(selectedTransport.data)}</span></p>
-            <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isTerminated ? 'bg-slate-100 text-slate-600 border border-slate-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-              {selectedTransport.stato}
-            </span>
-          </div>
+      const PRow = ({ label, value, mono }) => (
+        <div>
+          <p className="text-[10px] uppercase font-bold text-slate-400">{label}</p>
+          <p className={`text-xs font-semibold text-slate-800 mt-0.5 ${mono ? 'font-mono' : ''}`}>{value || 'N/D'}</p>
         </div>
-
-        {/* Dati Paziente */}
-        <Section title="Paziente">
-          <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <Row label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
-            <Row label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
-            <Row label="Telefono" value={selectedTransport.paziente_telefono} />
-          </div>
-        </Section>
-
-        {/* Equipaggio */}
-        <Section title="Equipaggio">
-          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <Row label="Capo Equipaggio (CE)" value={ceName} />
-            <Row label="Autista / Soccorritore (AS)" value={asName} />
-          </div>
-        </Section>
-
-        {/* Servizio e Mezzo */}
-        <Section title="Servizio e Mezzo">
-          <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <Row label="Data" value={formatDateString(selectedTransport.data)} />
-            <Row label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
-            <Row label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
-            <Row label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
-            <div className="col-span-2"><Row label="Mezzo Utilizzato" value={vehicleName} /></div>
-            <div><Row label="Data e Ora Inizio" value={formatDateTimeString(selectedTransport.ora_inizio)} /></div>
-            <div><Row label="Data e Ora Fine" value={formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'} /></div>
-          </div>
-        </Section>
-
-        {/* Tipologia e Percorso */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <Section title="Tipologia Trasporto">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-              <Row label="Tipo" value={(selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1)} />
-              {selectedTransport.variante_ar && <Row label="Variante A/R" value={selectedTransport.variante_ar.replace(/_/g, ' ')} />}
-              {selectedTransport.tipo_trasporto === 'altro' && <Row label="Descrizione" value={selectedTransport.altro_descrizione} />}
-            </div>
-          </Section>
-          <Section title="Pagamento">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-              <Row label="Metodo" value={selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D'} />
-              <Row label="Importo Riscosso" value={selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'} />
-            </div>
-          </Section>
+      )
+      const PSection = ({ title, children }) => (
+        <div className="mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-3">{title}</h3>
+          {children}
         </div>
+      )
 
-        {/* Percorso */}
-        <Section title="Percorso">
-          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">
-                Partenza Da <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.da_tipo_luogo}</span>
-              </p>
-              <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                {selectedTransport.da_tipo_luogo === 'abitazione'
-                  ? selectedTransport.da_via || 'N/D'
-                  : `${selectedTransport.da_nome || 'N/D'}${selectedTransport.da_reparto ? ` — ${selectedTransport.da_reparto}` : ''}`}
-              </p>
+      return (
+        <div className="hidden print:block w-full text-slate-900 bg-white p-8 font-sans leading-relaxed text-left">
+
+          {/* Header */}
+          <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-0.5 border border-slate-300">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain rounded-full" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold uppercase tracking-wide text-slate-900">COOP GM Pubblica Assistenza</h1>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-none mt-1">Scheda Registro Trasporto</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">
-                Destinazione A <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.a_tipo_luogo}</span>
-              </p>
-              <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                {selectedTransport.a_tipo_luogo === 'abitazione'
-                  ? selectedTransport.a_via || 'N/D'
-                  : `${selectedTransport.a_nome || 'N/D'}${selectedTransport.a_reparto ? ` — ${selectedTransport.a_reparto}` : ''}`}
-              </p>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Trasporto <span className="font-bold text-slate-800">#{selectedTransport.id}</span></p>
+              <p className="text-xs text-slate-500">Data servizio: <span className="font-bold text-slate-800">{formatDateString(selectedTransport.data)}</span></p>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isTerminated ? 'bg-slate-100 text-slate-600 border border-slate-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                {selectedTransport.stato}
+              </span>
             </div>
           </div>
-        </Section>
 
-        {/* Note */}
-        {cleanNotes && (
-          <Section title="Note del Servizio">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{cleanNotes}</div>
-          </Section>
-        )}
+          <PSection title="Paziente">
+            <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <PRow label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
+              <PRow label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
+              <PRow label="Telefono" value={selectedTransport.paziente_telefono} />
+            </div>
+          </PSection>
 
-        {/* Firme */}
-        <div className="mt-12 grid grid-cols-2 gap-12 text-center">
-          <div className="flex flex-col items-center">
-            <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
-            <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma del Capo Equipaggio</span>
+          <PSection title="Equipaggio">
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <PRow label="Capo Equipaggio (CE)" value={ceName} />
+              <PRow label="Autista / Soccorritore (AS)" value={asName} />
+            </div>
+          </PSection>
+
+          <PSection title="Servizio e Mezzo">
+            <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <PRow label="Data" value={formatDateString(selectedTransport.data)} />
+              <PRow label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
+              <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
+              <PRow label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
+              <div className="col-span-2"><PRow label="Mezzo Utilizzato" value={vehicleName} /></div>
+              <div><PRow label="Data e Ora Inizio" value={formatDateTimeString(selectedTransport.ora_inizio)} /></div>
+              <div><PRow label="Data e Ora Fine" value={formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'} /></div>
+            </div>
+          </PSection>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <PSection title="Tipologia Trasporto">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <PRow label="Tipo" value={(selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1)} />
+                {selectedTransport.variante_ar && <PRow label="Variante A/R" value={selectedTransport.variante_ar.replace(/_/g, ' ')} />}
+                {selectedTransport.tipo_trasporto === 'altro' && <PRow label="Descrizione" value={selectedTransport.altro_descrizione} />}
+              </div>
+            </PSection>
+            <PSection title="Pagamento">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <PRow label="Metodo" value={selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D'} />
+                <PRow label="Importo Riscosso" value={selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'} />
+              </div>
+            </PSection>
           </div>
-          <div className="flex flex-col items-center">
-            <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
-            <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma dell'Amministratore</span>
+
+          <PSection title="Percorso">
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-400">Partenza Da <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.da_tipo_luogo}</span></p>
+                <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                  {selectedTransport.da_tipo_luogo === 'abitazione' ? selectedTransport.da_via || 'N/D' : `${selectedTransport.da_nome || 'N/D'}${selectedTransport.da_reparto ? ` — ${selectedTransport.da_reparto}` : ''}`}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-400">Destinazione A <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.a_tipo_luogo}</span></p>
+                <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                  {selectedTransport.a_tipo_luogo === 'abitazione' ? selectedTransport.a_via || 'N/D' : `${selectedTransport.a_nome || 'N/D'}${selectedTransport.a_reparto ? ` — ${selectedTransport.a_reparto}` : ''}`}
+                </p>
+              </div>
+            </div>
+          </PSection>
+
+          {cleanNotes && (
+            <PSection title="Note del Servizio">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{cleanNotes}</div>
+            </PSection>
+          )}
+
+          <div className="mt-12 grid grid-cols-2 gap-12 text-center">
+            <div className="flex flex-col items-center">
+              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
+              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma del Capo Equipaggio</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
+              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma dell'Amministratore</span>
+            </div>
           </div>
+
         </div>
-
-      </div>
-    )
-  }
-
-  return (
-    <>
-      {mainContent}
-      <PrintSection />
+      )
+    })()}
     </>
   )
 }
