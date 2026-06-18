@@ -12,7 +12,7 @@ const parseExternalCrewFromNotes = (noteText) => {
   if (match) {
     try {
       const meta = JSON.parse(match[1])
-      const notes = noteText.replace(//, '').trim()
+      const notes = noteText.replace().trim()
       return { notes, ce_esterno: meta.ce_esterno || '', as_esterno: meta.as_esterno || '' }
     } catch (e) {
       return { notes: noteText, ce_esterno: '', as_esterno: '' }
