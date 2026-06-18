@@ -1337,13 +1337,6 @@ export default function AdminTransportsTab() {
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-none mt-1">Scheda Registro Trasporto</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Trasporto <span className="font-bold text-slate-800">#{selectedTransport.id}</span></p>
-              <p className="text-xs text-slate-500">Data servizio: <span className="font-bold text-slate-800">{formatDateString(selectedTransport.data)}</span></p>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isTerminated ? 'bg-slate-100 text-slate-600 border border-slate-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-                {selectedTransport.stato}
-              </span>
-            </div>
           </div>
 
           <PSection title="Paziente">
