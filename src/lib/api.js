@@ -2061,6 +2061,78 @@ export const api = {
       console.error('Errore nel caricamento turni per autocompilazione:', err)
       return { error: err }
     }
+  },
+
+  fetchTransportDetail: async (transportId) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const transport = transports.find(t => String(t.id) === String(transportId))
+      if (!transport) return { data: null, error: new Error('Trasporto non trovato') }
+
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      const transportCrew = crew.filter(c => String(c.transport_id) === String(transportId) && c.attivo)
+      const mappedCrew = transportCrew.map(c => ({
+        ...c,
+        ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+      }))
+
+      return { data: { ...transport, crew: mappedCrew }, error: null }
+    }
+    try {
+      const { data: transport, error: tError } = await supabase
+        .from('transports')
+        .select('*, vehicles(*), profiles:creato_da(*)')
+        .eq('id', transportId)
+        .single()
+
+      if (tError) throw tError
+
+      const { data: crew, error: cError } = await supabase
+        .from('transport_crew')
+        .select('*, user:profiles(*)')
+        .eq('transport_id', transportId)
+        .eq('attivo', true)
+
+      if (cError) throw cError
+
+      const mappedCrew = (crew || []).map(c => ({
+        ...c,
+        ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+      }))
+
+      return { data: { ...transport, crew: mappedCrew }, error: null }
+    } catch (err) {
+      console.error('Errore nel recupero dettagli trasporto:', err)
+      return { error: err }
+    }
+  },
+
+  deleteTransport: async (transportId) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const filtered = transports.filter(t => String(t.id) !== String(transportId))
+      localStorage.setItem('ta_transports', JSON.stringify(filtered))
+
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      const filteredCrew = crew.filter(c => String(c.transport_id) !== String(transportId))
+      localStorage.setItem('ta_transport_crew', JSON.stringify(filteredCrew))
+
+      const handoffs = JSON.parse(localStorage.getItem('ta_transport_handoffs')) || []
+      const filteredHandoffs = handoffs.filter(h => String(h.transport_id) !== String(transportId))
+      localStorage.setItem('ta_transport_handoffs', JSON.stringify(filteredHandoffs))
+
+      return { error: null }
+    }
+    try {
+      const { error } = await supabase
+        .from('transports')
+        .delete()
+        .eq('id', transportId)
+      return { error }
+    } catch (err) {
+      console.error('Errore nella cancellazione del trasporto:', err)
+      return { error: err }
+    }
   }
 }
 

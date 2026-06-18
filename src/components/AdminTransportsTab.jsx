@@ -1,8 +1,41 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { api } from '../lib/api'
-import { Search, RefreshCw, Truck } from 'lucide-react'
+import { Search, RefreshCw, Truck, X, Edit, Trash2, Download, User, Calendar, Clock, MapPin, DollarSign, CheckCircle, Save, AlertTriangle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
+
+// Parse hidden JSON metadata from note field
+const parseExternalCrewFromNotes = (noteText) => {
+  if (!noteText) return { notes: '', ce_esterno: '', as_esterno: '' }
+  const match = noteText.match(/<!--(\{.*\})-->/)
+  if (match) {
+    try {
+      const meta = JSON.parse(match[1])
+      const notes = noteText.replace(/<!--(\{.*\})-->/, '').trim()
+      return { notes, ce_esterno: meta.ce_esterno || '', as_esterno: meta.as_esterno || '' }
+    } catch (e) {
+      return { notes: noteText, ce_esterno: '', as_esterno: '' }
+    }
+  }
+  return { notes: noteText, ce_esterno: '', as_esterno: '' }
+}
+
+// Build note text appending hidden JSON metadata
+const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
+  const notesPart = (userNotes || '').trim()
+  if (!ceEsterno && !asEsterno) return notesPart
+  const meta = { ce_esterno: ceEsterno || '', as_esterno: asEsterno || '' }
+  return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
+}
+
+const formatDateString = (isoString) => {
+  if (!isoString) return ''
+  try {
+    return format(parseISO(isoString), 'dd/MM/yyyy', { locale: it })
+  } catch (e) {
+    return isoString
+  }
+}
 
 export default function AdminTransportsTab() {
   const [transports, setTransports] = useState([])
@@ -14,6 +47,52 @@ export default function AdminTransportsTab() {
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'attivo' | 'terminato'
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+
+  // Detail / Edit States
+  const [selectedTransportId, setSelectedTransportId] = useState(null)
+  const [selectedTransport, setSelectedTransport] = useState(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+
+  // Users and Vehicles lists for dropdowns
+  const [vehicles, setVehicles] = useState([])
+  const [users, setUsers] = useState([])
+
+  // Edit form states
+  const [editForm, setEditForm] = useState({
+    paziente_cognome_nome: '',
+    paziente_telefono: '',
+    paziente_codice_fiscale: '',
+    data: '',
+    ora_servizio: '',
+    stato: 'attivo',
+    tipo_trasporto: 'dimissione',
+    altro_descrizione: '',
+    variante_ar: '',
+    vehicle_id: '',
+    km_iniziali: '',
+    km_finali: '',
+    tipo_pagamento: '',
+    importo: '',
+    da_tipo_luogo: 'ospedale',
+    da_nome: '',
+    da_reparto: '',
+    da_via: '',
+    a_tipo_luogo: 'abitazione',
+    a_nome: '',
+    a_reparto: '',
+    a_via: '',
+    note: '',
+    ce_user_id: '',
+    ce_esterno: '',
+    is_ce_esterno: false,
+    as_user_id: '',
+    as_esterno: '',
+    is_as_esterno: false
+  })
 
   const loadTransports = async () => {
     setLoading(true)
@@ -32,7 +111,398 @@ export default function AdminTransportsTab() {
 
   useEffect(() => {
     loadTransports()
+    const loadAssets = async () => {
+      try {
+        const { data: vehs } = await api.fetchVehicles()
+        setVehicles(vehs || [])
+        const { data: profs } = await api.fetchProfiles()
+        setUsers(profs || [])
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    loadAssets()
   }, [])
+
+  const handleOpenDetail = async (transportId) => {
+    setSelectedTransportId(transportId)
+    setIsDetailOpen(true)
+    setIsEditing(false)
+    setDeleteConfirm(false)
+    setDetailLoading(true)
+    try {
+      const { data, error } = await api.fetchTransportDetail(transportId)
+      if (error) throw error
+      setSelectedTransport(data)
+      
+      // Populate edit form
+      const { notes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(data.note)
+      const activeCe = data.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+      const activeAs = data.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+      
+      setEditForm({
+        paziente_cognome_nome: data.paziente_cognome_nome || '',
+        paziente_telefono: data.paziente_telefono || '',
+        paziente_codice_fiscale: data.paziente_codice_fiscale || '',
+        data: data.data || '',
+        ora_servizio: data.ora_servizio ? data.ora_servizio.slice(0, 5) : '',
+        stato: data.stato || 'attivo',
+        tipo_trasporto: data.tipo_trasporto || 'dimissione',
+        altro_descrizione: data.altro_descrizione || '',
+        variante_ar: data.variante_ar || '',
+        vehicle_id: data.vehicle_id || '',
+        km_iniziali: data.km_iniziali !== null ? String(data.km_iniziali) : '',
+        km_finali: data.km_finali !== null ? String(data.km_finali) : '',
+        tipo_pagamento: data.tipo_pagamento || '',
+        importo: data.importo !== null ? String(data.importo) : '',
+        da_tipo_luogo: data.da_tipo_luogo || 'ospedale',
+        da_nome: data.da_nome || '',
+        da_reparto: data.da_reparto || '',
+        da_via: data.da_via || '',
+        a_tipo_luogo: data.a_tipo_luogo || 'abitazione',
+        a_nome: data.a_nome || '',
+        a_reparto: data.a_reparto || '',
+        a_via: data.a_via || '',
+        note: notes,
+        ce_user_id: activeCe?.user_id || '',
+        ce_esterno: ce_esterno || '',
+        is_ce_esterno: !!ce_esterno,
+        as_user_id: activeAs?.user_id || '',
+        as_esterno: as_esterno || '',
+        is_as_esterno: !!as_esterno
+      })
+    } catch (err) {
+      console.error(err)
+      setError('Impossibile caricare i dettagli del trasporto.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const handleSaveChanges = async () => {
+    setSaveLoading(true)
+    try {
+      const fullNote = buildNotesWithExternalCrew(
+        editForm.note, 
+        editForm.is_ce_esterno ? editForm.ce_esterno : '', 
+        editForm.is_as_esterno ? editForm.as_esterno : ''
+      )
+      
+      const transportUpdates = {
+        paziente_cognome_nome: editForm.paziente_cognome_nome || null,
+        paziente_telefono: editForm.paziente_telefono || null,
+        paziente_codice_fiscale: editForm.paziente_codice_fiscale || null,
+        data: editForm.data,
+        ora_servizio: editForm.ora_servizio ? `${editForm.ora_servizio}:00` : null,
+        stato: editForm.stato,
+        tipo_trasporto: editForm.tipo_trasporto,
+        altro_descrizione: editForm.tipo_trasporto === 'altro' ? editForm.altro_descrizione : null,
+        variante_ar: (editForm.tipo_trasporto === 'visita' || editForm.tipo_trasporto === 'altro') ? (editForm.variante_ar || null) : null,
+        vehicle_id: editForm.vehicle_id ? Number(editForm.vehicle_id) : null,
+        km_iniziali: editForm.km_iniziali !== '' ? Number(editForm.km_iniziali) : null,
+        km_finali: editForm.km_finali !== '' ? Number(editForm.km_finali) : null,
+        tipo_pagamento: editForm.tipo_pagamento || null,
+        importo: (editForm.tipo_pagamento && editForm.tipo_pagamento !== 'convenzione' && editForm.importo !== '') ? Number(editForm.importo) : null,
+        da_tipo_luogo: editForm.da_tipo_luogo,
+        da_nome: editForm.da_tipo_luogo !== 'abitazione' ? editForm.da_nome : null,
+        da_reparto: editForm.da_tipo_luogo !== 'abitazione' ? editForm.da_reparto : null,
+        da_via: editForm.da_tipo_luogo === 'abitazione' ? editForm.da_via : null,
+        a_tipo_luogo: editForm.a_tipo_luogo,
+        a_nome: editForm.a_tipo_luogo !== 'abitazione' ? editForm.a_nome : null,
+        a_reparto: editForm.a_tipo_luogo !== 'abitazione' ? editForm.a_reparto : null,
+        a_via: editForm.a_tipo_luogo === 'abitazione' ? editForm.a_via : null,
+        note: fullNote || null
+      }
+
+      // Update transports table fields
+      const { error: tErr } = await api.updateTransportFields(selectedTransportId, transportUpdates)
+      if (tErr) throw tErr
+
+      // Update CE crew member
+      const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+      if (editForm.is_ce_esterno) {
+        if (activeCe) {
+          await api.updateTransportCrewMember(selectedTransportId, 'CE', null)
+        }
+      } else {
+        if (editForm.ce_user_id !== (activeCe?.user_id || '')) {
+          await api.updateTransportCrewMember(selectedTransportId, 'CE', editForm.ce_user_id || null)
+        }
+      }
+
+      // Update AS crew member
+      const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+      if (editForm.is_as_esterno) {
+        if (activeAs) {
+          await api.updateTransportCrewMember(selectedTransportId, 'AS', null)
+        }
+      } else {
+        if (editForm.as_user_id !== (activeAs?.user_id || '')) {
+          await api.updateTransportCrewMember(selectedTransportId, 'AS', editForm.as_user_id || null)
+        }
+      }
+
+      // Reload detail and main list
+      await handleOpenDetail(selectedTransportId)
+      loadTransports()
+      setIsEditing(false)
+    } catch (err) {
+      console.error(err)
+      alert('Errore durante il salvataggio delle modifiche.')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleDeleteTransport = async () => {
+    try {
+      const { error } = await api.deleteTransport(selectedTransportId)
+      if (error) throw error
+      setIsDetailOpen(false)
+      loadTransports()
+    } catch (err) {
+      console.error(err)
+      alert('Errore durante la cancellazione del trasporto.')
+    }
+  }
+
+  const handlePrintPDF = () => {
+    if (!selectedTransport) return
+    
+    const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
+    const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
+    
+    const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+    const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+    
+    const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
+    
+    const ceUser = activeCe?.user_id ? users.find(usr => usr.id === activeCe.user_id) : null
+    const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
+    
+    const asUser = activeAs?.user_id ? users.find(usr => usr.id === activeAs.user_id) : null
+    const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Scheda Trasporto #${selectedTransport.id}</title>
+        <style>
+          body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            color: #333;
+            margin: 40px;
+            line-height: 1.6;
+          }
+          .header {
+            border-bottom: 2px solid #4f46e5;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .header h1 {
+            margin: 0;
+            color: #1e1b4b;
+            font-size: 24px;
+          }
+          .status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background-color: ${selectedTransport.stato === 'terminato' ? '#f3f4f6' : '#ecfdf5'};
+            color: ${selectedTransport.stato === 'terminato' ? '#4b5563' : '#047857'};
+            border: 1px solid ${selectedTransport.stato === 'terminato' ? '#e5e7eb' : '#a7f3d0'};
+          }
+          .section {
+            margin-bottom: 25px;
+          }
+          .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4f46e5;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+          }
+          .grid {
+            display: grid;
+            grid-template-cols: 1fr 1fr;
+            gap: 15px;
+          }
+          .field {
+            margin-bottom: 10px;
+          }
+          .label {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: bold;
+            text-transform: uppercase;
+          }
+          .value {
+            font-size: 14px;
+            color: #111827;
+            font-weight: 500;
+          }
+          .notes-box {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 13px;
+            white-space: pre-wrap;
+          }
+          @media print {
+            body { margin: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Scheda Registro Trasporto #${selectedTransport.id}</h1>
+            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 13px;">Data: ${formatDateString(selectedTransport.data)}</p>
+          </div>
+          <span class="status">${selectedTransport.stato}</span>
+        </div>
+
+        <div class="section">
+          <div class="section-title">1. Equipaggio</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Capo Equipaggio (CE)</div>
+              <div class="value">${ceName}</div>
+            </div>
+            <div class="field">
+              <div class="label">Autista / Soccorritore (AS)</div>
+              <div class="value">${asName}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">2. Dati Servizio e Mezzo</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Mezzo Utilizzato</div>
+              <div class="value">${vehicleName}</div>
+            </div>
+            <div class="field">
+              <div class="label">Ora Servizio</div>
+              <div class="value">${selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Chilometri Iniziali</div>
+              <div class="value">${selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Chilometri Finali</div>
+              <div class="value">${selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">3. Tipologia Trasporto</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Tipo Trasporto</div>
+              <div class="value" style="text-transform: capitalize;">${selectedTransport.tipo_trasporto}</div>
+            </div>
+            ${selectedTransport.tipo_trasporto === 'altro' ? `
+              <div class="field">
+                <div class="label">Descrizione Altro</div>
+                <div class="value">${selectedTransport.altro_descrizione || 'N/D'}</div>
+              </div>
+            ` : ''}
+            ${selectedTransport.variante_ar ? `
+              <div class="field">
+                <div class="label">Variante A/R</div>
+                <div class="value" style="text-transform: capitalize;">${selectedTransport.variante_ar.replace('_', ' ')}</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">4. Percorso (Da / A)</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Partenza Da</div>
+              <div class="value">
+                <strong style="color: #6b7280; font-size: 11px; text-transform: uppercase;">[${selectedTransport.da_tipo_luogo}]</strong><br/>
+                ${selectedTransport.da_tipo_luogo === 'abitazione' ? (selectedTransport.da_via || 'N/D') : `${selectedTransport.da_nome || 'N/D'} ${selectedTransport.da_reparto ? `(Reparto: ${selectedTransport.da_reparto})` : ''}`}
+              </div>
+            </div>
+            <div class="field">
+              <div class="label">Destinazione A</div>
+              <div class="value">
+                <strong style="color: #6b7280; font-size: 11px; text-transform: uppercase;">[${selectedTransport.a_tipo_luogo}]</strong><br/>
+                ${selectedTransport.a_tipo_luogo === 'abitazione' ? (selectedTransport.a_via || 'N/D') : `${selectedTransport.a_nome || 'N/D'} ${selectedTransport.a_reparto ? `(Reparto: ${selectedTransport.a_reparto})` : ''}`}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">5. Dati Paziente</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Cognome e Nome</div>
+              <div class="value" style="font-weight: bold;">${selectedTransport.paziente_cognome_nome || 'N/D'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Codice Fiscale</div>
+              <div class="value">${selectedTransport.paziente_codice_fiscale || 'N/D'}</div>
+            </div>
+            <div class="field" style="grid-column: span 2;">
+              <div class="label">Contatti</div>
+              <div class="value">${selectedTransport.paziente_telefono ? `Telefono: ${selectedTransport.paziente_telefono}` : 'N/D'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">6. Pagamento</div>
+          <div class="grid">
+            <div class="field">
+              <div class="label">Metodo Pagamento</div>
+              <div class="value" style="text-transform: capitalize;">${selectedTransport.tipo_pagamento || 'N/D'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Importo</div>
+              <div class="value" style="font-weight: bold;">${selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'}</div>
+            </div>
+          </div>
+        </div>
+
+        ${cleanNotes ? `
+          <div class="section">
+            <div class="section-title">Note</div>
+            <div class="notes-box">${cleanNotes}</div>
+          </div>
+        ` : ''}
+
+        <script>
+          window.onload = function() {
+            window.print();
+          }
+        </script>
+      </body>
+      </html>
+    `
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+  }
 
   // Filtered transports memo
   const filteredTransports = useMemo(() => {
@@ -67,24 +537,6 @@ export default function AdminTransportsTab() {
       return true
     })
   }, [transports, searchQuery, statusFilter, startDate, endDate])
-
-  const formatDateString = (isoString) => {
-    if (!isoString) return ''
-    try {
-      return format(parseISO(isoString), 'dd/MM/yyyy', { locale: it })
-    } catch (e) {
-      return isoString
-    }
-  }
-
-  const formatTimeString = (isoString) => {
-    if (!isoString) return ''
-    try {
-      return format(parseISO(isoString), 'HH:mm', { locale: it })
-    } catch (e) {
-      return ''
-    }
-  }
 
   return (
     <div className="space-y-6 animate-fade-in text-left">
@@ -192,12 +644,12 @@ export default function AdminTransportsTab() {
               {filteredTransports.map(t => {
                 const isTerminated = t.stato === 'terminato'
                 const formattedVehicle = t.vehicles 
-                  ? `${t.vehicles.nome} (${t.vehicles.targa || ''})` 
+                  ? `${t.vehicles.nome}${t.vehicles.targa ? ` (${t.vehicles.targa})` : ''}` 
                   : (t.vehicle_id ? `Mezzo #${t.vehicle_id}` : '-')
 
                 // Render Route details cleanly
                 const renderLocation = (type, structure, dept, address) => {
-                  if (type === 'Abitazione') return address || '-'
+                  if (type === 'abitazione') return address || '-'
                   return `${structure || '-'} ${dept ? `[${dept}]` : ''}`
                 }
 
@@ -207,7 +659,11 @@ export default function AdminTransportsTab() {
                   : '-'
 
                 return (
-                  <tr key={t.id} className="hover:bg-slate-800/20 transition-colors">
+                  <tr 
+                    key={t.id} 
+                    onClick={() => handleOpenDetail(t.id)} 
+                    className="hover:bg-slate-800/40 transition-colors cursor-pointer"
+                  >
                     <td className="py-4 px-4 font-bold">
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                         isTerminated 
@@ -261,6 +717,764 @@ export default function AdminTransportsTab() {
           )}
         </div>
       </div>
+
+      {/* Details / Edit Modal */}
+      {isDetailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in text-left">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-indigo-400" />
+                {isEditing ? `Modifica Trasporto #${selectedTransportId}` : `Dettagli Trasporto #${selectedTransportId}`}
+              </h3>
+              <button 
+                onClick={() => setIsDetailOpen(false)}
+                className="text-slate-400 hover:text-slate-200 transition-colors p-1.5 hover:bg-slate-800 rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                <span className="text-xs text-slate-400 font-semibold">Caricamento dettagli...</span>
+              </div>
+            ) : selectedTransport ? (
+              <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {isEditing ? (
+                  /* ================= EDIT MODE ================= */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                    {/* Col 1 */}
+                    <div className="space-y-4">
+                      {/* Paziente Box */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-indigo-400" />
+                          Paziente
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Cognome e Nome *</label>
+                            <input 
+                              type="text"
+                              value={editForm.paziente_cognome_nome}
+                              onChange={e => setEditForm(prev => ({ ...prev, paziente_cognome_nome: e.target.value }))}
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Telefono</label>
+                              <input 
+                                type="text"
+                                value={editForm.paziente_telefono}
+                                onChange={e => setEditForm(prev => ({ ...prev, paziente_telefono: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Codice Fiscale</label>
+                              <input 
+                                type="text"
+                                value={editForm.paziente_codice_fiscale}
+                                onChange={e => setEditForm(prev => ({ ...prev, paziente_codice_fiscale: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all font-mono"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Equipaggio Box */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-emerald-400" />
+                          Equipaggio
+                        </h4>
+                        {/* Capo Equipaggio */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Capo Equipaggio (CE)</label>
+                            <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
+                              <input 
+                                type="checkbox"
+                                checked={editForm.is_ce_esterno}
+                                onChange={e => setEditForm(prev => ({ ...prev, is_ce_esterno: e.target.checked }))}
+                                className="rounded border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              Esterno
+                            </label>
+                          </div>
+                          {editForm.is_ce_esterno ? (
+                            <input 
+                              type="text"
+                              placeholder="Nome operatore esterno"
+                              value={editForm.ce_esterno}
+                              onChange={e => setEditForm(prev => ({ ...prev, ce_esterno: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          ) : (
+                            <select
+                              value={editForm.ce_user_id}
+                              onChange={e => setEditForm(prev => ({ ...prev, ce_user_id: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="">Nessuno</option>
+                              {users.map(u => (
+                                <option key={u.id} value={u.id}>{u.nome} {u.cognome}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        {/* Autista Soccorritore */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Autista / Soccorritore (AS)</label>
+                            <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
+                              <input 
+                                type="checkbox"
+                                checked={editForm.is_as_esterno}
+                                onChange={e => setEditForm(prev => ({ ...prev, is_as_esterno: e.target.checked }))}
+                                className="rounded border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              Esterno
+                            </label>
+                          </div>
+                          {editForm.is_as_esterno ? (
+                            <input 
+                              type="text"
+                              placeholder="Nome operatore esterno"
+                              value={editForm.as_esterno}
+                              onChange={e => setEditForm(prev => ({ ...prev, as_esterno: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          ) : (
+                            <select
+                              value={editForm.as_user_id}
+                              onChange={e => setEditForm(prev => ({ ...prev, as_user_id: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="">Nessuno</option>
+                              {users.map(u => (
+                                <option key={u.id} value={u.id}>{u.nome} {u.cognome}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Mezzo & Km */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5 text-blue-400" />
+                          Mezzo e Chilometri
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Mezzo Utilizzato</label>
+                            <select
+                              value={editForm.vehicle_id}
+                              onChange={e => setEditForm(prev => ({ ...prev, vehicle_id: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="">Nessuno</option>
+                              {vehicles.map(v => (
+                                <option key={v.id} value={v.id}>{v.nome}{v.targa ? ` (${v.targa})` : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Km Iniziali</label>
+                              <input 
+                                type="number"
+                                value={editForm.km_iniziali}
+                                onChange={e => setEditForm(prev => ({ ...prev, km_iniziali: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Km Finali</label>
+                              <input 
+                                type="number"
+                                value={editForm.km_finali}
+                                onChange={e => setEditForm(prev => ({ ...prev, km_finali: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pagamento */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+                          Pagamento
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Metodo</label>
+                            <select
+                              value={editForm.tipo_pagamento}
+                              onChange={e => {
+                                const val = e.target.value
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  tipo_pagamento: val,
+                                  importo: val === 'convenzione' ? '' : prev.importo
+                                }))
+                              }}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="">Nessuno</option>
+                              <option value="contante">Contante</option>
+                              <option value="pos">POS</option>
+                              <option value="bonifico">Bonifico</option>
+                              <option value="buono">Buono</option>
+                              <option value="convenzione">Convenzione</option>
+                              <option value="altro">Altro</option>
+                            </select>
+                          </div>
+                          {editForm.tipo_pagamento !== 'convenzione' && (
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Importo (€)</label>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                value={editForm.importo}
+                                onChange={e => setEditForm(prev => ({ ...prev, importo: e.target.value }))}
+                                placeholder="0.00"
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Col 2 */}
+                    <div className="space-y-4">
+                      {/* Partenza Da */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                          Partenza (Da)
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Luogo</label>
+                            <select
+                              value={editForm.da_tipo_luogo}
+                              onChange={e => setEditForm(prev => ({ ...prev, da_tipo_luogo: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="ospedale">Ospedale</option>
+                              <option value="struttura">Struttura (RSA/Clinica)</option>
+                              <option value="abitazione">Abitazione</option>
+                            </select>
+                          </div>
+                          {editForm.da_tipo_luogo === 'abitazione' ? (
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Via / Indirizzo *</label>
+                              <input 
+                                type="text"
+                                value={editForm.da_via}
+                                onChange={e => setEditForm(prev => ({ ...prev, da_via: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nome Struttura *</label>
+                                <input 
+                                  type="text"
+                                  value={editForm.da_nome}
+                                  onChange={e => setEditForm(prev => ({ ...prev, da_nome: e.target.value }))}
+                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Reparto</label>
+                                <input 
+                                  type="text"
+                                  value={editForm.da_reparto}
+                                  onChange={e => setEditForm(prev => ({ ...prev, da_reparto: e.target.value }))}
+                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Destinazione A */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                          Destinazione (A)
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Luogo</label>
+                            <select
+                              value={editForm.a_tipo_luogo}
+                              onChange={e => setEditForm(prev => ({ ...prev, a_tipo_luogo: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="ospedale">Ospedale</option>
+                              <option value="struttura">Struttura (RSA/Clinica)</option>
+                              <option value="abitazione">Abitazione</option>
+                            </select>
+                          </div>
+                          {editForm.a_tipo_luogo === 'abitazione' ? (
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Via / Indirizzo *</label>
+                              <input 
+                                type="text"
+                                value={editForm.a_via}
+                                onChange={e => setEditForm(prev => ({ ...prev, a_via: e.target.value }))}
+                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nome Struttura *</label>
+                                <input 
+                                  type="text"
+                                  value={editForm.a_nome}
+                                  onChange={e => setEditForm(prev => ({ ...prev, a_nome: e.target.value }))}
+                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Reparto</label>
+                                <input 
+                                  type="text"
+                                  value={editForm.a_reparto}
+                                  onChange={e => setEditForm(prev => ({ ...prev, a_reparto: e.target.value }))}
+                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dettagli Servizio */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-teal-400" />
+                          Dettagli Servizio
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Data *</label>
+                            <input 
+                              type="date"
+                              value={editForm.data}
+                              onChange={e => setEditForm(prev => ({ ...prev, data: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Ora Servizio *</label>
+                            <input 
+                              type="time"
+                              value={editForm.ora_servizio}
+                              onChange={e => setEditForm(prev => ({ ...prev, ora_servizio: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Stato</label>
+                            <select
+                              value={editForm.stato}
+                              onChange={e => setEditForm(prev => ({ ...prev, stato: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="attivo">Attivo</option>
+                              <option value="terminato">Terminato</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Trasporto</label>
+                            <select
+                              value={editForm.tipo_trasporto}
+                              onChange={e => setEditForm(prev => ({ ...prev, tipo_trasporto: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="dimissione">Dimissione</option>
+                              <option value="ricovero">Ricovero</option>
+                              <option value="visita">Visita</option>
+                              <option value="trasferimento">Trasferimento</option>
+                              <option value="altro">Altro</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {editForm.tipo_trasporto === 'altro' && (
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Descrizione Altro *</label>
+                            <input 
+                              type="text"
+                              value={editForm.altro_descrizione}
+                              onChange={e => setEditForm(prev => ({ ...prev, altro_descrizione: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            />
+                          </div>
+                        )}
+
+                        {(editForm.tipo_trasporto === 'visita' || editForm.tipo_trasporto === 'altro') && (
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Variante A/R</label>
+                            <select
+                              value={editForm.variante_ar}
+                              onChange={e => setEditForm(prev => ({ ...prev, variante_ar: e.target.value }))}
+                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                            >
+                              <option value="">Nessuna</option>
+                              <option value="a_andata">Solo Andata</option>
+                              <option value="a_ritorno">Solo Ritorno</option>
+                              <option value="a_ar">Andata e Ritorno (A/R)</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Note */}
+                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Note</label>
+                        <textarea
+                          rows="3"
+                          value={editForm.note}
+                          onChange={e => setEditForm(prev => ({ ...prev, note: e.target.value }))}
+                          placeholder="Note aggiuntive..."
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all resize-none placeholder:text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ================= VIEW MODE ================= */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                    {/* Col 1 */}
+                    <div className="space-y-4">
+                      {/* Paziente Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <User className="w-4 h-4" />
+                          Paziente
+                        </h4>
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Cognome e Nome</span>
+                            <span className="text-sm font-bold text-slate-100">{selectedTransport.paziente_cognome_nome || 'N/D'}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Telefono</span>
+                              <span className="text-xs font-semibold text-slate-200">{selectedTransport.paziente_telefono || 'N/D'}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Codice Fiscale</span>
+                              <span className="text-xs font-mono font-semibold text-slate-202">{selectedTransport.paziente_codice_fiscale || 'N/D'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Equipaggio Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <User className="w-4 h-4" />
+                          Equipaggio
+                        </h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Capo Equipaggio (CE)</span>
+                            <span className="text-xs font-semibold text-slate-100">
+                              {(() => {
+                                const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+                                const { ce_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
+                                if (activeCe?.user_id) {
+                                  const u = users.find(usr => usr.id === activeCe.user_id)
+                                  return u ? `${u.nome} ${u.cognome}` : `Utente #${activeCe.user_id}`
+                                }
+                                return ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D'
+                              })()}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Autista / Soccorritore (AS)</span>
+                            <span className="text-xs font-semibold text-slate-100">
+                              {(() => {
+                                const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+                                const { as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
+                                if (activeAs?.user_id) {
+                                  const u = users.find(usr => usr.id === activeAs.user_id)
+                                  return u ? `${u.nome} ${u.cognome}` : `Utente #${activeAs.user_id}`
+                                }
+                                return as_esterno ? `${as_esterno} (Esterno)` : 'N/D'
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mezzo & Km Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Truck className="w-4 h-4" />
+                          Mezzo e Chilometri
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="col-span-2">
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Mezzo Utilizzato</span>
+                            <span className="text-xs font-semibold text-slate-202">
+                              {(() => {
+                                const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
+                                return vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : (selectedTransport.vehicle_id ? `Mezzo #${selectedTransport.vehicle_id}` : 'N/D')
+                              })()}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Km Iniziali</span>
+                            <span className="text-xs font-mono font-bold text-slate-202">
+                              {selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Km Finali</span>
+                            <span className="text-xs font-mono font-bold text-slate-202">
+                              {selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}
+                            </span>
+                          </div>
+                          {selectedTransport.km_finali !== null && selectedTransport.km_iniziali !== null && (
+                            <div className="col-span-2 border-t border-slate-850 pt-2 flex justify-between items-center">
+                              <span className="text-[10px] text-slate-500 uppercase font-bold">Distanza Percorsa</span>
+                              <span className="text-xs font-bold text-emerald-400 font-mono">
+                                +{Number(selectedTransport.km_finali) - Number(selectedTransport.km_iniziali)} km
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Pagamento Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4" />
+                          Pagamento
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Metodo Pagamento</span>
+                            <span className="text-xs font-bold text-slate-100 capitalize">{selectedTransport.tipo_pagamento || 'N/D'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Importo Riscosso</span>
+                            <span className="text-xs font-mono font-bold text-slate-100">
+                              {selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzione / N/D'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Col 2 */}
+                    <div className="space-y-4">
+                      {/* Percorso Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4" />
+                          Percorso (Da / A)
+                        </h4>
+                        
+                        {/* Partenza */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                            <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Partenza Da ({selectedTransport.da_tipo_luogo})</span>
+                          </div>
+                          <div className="pl-2.5 text-xs text-slate-200">
+                            {selectedTransport.da_tipo_luogo === 'abitazione' ? (
+                              <div className="font-semibold">{selectedTransport.da_via || 'N/D'}</div>
+                            ) : (
+                              <div>
+                                <div className="font-bold text-slate-100">{selectedTransport.da_nome || 'N/D'}</div>
+                                {selectedTransport.da_reparto && <div className="text-[10px] text-slate-400">Reparto: {selectedTransport.da_reparto}</div>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Destinazione */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                            <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Destinazione A ({selectedTransport.a_tipo_luogo})</span>
+                          </div>
+                          <div className="pl-2.5 text-xs text-slate-200">
+                            {selectedTransport.a_tipo_luogo === 'abitazione' ? (
+                              <div className="font-semibold">{selectedTransport.a_via || 'N/D'}</div>
+                            ) : (
+                              <div>
+                                <div className="font-bold text-slate-100">{selectedTransport.a_nome || 'N/D'}</div>
+                                {selectedTransport.a_reparto && <div className="text-[10px] text-slate-400">Reparto: {selectedTransport.a_reparto}</div>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dettagli Servizio Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4" />
+                          Dettagli Servizio
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Data</span>
+                            <span className="text-xs font-semibold text-slate-200">{formatDateString(selectedTransport.data)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Ora Servizio</span>
+                            <span className="text-xs font-mono font-semibold text-slate-202">
+                              {selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Stato</span>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              selectedTransport.stato === 'terminato' 
+                                ? 'text-slate-400 bg-slate-800 border border-slate-700' 
+                                : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                            }`}>
+                              {selectedTransport.stato ? selectedTransport.stato.toUpperCase() : 'N/D'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Tipo Servizio</span>
+                            <span className="text-xs font-semibold text-slate-202 capitalize">
+                              {selectedTransport.tipo_trasporto || 'N/D'}
+                              {selectedTransport.tipo_trasporto === 'altro' && selectedTransport.altro_descrizione ? ` (${selectedTransport.altro_descrizione})` : ''}
+                            </span>
+                          </div>
+                          {selectedTransport.variante_ar && (
+                            <div className="col-span-2">
+                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Variante A/R</span>
+                              <span className="text-xs font-semibold text-slate-202 capitalize">
+                                {selectedTransport.variante_ar.replace('_', ' ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Note Details */}
+                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-2">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold font-semibold">Note del Servizio</span>
+                        <div className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                          {(() => {
+                            const { notes } = parseExternalCrewFromNotes(selectedTransport.note)
+                            return notes || <span className="text-slate-600 font-semibold italic">Nessuna nota inserita.</span>
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-rose-400 font-bold">
+                Dati non trovati.
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="flex flex-wrap items-center justify-between p-6 border-t border-slate-800 bg-slate-955 gap-4">
+              {/* Left Side Actions (Delete) */}
+              <div>
+                {!isEditing && selectedTransport && (
+                  deleteConfirm ? (
+                    <div className="flex items-center gap-2 animate-fade-in">
+                      <span className="text-xs text-rose-400 font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4" /> Confermi la cancellazione?
+                      </span>
+                      <button 
+                        onClick={handleDeleteTransport}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Sì, elimina
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirm(false)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setDeleteConfirm(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-slate-950 hover:bg-rose-950/30 text-rose-400 border border-rose-950/40 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Elimina Trasporto
+                    </button>
+                  )
+                )}
+              </div>
+
+              {/* Right Side Actions (Edit, PDF, Save, Cancel) */}
+              <div className="flex items-center gap-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      onClick={handleSaveChanges}
+                      disabled={saveLoading}
+                      className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      {saveLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Salva Modifiche
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handlePrintPDF}
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-400" />
+                      Scarica PDF
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Modifica
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

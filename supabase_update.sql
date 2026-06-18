@@ -62,3 +62,12 @@ VALUES
   ('Auto Medica', 'MD789MD', true, 45200),
   ('Mezzo Disabili', 'DS321DB', true, 15300)
 ON CONFLICT (id) DO NOTHING;
+
+-- 7. Aggiorna il vincolo tipo_pagamento per accettare buono e convenzione
+ALTER TABLE public.transports
+DROP CONSTRAINT IF EXISTS transports_tipo_pagamento_check;
+
+ALTER TABLE public.transports
+ADD CONSTRAINT transports_tipo_pagamento_check
+CHECK (tipo_pagamento IN ('contante', 'pos', 'bonifico', 'buono', 'convenzione', 'altro', ''));
+
