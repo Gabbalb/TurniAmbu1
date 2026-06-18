@@ -113,17 +113,32 @@ export default function TransportTab({
           
           <div className="space-y-1">
             <h3 className="text-base font-bold text-slate-100 font-sans">Scheda di trasporto attiva</h3>
-            <p className="text-xs text-slate-400 font-sans">
-              Hai un trasporto in corso (Scheda #{activeTransport.id}). Clicca qui sotto per riaprire e completare la compilazione.
-            </p>
+            {profile?.ruolo !== 'admin' && !activeShiftLoading && !activeShift ? (
+              <p className="text-xs text-rose-400 font-medium leading-relaxed max-w-xs font-sans bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 rounded-2xl mt-2 mx-auto">
+                ⚠️ Per visualizzare e completare la scheda devi prima timbrare l'inizio del turno (turno attivo).
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400 font-sans">
+                Hai un trasporto in corso (Scheda #{activeTransport.id}). Clicca qui sotto per riaprire e completare la compilazione.
+              </p>
+            )}
           </div>
           
-          <button
-            onClick={() => setIsTransportDrawerOpen(true)}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans"
-          >
-            Apri Scheda
-          </button>
+          {profile?.ruolo !== 'admin' && !activeShiftLoading && !activeShift ? (
+            <button
+              onClick={() => setView('clock-shift')}
+              className="w-full py-3.5 bg-gradient-to-tr from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans"
+            >
+              VAI A TIMBRA TURNO
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsTransportDrawerOpen(true)}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans"
+            >
+              Apri Scheda
+            </button>
+          )}
         </div>
       )}
 

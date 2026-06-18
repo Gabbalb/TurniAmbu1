@@ -12,7 +12,8 @@ import {
   Plus,
   Check,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Truck
 } from 'lucide-react'
 
 export default function AdminDashboardTab({

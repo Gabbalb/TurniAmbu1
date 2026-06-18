@@ -345,10 +345,10 @@ CREATE POLICY "Consenti modifica trasporti a tutti gli utenti loggati"
   WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Consenti cancellazione trasporti solo ad admin" ON public.transports;
-CREATE POLICY "Consenti cancellazione trasporti solo ad admin"
+CREATE POLICY "Consenti cancellazione trasporti a proprietari e admin"
   ON public.transports FOR DELETE
   TO authenticated
-  USING (public.es_admin());
+  USING (public.es_admin() OR creato_da = auth.uid());
 
 -- Policies per TRANSPORT_CREW
 DROP POLICY IF EXISTS "Consenti lettura equipaggio trasporti a tutti gli utenti loggati" ON public.transport_crew;

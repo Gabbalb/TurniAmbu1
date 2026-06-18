@@ -87,3 +87,11 @@ CREATE POLICY "Consenti inserimento trasporti a tutti gli utenti loggati"
     )
   );
 
+-- 9. Consenti cancellazione trasporti a proprietari e admin
+DROP POLICY IF EXISTS "Consenti cancellazione trasporti solo ad admin" ON public.transports;
+CREATE POLICY "Consenti cancellazione trasporti a proprietari e admin"
+  ON public.transports FOR DELETE
+  TO authenticated
+  USING (public.es_admin() OR creato_da = auth.uid());
+
+

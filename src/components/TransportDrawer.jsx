@@ -11,7 +11,10 @@ import {
   Check,
   X,
   AlertCircle,
-  Edit2
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  Users
 } from 'lucide-react'
 
 
@@ -53,6 +56,13 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isEditCrewOpen, setIsEditCrewOpen] = useState(false)
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
+  const [cancelChoice, setCancelChoice] = useState(null) // null | 'delete' | 'transfer'
+  const [selectedNewAuthorId, setSelectedNewAuthorId] = useState('')
+  const [isActionLoading, setIsActionLoading] = useState(false)
+  const [isLocalUnlocked, setIsLocalUnlocked] = useState(false)
+
+  const isEffectiveReadOnly = readOnly && !isLocalUnlocked
 
   // Local Form States
   const [localNotes, setLocalNotes] = useState('')
@@ -240,8 +250,15 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       const payValLower = payVal.toLowerCase()
       const isCustomPay = payValLower && !['contante', 'pos', 'buono', 'convenzione'].includes(payValLower)
       setLocalAltroPagamento(isCustomPay ? payVal : '')
+      setIsLocalUnlocked(false)
     }
   }, [activeTransport])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsLocalUnlocked(false)
+    }
+  }, [isOpen])
 
   if (!activeTransport) return null
 
@@ -279,7 +296,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Field change & blur handlers
   const handleSaveField = async (field, value) => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -296,7 +313,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   }
 
   const handleSaveFields = async (fieldsObj) => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -313,7 +330,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   }
 
   const handleSaveShiftAndCrew = async (shiftId, ceUserId, asUserId) => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -381,7 +398,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Save crew members (internal users)
   const handleSaveCrewMember = async (role, userId) => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -426,7 +443,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Trigger autocompilation from tabellone/shifts
   const handleAutocompileFromBoard = async () => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     if (!localOraServizio) return
     try {
       const { data: shifts } = await api.fetchActiveShiftsAndBookingsForDate(activeTransport.data)
@@ -534,7 +551,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Terminate transport
   const handleTerminateTransport = async () => {
-    if (readOnly) return
+    if (isEffectiveReadOnly) return
     setTerminateError('')
     if (!kmFinali || isNaN(Number(kmFinali))) {
       setTerminateError('Inserisci un valore numerico valido.')
@@ -560,6 +577,57 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
     } catch (err) {
       console.error('Error terminating transport:', err)
       setTerminateError('Errore durante la chiusura del trasporto.')
+    }
+  }
+
+  // Abort/Delete active transport completely
+  const handleDeleteActiveTransport = async () => {
+    setIsActionLoading(true)
+    try {
+      const { error } = await api.deleteTransport(activeTransport.id)
+      if (error) throw error
+      setActiveTransport(null)
+      setIsCancelModalOpen(false)
+      setCancelChoice(null)
+      onClose()
+    } catch (err) {
+      console.error(err)
+      alert(err.message || 'Errore durante l\'eliminazione del trasporto.')
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  // Transfer active transport to a new operator
+  const handleTransferActiveTransport = async () => {
+    if (!selectedNewAuthorId) return
+    setIsActionLoading(true)
+    try {
+      const newUser = users.find(u => u.id === selectedNewAuthorId)
+      if (!newUser) throw new Error('Nuovo operatore non trovato.')
+      
+      const appendText = `\ntrasporto concluso da: ${newUser.nome} ${newUser.cognome}`
+      const currentNotes = activeTransport.note || ''
+      const updatedNotes = currentNotes.trim() ? `${currentNotes}\n${appendText}` : appendText
+      
+      const updates = {
+        creato_da: selectedNewAuthorId,
+        note: updatedNotes
+      }
+      
+      const { error } = await api.updateTransportFields(activeTransport.id, updates)
+      if (error) throw error
+      
+      setActiveTransport(null)
+      setIsCancelModalOpen(false)
+      setCancelChoice(null)
+      setSelectedNewAuthorId('')
+      onClose()
+    } catch (err) {
+      console.error(err)
+      alert(err.message || 'Errore durante il trasferimento del trasporto.')
+    } finally {
+      setIsActionLoading(false)
     }
   }
 
@@ -642,13 +710,57 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 )}
               </button>
             ))}
+
+            {/* Action buttons inside menu */}
+            {!isEffectiveReadOnly && activeTransport && (
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false)
+                  setIsCancelModalOpen(true)
+                  setCancelChoice(null)
+                  setSelectedNewAuthorId('')
+                }}
+                className="w-full flex items-center justify-between p-3.5 bg-rose-950/30 hover:bg-rose-950/40 border border-rose-900/40 hover:border-rose-800 rounded-2xl text-sm font-bold text-rose-400 transition-all cursor-pointer mt-4"
+              >
+                <span>Annulla / Trasferisci Trasporto</span>
+                <Trash2 className="w-4 h-4 text-rose-400" />
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* SCROLLABLE FORM BODY */}
       <main className="flex-1 overflow-y-auto px-4 py-5 space-y-6 pb-24 scroll-smooth">
-        <div className={readOnly ? 'pointer-events-none select-none' : ''}>
+        {readOnly && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-bold text-amber-400 font-sans">Scheda in Sola Lettura</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-normal font-sans">
+                  {isLocalUnlocked 
+                    ? "Modifica sbloccata come Amministratore. Puoi apportare cambiamenti o concludere il trasporto."
+                    : "Questa scheda di trasporto è attiva ed è gestita da un altro soccorritore."}
+                </p>
+              </div>
+            </div>
+            {profile?.ruolo === 'admin' && (
+              <button
+                onClick={() => setIsLocalUnlocked(!isLocalUnlocked)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm font-sans ${
+                  isLocalUnlocked 
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700' 
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold'
+                }`}
+              >
+                {isLocalUnlocked ? "Ripristina Blocco" : "Sblocca Modifica"}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className={isEffectiveReadOnly ? 'pointer-events-none select-none' : ''}>
         
         {/* SECTION 1: EQUIPAGGIO BOX */}
         <section ref={sectionRefs.equipaggio} className="space-y-3">
@@ -661,7 +773,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
           {/* Yellow Summary Card */}
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col gap-2 relative">
-            {!readOnly && (
+            {!isEffectiveReadOnly && (
               <button
                 onClick={() => setIsEditCrewOpen(!isEditCrewOpen)}
                 className="absolute top-3.5 right-3.5 p-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 rounded-xl transition-colors cursor-pointer"
@@ -1233,7 +1345,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
         </div>
 
         {/* TERMINA SERVIZIO BUTTON */}
-        {!readOnly && (
+        {!isEffectiveReadOnly && (
           <div className="pt-6 border-t border-slate-800 text-left">
             {isTerminating ? (
               <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-3xl space-y-4 animate-fade-in">
@@ -1288,6 +1400,134 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
         )}
 
       </main>
+
+      {/* CANCEL / TRANSFER MODAL */}
+      {isCancelModalOpen && activeTransport && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in text-center font-sans">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl w-full max-w-sm space-y-5 shadow-2xl relative overflow-hidden animate-slide-up text-left">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h4 className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                Gestione Trasporto
+              </h4>
+              <button 
+                onClick={() => {
+                  setIsCancelModalOpen(false)
+                  setCancelChoice(null)
+                  setSelectedNewAuthorId('')
+                }} 
+                className="text-slate-500 hover:text-slate-300 transition-colors p-1 hover:bg-slate-800 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {cancelChoice === null ? (
+              <div className="space-y-4 py-2">
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  Scegli cosa fare con questa scheda di trasporto attualmente attiva.
+                </p>
+                <div className="flex flex-col gap-3 font-sans">
+                  <button
+                    onClick={() => setCancelChoice('delete')}
+                    className="w-full py-3 bg-red-950/30 hover:bg-red-950/50 border border-red-900/40 hover:border-red-800/80 text-rose-400 hover:text-rose-350 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Elimina/Annulla Scheda
+                  </button>
+                  <button
+                    onClick={() => setCancelChoice('transfer')}
+                    className="w-full py-3 bg-indigo-950/30 hover:bg-indigo-950/50 border border-indigo-900/40 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-350 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    Cambia Autore (Trasferisci)
+                  </button>
+                </div>
+              </div>
+            ) : cancelChoice === 'delete' ? (
+              <div className="space-y-4 py-1 font-sans">
+                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3.5 rounded-2xl text-xs font-semibold flex items-start gap-2.5 leading-relaxed">
+                  <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <span>Sei sicuro di voler eliminare definitivamente questo trasporto dal sistema? Questa azione non può essere annullata.</span>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setCancelChoice(null)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    disabled={isActionLoading}
+                  >
+                    Indietro
+                  </button>
+                  <button
+                    onClick={handleDeleteActiveTransport}
+                    disabled={isActionLoading}
+                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isActionLoading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Eliminazione...
+                      </>
+                    ) : (
+                      'Sì, Elimina'
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 py-1 font-sans">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Seleziona il nuovo operatore che prenderà in consegna questa scheda. L'autore originario non la vedrà più attiva nel suo menu. Il nuovo autore la vedrà attiva solo se ha timbrato il turno.
+                </p>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nuovo Gestore Scheda</label>
+                  <select
+                    value={selectedNewAuthorId}
+                    onChange={(e) => setSelectedNewAuthorId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Seleziona operatore...</option>
+                    {users.filter(u => u.id !== profile?.id).map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.nome} {u.cognome} ({u.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setCancelChoice(null)
+                      setSelectedNewAuthorId('')
+                    }}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    disabled={isActionLoading}
+                  >
+                    Indietro
+                  </button>
+                  <button
+                    onClick={handleTransferActiveTransport}
+                    disabled={isActionLoading || !selectedNewAuthorId}
+                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-550 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {isActionLoading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Trasferimento...
+                      </>
+                    ) : (
+                      'Sì, Trasferisci'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
