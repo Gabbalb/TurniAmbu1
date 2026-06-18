@@ -1699,6 +1699,18 @@ export const api = {
     }
 
     if (USE_MOCK) {
+      const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+      const userProfile = profiles.find(p => p.id === userId)
+      const isAdmin = userProfile?.ruolo === 'admin'
+
+      if (!isAdmin) {
+        const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+        const activeShift = shifts.find(s => s.user_id === userId && !s.end_time)
+        if (!activeShift) {
+          return { error: new Error("Non hai un turno attivo. Per poter avviare un trasporto devi prima timbrare l'inizio del turno.") }
+        }
+      }
+
       const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
       const newTransport = {
         id: getNextId(transports),
@@ -1711,6 +1723,30 @@ export const api = {
       return { data: { ...newTransport, crew: [] }, error: null }
     }
     try {
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('ruolo')
+        .eq('id', userId)
+        .single()
+
+      if (profileError) throw profileError
+
+      const isAdmin = userProfile?.ruolo === 'admin'
+
+      if (!isAdmin) {
+        const { data: activeShift, error: shiftError } = await supabase
+          .from('clocked_shifts')
+          .select('id')
+          .eq('user_id', userId)
+          .is('end_time', null)
+          .maybeSingle()
+
+        if (shiftError) throw shiftError
+        if (!activeShift) {
+          return { error: new Error("Non hai un turno attivo. Per poter avviare un trasporto devi prima timbrare l'inizio del turno.") }
+        }
+      }
+
       const { data, error } = await supabase
         .from('transports')
         .insert([defaultTransport])

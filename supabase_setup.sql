@@ -326,7 +326,16 @@ DROP POLICY IF EXISTS "Consenti inserimento trasporti a tutti gli utenti loggati
 CREATE POLICY "Consenti inserimento trasporti a tutti gli utenti loggati"
   ON public.transports FOR INSERT
   TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (
+    public.es_admin() OR 
+    (
+      creato_da = auth.uid() AND
+      EXISTS (
+        SELECT 1 FROM public.clocked_shifts
+        WHERE user_id = auth.uid() AND end_time IS NULL
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "Consenti modifica trasporti a tutti gli utenti loggati" ON public.transports;
 CREATE POLICY "Consenti modifica trasporti a tutti gli utenti loggati"
