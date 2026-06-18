@@ -1340,7 +1340,7 @@ export default function AdminTransportsTab() {
           </div>
 
           <PSection title="Paziente">
-            <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-red-200">
+            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-red-200">
               <PRow label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
               <PRow label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
               <PRow label="Telefono" value={selectedTransport.paziente_telefono} />
@@ -1348,14 +1348,14 @@ export default function AdminTransportsTab() {
           </PSection>
 
           <PSection title="Equipaggio">
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-yellow-200">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-yellow-200">
               <PRow label="Capo Equipaggio (CE)" value={ceName} />
               <PRow label="Autista / Soccorritore (AS)" value={asName} />
             </div>
           </PSection>
 
           <PSection title="Servizio e Mezzo">
-            <div className="grid grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-green-200">
+            <div className="grid grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-green-200">
               <PRow label="Data" value={formatDateString(selectedTransport.data)} />
               <PRow label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
               <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
@@ -1369,14 +1369,14 @@ export default function AdminTransportsTab() {
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <PSection title="Tipologia Trasporto">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <PRow label="Tipo" value={(selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1)} />
                 {selectedTransport.variante_ar && <PRow label="Variante A/R" value={selectedTransport.variante_ar.replace(/_/g, ' ')} />}
                 {selectedTransport.tipo_trasporto === 'altro' && <PRow label="Descrizione" value={selectedTransport.altro_descrizione} />}
               </div>
             </PSection>
             <PSection title="Pagamento">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <PRow label="Metodo" value={selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D'} />
                 <PRow label="Importo Riscosso" value={selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'} />
               </div>
@@ -1384,7 +1384,7 @@ export default function AdminTransportsTab() {
           </div>
 
           <PSection title="Percorso">
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-blue-200">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-blue-200">
               <div>
                 <p className="text-[10px] uppercase font-bold text-slate-400">Partenza Da <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.da_tipo_luogo}</span></p>
                 <p className="text-xs font-semibold text-slate-800 mt-0.5">
@@ -1402,7 +1402,7 @@ export default function AdminTransportsTab() {
 
           {cleanNotes && (
             <PSection title="Note del Servizio">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{cleanNotes}</div>
+              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{cleanNotes}</div>
             </PSection>
           )}
 
