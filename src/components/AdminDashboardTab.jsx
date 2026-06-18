@@ -22,6 +22,8 @@ export default function AdminDashboardTab({
   crews,
   employees,
   notifications,
+  activeTransports = [],
+  onViewTransportDetails,
   onRefresh,
   formatItalianDateTime,
   decimalToHHMM,
@@ -110,8 +112,10 @@ export default function AdminDashboardTab({
       {/* SECOND ROW: 2 COLUMN PANELS */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
-        {/* Column 1 & 2: Today's Shifts coverage detail */}
-        <div className="xl:col-span-2 bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-4 shadow-sm">
+        {/* Column 1 & 2: Today's Shifts coverage detail and Active Transports */}
+        <div className="xl:col-span-2 flex flex-col gap-8">
+          {/* Today's Shifts Card */}
+          <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-4 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-slate-200 font-sans">
             <div>
               <h3 className="text-lg font-bold text-slate-800 font-sans">Copertura Turni Odierna</h3>
@@ -239,6 +243,101 @@ export default function AdminDashboardTab({
               <span>Aggiungi</span>
             </button>
           </form>
+          </div>
+
+          {/* Active Transports Card */}
+          <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-4 shadow-sm font-sans">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 font-sans flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-indigo-650" />
+                  Trasporti Attivi in Corso
+                  {activeTransports.length > 0 && (
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Monitoraggio in tempo reale dei trasporti attualmente in corso</p>
+              </div>
+              <span className="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-700">
+                Attivi: {activeTransports.length}
+              </span>
+            </div>
+
+            {activeTransports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-405 mb-3 border border-slate-200">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-bold text-slate-650">Nessun trasporto attivo al momento</span>
+                <p className="text-xs text-slate-500 max-w-xs leading-relaxed mt-1 font-medium">
+                  Non ci sono schede di trasporto attive nel sistema in questo momento.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {activeTransports.map(t => {
+                  const ce = t.crew?.find(c => c.ruolo === 'CE')
+                  const as = t.crew?.find(c => c.ruolo === 'AS')
+                  
+                  const ceUser = profiles.find(u => u.id === ce?.user_id)
+                  const asUser = profiles.find(u => u.id === as?.user_id)
+                  
+                  const creator = profiles.find(u => u.id === t.creato_da)
+
+                  return (
+                    <div key={t.id} className="bg-slate-55 border border-slate-200/60 p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="flex flex-col gap-2 min-w-0 text-left">
+                        <div className="flex items-center flex-wrap gap-2">
+                          <span className="text-xs font-bold text-indigo-650 font-mono">Scheda #{t.id}</span>
+                          <span className="text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold px-2.5 py-0.5 rounded-full uppercase">
+                            {t.tipo_trasporto || 'Trasporto'}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            Inizio: {t.ora_servizio ? t.ora_servizio.slice(0, 5) : 'N/D'}
+                          </span>
+                          {creator && (
+                            <span className="text-[10px] text-slate-400 italic">
+                              (di {creator.nome} {creator.cognome})
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-slate-600 space-y-1 text-left leading-relaxed">
+                          <p className="truncate">
+                            <strong className="text-slate-500 font-semibold">Paziente:</strong> <span className="font-bold text-slate-800">{t.paziente_cognome_nome || 'N/D'}</span>
+                          </p>
+                          <p className="truncate">
+                            <strong className="text-slate-500 font-semibold">Percorso:</strong> {t.da_nome || t.da_via || 'N/D'} {t.da_reparto ? `[${t.da_reparto}]` : ''} ➜ {t.a_nome || t.a_via || 'N/D'} {t.a_reparto ? `[${t.a_reparto}]` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end gap-3 shrink-0">
+                        <div className="flex gap-2">
+                          <div className="bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl text-[10px] font-bold">
+                            CE: {ceUser ? `${ceUser.nome} ${ceUser.cognome.slice(0, 1)}.` : 'Da assegnare'}
+                          </div>
+                          <div className="bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl text-[10px] font-bold">
+                            AS: {asUser ? `${asUser.nome} ${asUser.cognome.slice(0, 1)}.` : 'Da assegnare'}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => onViewTransportDetails(t.id)}
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-indigo-650 border border-slate-250 hover:border-indigo-150 rounded-xl text-xs font-bold transition-all cursor-pointer w-full text-center hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          Visualizza Scheda
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Column 3: Quick Telegram Broadcaster & Recent Audit Log */}

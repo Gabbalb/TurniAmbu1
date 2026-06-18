@@ -34,6 +34,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
   const [notifications, setNotifications] = useState([])
   const [todayShifts, setTodayShifts] = useState([])
   const [todayBookings, setTodayBookings] = useState([])
+  const [activeTransports, setActiveTransports] = useState([])
+  const [selectedTransportIdForTab, setSelectedTransportIdForTab] = useState(null)
 
   // State reload helper
   const [refreshKey, setRefreshKey] = useState(0)
@@ -161,6 +163,10 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
       const { data: todayB } = await api.fetchBookings(todayStr, todayStr)
       const validTodayB = (todayB || []).filter(b => b.shifts && b.shifts.data === todayStr)
       setTodayBookings(validTodayB)
+
+      // 7. Fetch active transports
+      const { data: actTrans } = await api.fetchAllActiveTransports()
+      setActiveTransports(actTrans || [])
 
     } catch (err) {
       console.error('Errore nel caricamento dati desktop admin:', err)
@@ -386,6 +392,11 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 crews={crews}
                 employees={employees}
                 notifications={notifications}
+                activeTransports={activeTransports}
+                onViewTransportDetails={(id) => {
+                  setSelectedTransportIdForTab(id)
+                  setActiveTab('trasporti')
+                }}
                 onRefresh={onRefresh}
                 formatItalianDateTime={formatItalianDateTime}
                 decimalToHHMM={decimalToHHMM}
@@ -449,7 +460,10 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
             {/* TAB 7: REGISTRO TRASPORTI */}
             {activeTab === 'trasporti' && (
-              <AdminTransportsTab />
+              <AdminTransportsTab 
+                initialSelectedId={selectedTransportIdForTab}
+                onClearInitialId={() => setSelectedTransportIdForTab(null)}
+              />
             )}
 
             {/* TAB 8: GESTIONE MEZZI */}

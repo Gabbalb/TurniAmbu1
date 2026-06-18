@@ -47,7 +47,7 @@ const formatDateTimeString = (isoString) => {
   }
 }
 
-export default function AdminTransportsTab() {
+export default function AdminTransportsTab({ initialSelectedId, onClearInitialId }) {
   const [transports, setTransports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -133,6 +133,13 @@ export default function AdminTransportsTab() {
     }
     loadAssets()
   }, [])
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      handleOpenDetail(initialSelectedId)
+      if (onClearInitialId) onClearInitialId()
+    }
+  }, [initialSelectedId])
 
   const handleOpenDetail = async (transportId) => {
     setSelectedTransportId(transportId)
@@ -551,6 +558,12 @@ export default function AdminTransportsTab() {
               </div>
             ) : selectedTransport ? (
               <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {selectedTransport.stato === 'attivo' && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <span>Questo trasporto è attualmente in corso (attivo) ed è mostrato in sola visualizzazione. Non può essere modificato o eliminato dall'amministrazione fino al termine del servizio.</span>
+                  </div>
+                )}
                 {isEditing ? (
                   /* ================= EDIT MODE (Premium Light Theme) ================= */
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in text-slate-800">
@@ -1222,7 +1235,7 @@ export default function AdminTransportsTab() {
             <div className="flex flex-wrap items-center justify-between p-6 border-t border-slate-100 bg-slate-50 gap-4">
               {/* Left Side Actions (Delete) */}
               <div>
-                {!isEditing && selectedTransport && (
+                {!isEditing && selectedTransport && selectedTransport.stato !== 'attivo' && (
                   deleteConfirm ? (
                     <div className="flex items-center gap-2 animate-fade-in">
                       <span className="text-xs text-rose-600 font-bold flex items-center gap-1">
@@ -1281,13 +1294,15 @@ export default function AdminTransportsTab() {
                       <Download className="w-3.5 h-3.5 text-indigo-600" />
                       Scarica PDF
                     </button>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                      Modifica
-                    </button>
+                    {selectedTransport && selectedTransport.stato !== 'attivo' && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Modifica
+                      </button>
+                    )}
                   </>
                 )}
               </div>

@@ -816,9 +816,9 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
             2. Dati trasporto
           </h3>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-4">
             {/* Mezzo */}
-            <div className="col-span-2 space-y-1.5">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-400">Mezzo *</label>
               <select
                 value={activeTransport.vehicle_id || ''}
