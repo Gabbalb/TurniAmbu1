@@ -72,6 +72,20 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, profile?.id])
 
+  // Poll active transport and active shift every 5 seconds to sync state between admin closures and operators
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const interval = setInterval(() => {
+      refreshActiveTransport()
+      if (view === 'transport') {
+        checkActiveShift()
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [profile?.id, view])
+
   const handleStartNewTransport = async () => {
     if (!profile?.id) return
     setStartLoading(true)
