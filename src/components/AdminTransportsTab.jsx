@@ -1374,7 +1374,7 @@ export default function AdminTransportsTab() {
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <PSection title="Mezzo">
-            <div className="grid grid-cols-3 bg-blue-50 p-4 rounded-xl border border-slate-200 space-y-2">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-blue-200">
               <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
               <PRow label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
               <PRow label="Km Percorsi" value={(selectedTransport.km_finali - selectedTransport.km_iniziali) !== null ? `${selectedTransport.km_finali - selectedTransport.km_iniziali} km` : 'N/D' }/>
