@@ -548,6 +548,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       setKmFinali('')
       onClose()
       onRefresh()
+      alert("Il trasporto è stato chiuso correttamente")
     } catch (err) {
       console.error('Error terminating transport:', err)
       setTerminateError('Errore durante la chiusura del trasporto.')
@@ -831,9 +832,9 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 type="time"
                 value={localOraServizio}
                 onChange={(e) => setLocalOraServizio(e.target.value)}
-                onBlur={() => {
-                  handleSaveField('ora_servizio', localOraServizio || null)
-                  handleAutocompileFromBoard()
+                onBlur={async () => {
+                  await handleSaveField('ora_servizio', localOraServizio || null)
+                  await handleAutocompileFromBoard()
                 }}
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all"
               />

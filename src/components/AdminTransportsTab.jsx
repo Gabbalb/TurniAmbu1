@@ -283,14 +283,30 @@ export default function AdminTransportsTab() {
     const asUser = activeAs?.user_id ? users.find(usr => usr.id === activeAs.user_id) : null
     const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
 
+    // Formatting date and time for filename as requested
+    const dayStr = selectedTransport.data 
+      ? format(parseISO(selectedTransport.data), 'dd-MM-yyyy') 
+      : 'N-D'
+    const timeStr = selectedTransport.ora_servizio 
+      ? selectedTransport.ora_servizio.slice(0, 5).replace(':', '-') 
+      : 'N-D'
+    const patientNameClean = (selectedTransport.paziente_cognome_nome || 'N-D')
+      .trim()
+      .replace(/[\s\W]+/g, '_')
+
+    const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
+
     const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    if (!printWindow) {
+      alert('Il blocco popup del browser impedisce l\'apertura del PDF. Consenti i popup per questa applicazione.')
+      return
+    }
 
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Scheda Trasporto #${selectedTransport.id}</title>
+        <title>${pdfFilename}</title>
         <style>
           body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -502,6 +518,12 @@ export default function AdminTransportsTab() {
     `
     printWindow.document.write(htmlContent)
     printWindow.document.close()
+    
+    // Explicit trigger for print to bypass popup limitations
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
   }
 
   // Filtered transports memo
@@ -539,24 +561,24 @@ export default function AdminTransportsTab() {
   }, [transports, searchQuery, statusFilter, startDate, endDate])
 
   return (
-    <div className="space-y-6 animate-fade-in text-left">
+    <div className="space-y-6 animate-fade-in text-left bg-slate-50 p-6 rounded-3xl border border-slate-200">
       {/* Top Header Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
         
         <div className="space-y-1 z-10">
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Truck className="w-6 h-6 text-indigo-400" />
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <Truck className="w-6 h-6 text-indigo-600" />
             Registro Trasporti
           </h2>
-          <p className="text-xs text-slate-400 leading-normal">
+          <p className="text-xs text-slate-500 leading-normal">
             Visualizza, monitora e filtra lo storico di tutte le schede di trasporto compilate dagli operatori.
           </p>
         </div>
 
         <button
           onClick={loadTransports}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-250 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Aggiorna Lista
@@ -564,29 +586,29 @@ export default function AdminTransportsTab() {
       </div>
 
       {/* Filters Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-md flex flex-wrap gap-4 items-end">
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex flex-wrap gap-4 items-end">
         {/* Search */}
         <div className="flex-1 min-w-[240px] space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Cerca Paziente o Luogo</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Cerca Paziente o Luogo</label>
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
             <input
               type="text"
               placeholder="Cerca per nome, destinazione, note..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl pl-9 pr-4 py-3 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-700"
+              className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500/80 rounded-xl pl-9 pr-4 py-3 text-xs font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:bg-white"
             />
           </div>
         </div>
 
         {/* Status Filter */}
         <div className="w-40 space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Stato</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Stato</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-3 text-xs font-semibold text-slate-200 outline-none transition-all"
+            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500/80 rounded-xl px-3 py-3 text-xs font-semibold text-slate-800 outline-none transition-all focus:bg-white cursor-pointer"
           >
             <option value="all">Tutti gli stati</option>
             <option value="attivo">Attivi</option>
@@ -596,39 +618,39 @@ export default function AdminTransportsTab() {
 
         {/* Date Start */}
         <div className="w-44 space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Da Data</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Da Data</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-200 outline-none transition-all"
+            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all focus:bg-white"
           />
         </div>
 
         {/* Date End */}
         <div className="w-44 space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">A Data</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">A Data</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-200 outline-none transition-all"
+            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all focus:bg-white"
           />
         </div>
       </div>
 
       {error && (
-        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-4 rounded-2xl text-xs font-semibold">
+        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 p-4 rounded-2xl text-xs font-semibold">
           {error}
         </div>
       )}
 
       {/* Transports Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase select-none">
+              <tr className="bg-slate-100 border-b border-slate-200 text-slate-500 font-bold uppercase select-none">
                 <th className="py-3.5 px-4">Stato</th>
                 <th className="py-3.5 px-4">Data</th>
                 <th className="py-3.5 px-4">Ora Servizio</th>
@@ -640,7 +662,7 @@ export default function AdminTransportsTab() {
                 <th className="py-3.5 px-4">Compilato Da</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
+            <tbody className="divide-y divide-slate-150 text-slate-700">
               {filteredTransports.map(t => {
                 const isTerminated = t.stato === 'terminato'
                 const formattedVehicle = t.vehicles 
@@ -662,38 +684,38 @@ export default function AdminTransportsTab() {
                   <tr 
                     key={t.id} 
                     onClick={() => handleOpenDetail(t.id)} 
-                    className="hover:bg-slate-800/40 transition-colors cursor-pointer"
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <td className="py-4 px-4 font-bold">
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                         isTerminated 
-                          ? 'text-slate-400 bg-slate-850 border border-slate-800' 
-                          : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                          ? 'text-slate-500 bg-slate-100 border border-slate-200' 
+                          : 'text-emerald-700 bg-emerald-50 border border-emerald-200'
                       }`}>
                         {t.stato.toUpperCase()}
                       </span>
                     </td>
                     <td className="py-4 px-4 font-semibold">{formatDateString(t.data)}</td>
-                    <td className="py-4 px-4 font-semibold font-mono text-slate-200">
+                    <td className="py-4 px-4 font-semibold font-mono text-slate-800">
                       {t.ora_servizio ? t.ora_servizio.slice(0, 5) : '-'}
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex flex-col text-left">
-                        <span className="font-extrabold text-slate-100">{t.paziente_cognome_nome || 'N/D'}</span>
-                        {t.paziente_telefono && <span className="text-[10px] text-slate-500">Tel: {t.paziente_telefono}</span>}
+                        <span className="font-bold text-slate-900">{t.paziente_cognome_nome || 'N/D'}</span>
+                        {t.paziente_telefono && <span className="text-[10px] text-slate-400">Tel: {t.paziente_telefono}</span>}
                       </div>
                     </td>
                     <td className="py-4 px-4 max-w-xs">
                       <div className="flex flex-col text-left text-[11px] leading-relaxed">
-                        <span><strong className="text-slate-400">Da:</strong> {renderLocation(t.da_tipo_luogo, t.da_nome, t.da_reparto, t.da_via)}</span>
-                        <span><strong className="text-slate-400">A:</strong> {renderLocation(t.a_tipo_luogo, t.a_nome, t.a_reparto, t.a_via)}</span>
+                        <span><strong className="text-slate-400 font-medium">Da:</strong> {renderLocation(t.da_tipo_luogo, t.da_nome, t.da_reparto, t.da_via)}</span>
+                        <span><strong className="text-slate-400 font-medium">A:</strong> {renderLocation(t.a_tipo_luogo, t.a_nome, t.a_reparto, t.a_via)}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 font-medium text-slate-400">{formattedVehicle}</td>
+                    <td className="py-4 px-4 font-medium text-slate-500">{formattedVehicle}</td>
                     <td className="py-4 px-4 font-mono font-medium">
                       {t.km_iniziali !== null ? t.km_iniziali : '-'} / {t.km_finali !== null ? t.km_finali : '-'}
                       {t.km_finali && t.km_iniziali && (
-                        <span className="text-[10px] text-emerald-400 block font-sans">
+                        <span className="text-[10px] text-emerald-600 block font-sans font-bold">
                           (+{Number(t.km_finali) - Number(t.km_iniziali)} km)
                         </span>
                       )}
@@ -701,36 +723,36 @@ export default function AdminTransportsTab() {
                     <td className="py-4 px-4">
                       <div className="flex flex-col text-left font-medium">
                         <span className="capitalize">{t.tipo_pagamento || '-'}</span>
-                        {t.importo !== null && <span className="text-slate-200 font-bold font-mono">€ {Number(t.importo).toFixed(2)}</span>}
+                        {t.importo !== null && <span className="text-slate-900 font-bold font-mono">€ {Number(t.importo).toFixed(2)}</span>}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-slate-400 font-semibold">{operatorName}</td>
+                    <td className="py-4 px-4 text-slate-500 font-semibold">{operatorName}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
           {filteredTransports.length === 0 && !loading && (
-            <div className="text-center py-12 text-slate-500 font-bold">
+            <div className="text-center py-12 text-slate-400 font-bold">
               Nessun trasporto trovato.
             </div>
           )}
         </div>
       </div>
 
-      {/* Details / Edit Modal */}
+      {/* Details / Edit Centered Floating Modal with backdrop blur */}
       {isDetailOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in text-left">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in text-left">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-400" />
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-indigo-600" />
                 {isEditing ? `Modifica Trasporto #${selectedTransportId}` : `Dettagli Trasporto #${selectedTransportId}`}
               </h3>
               <button 
                 onClick={() => setIsDetailOpen(false)}
-                className="text-slate-400 hover:text-slate-200 transition-colors p-1.5 hover:bg-slate-800 rounded-xl cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1.5 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -738,49 +760,49 @@ export default function AdminTransportsTab() {
 
             {detailLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
                 <span className="text-xs text-slate-400 font-semibold">Caricamento dettagli...</span>
               </div>
             ) : selectedTransport ? (
               <div className="flex-1 p-6 overflow-y-auto space-y-6">
                 {isEditing ? (
-                  /* ================= EDIT MODE ================= */
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                  /* ================= EDIT MODE (Premium Light Theme) ================= */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in text-slate-800">
                     {/* Col 1 */}
                     <div className="space-y-4">
-                      {/* Paziente Box */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-indigo-400" />
+                      {/* Dati Paziente Box */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-indigo-600" />
                           Paziente
                         </h4>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Cognome e Nome *</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Cognome e Nome *</label>
                             <input 
                               type="text"
                               value={editForm.paziente_cognome_nome}
                               onChange={e => setEditForm(prev => ({ ...prev, paziente_cognome_nome: e.target.value }))}
-                              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Telefono</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Telefono</label>
                               <input 
                                 type="text"
                                 value={editForm.paziente_telefono}
                                 onChange={e => setEditForm(prev => ({ ...prev, paziente_telefono: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Codice Fiscale</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Codice Fiscale</label>
                               <input 
                                 type="text"
                                 value={editForm.paziente_codice_fiscale}
                                 onChange={e => setEditForm(prev => ({ ...prev, paziente_codice_fiscale: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all font-mono"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all font-mono"
                               />
                             </div>
                           </div>
@@ -788,21 +810,21 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Equipaggio Box */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-4">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-emerald-400" />
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-emerald-600" />
                           Equipaggio
                         </h4>
                         {/* Capo Equipaggio */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Capo Equipaggio (CE)</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Capo Equipaggio (CE)</label>
                             <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
                               <input 
                                 type="checkbox"
                                 checked={editForm.is_ce_esterno}
                                 onChange={e => setEditForm(prev => ({ ...prev, is_ce_esterno: e.target.checked }))}
-                                className="rounded border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-white w-3.5 h-3.5 cursor-pointer"
                               />
                               Esterno
                             </label>
@@ -813,13 +835,13 @@ export default function AdminTransportsTab() {
                               placeholder="Nome operatore esterno"
                               value={editForm.ce_esterno}
                               onChange={e => setEditForm(prev => ({ ...prev, ce_esterno: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           ) : (
                             <select
                               value={editForm.ce_user_id}
                               onChange={e => setEditForm(prev => ({ ...prev, ce_user_id: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="">Nessuno</option>
                               {users.map(u => (
@@ -832,13 +854,13 @@ export default function AdminTransportsTab() {
                         {/* Autista Soccorritore */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Autista / Soccorritore (AS)</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Autista / Soccorritore (AS)</label>
                             <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
                               <input 
                                 type="checkbox"
                                 checked={editForm.is_as_esterno}
                                 onChange={e => setEditForm(prev => ({ ...prev, is_as_esterno: e.target.checked }))}
-                                className="rounded border-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-0 focus:ring-offset-0 bg-white w-3.5 h-3.5 cursor-pointer"
                               />
                               Esterno
                             </label>
@@ -849,13 +871,13 @@ export default function AdminTransportsTab() {
                               placeholder="Nome operatore esterno"
                               value={editForm.as_esterno}
                               onChange={e => setEditForm(prev => ({ ...prev, as_esterno: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           ) : (
                             <select
                               value={editForm.as_user_id}
                               onChange={e => setEditForm(prev => ({ ...prev, as_user_id: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="">Nessuno</option>
                               {users.map(u => (
@@ -867,18 +889,18 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Mezzo & Km */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <Truck className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5 text-blue-600" />
                           Mezzo e Chilometri
                         </h4>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Mezzo Utilizzato</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Mezzo Utilizzato</label>
                             <select
                               value={editForm.vehicle_id}
                               onChange={e => setEditForm(prev => ({ ...prev, vehicle_id: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="">Nessuno</option>
                               {vehicles.map(v => (
@@ -888,21 +910,21 @@ export default function AdminTransportsTab() {
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Km Iniziali</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Km Iniziali</label>
                               <input 
                                 type="number"
                                 value={editForm.km_iniziali}
                                 onChange={e => setEditForm(prev => ({ ...prev, km_iniziali: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Km Finali</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Km Finali</label>
                               <input 
                                 type="number"
                                 value={editForm.km_finali}
                                 onChange={e => setEditForm(prev => ({ ...prev, km_finali: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                           </div>
@@ -910,14 +932,14 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Pagamento */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
                           Pagamento
                         </h4>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Metodo</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Metodo</label>
                             <select
                               value={editForm.tipo_pagamento}
                               onChange={e => {
@@ -928,7 +950,7 @@ export default function AdminTransportsTab() {
                                   importo: val === 'convenzione' ? '' : prev.importo
                                 }))
                               }}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="">Nessuno</option>
                               <option value="contante">Contante</option>
@@ -941,14 +963,14 @@ export default function AdminTransportsTab() {
                           </div>
                           {editForm.tipo_pagamento !== 'convenzione' && (
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Importo (€)</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Importo (€)</label>
                               <input 
                                 type="number"
                                 step="0.01"
                                 value={editForm.importo}
                                 onChange={e => setEditForm(prev => ({ ...prev, importo: e.target.value }))}
                                 placeholder="0.00"
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                           )}
@@ -959,18 +981,18 @@ export default function AdminTransportsTab() {
                     {/* Col 2 */}
                     <div className="space-y-4">
                       {/* Partenza Da */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-indigo-600" />
                           Partenza (Da)
                         </h4>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Luogo</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo Luogo</label>
                             <select
                               value={editForm.da_tipo_luogo}
                               onChange={e => setEditForm(prev => ({ ...prev, da_tipo_luogo: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="ospedale">Ospedale</option>
                               <option value="struttura">Struttura (RSA/Clinica)</option>
@@ -979,32 +1001,32 @@ export default function AdminTransportsTab() {
                           </div>
                           {editForm.da_tipo_luogo === 'abitazione' ? (
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Via / Indirizzo *</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Via / Indirizzo *</label>
                               <input 
                                 type="text"
                                 value={editForm.da_via}
                                 onChange={e => setEditForm(prev => ({ ...prev, da_via: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                           ) : (
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nome Struttura *</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase">Nome Struttura *</label>
                                 <input 
                                   type="text"
                                   value={editForm.da_nome}
                                   onChange={e => setEditForm(prev => ({ ...prev, da_nome: e.target.value }))}
-                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                                 />
                               </div>
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Reparto</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase">Reparto</label>
                                 <input 
                                   type="text"
                                   value={editForm.da_reparto}
                                   onChange={e => setEditForm(prev => ({ ...prev, da_reparto: e.target.value }))}
-                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                                 />
                               </div>
                             </div>
@@ -1013,18 +1035,18 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Destinazione A */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                          <MapPin className="w-3.5 h-3.5 text-rose-600" />
                           Destinazione (A)
                         </h4>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Luogo</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo Luogo</label>
                             <select
                               value={editForm.a_tipo_luogo}
                               onChange={e => setEditForm(prev => ({ ...prev, a_tipo_luogo: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="ospedale">Ospedale</option>
                               <option value="struttura">Struttura (RSA/Clinica)</option>
@@ -1033,32 +1055,32 @@ export default function AdminTransportsTab() {
                           </div>
                           {editForm.a_tipo_luogo === 'abitazione' ? (
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Via / Indirizzo *</label>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Via / Indirizzo *</label>
                               <input 
                                 type="text"
                                 value={editForm.a_via}
                                 onChange={e => setEditForm(prev => ({ ...prev, a_via: e.target.value }))}
-                                className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>
                           ) : (
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nome Struttura *</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase">Nome Struttura *</label>
                                 <input 
                                   type="text"
                                   value={editForm.a_nome}
                                   onChange={e => setEditForm(prev => ({ ...prev, a_nome: e.target.value }))}
-                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                                 />
                               </div>
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Reparto</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase">Reparto</label>
                                 <input 
                                   type="text"
                                   value={editForm.a_reparto}
                                   onChange={e => setEditForm(prev => ({ ...prev, a_reparto: e.target.value }))}
-                                  className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                                 />
                               </div>
                             </div>
@@ -1067,47 +1089,47 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Dettagli Servizio */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-teal-400" />
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-teal-600" />
                           Dettagli Servizio
                         </h4>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Data *</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Data *</label>
                             <input 
                               type="date"
                               value={editForm.data}
                               onChange={e => setEditForm(prev => ({ ...prev, data: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Ora Servizio *</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Ora Servizio *</label>
                             <input 
                               type="time"
                               value={editForm.ora_servizio}
                               onChange={e => setEditForm(prev => ({ ...prev, ora_servizio: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Stato</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Stato</label>
                             <select
                               value={editForm.stato}
                               onChange={e => setEditForm(prev => ({ ...prev, stato: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="attivo">Attivo</option>
                               <option value="terminato">Terminato</option>
                             </select>
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo Trasporto</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo Trasporto</label>
                             <select
                               value={editForm.tipo_trasporto}
                               onChange={e => setEditForm(prev => ({ ...prev, tipo_trasporto: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="dimissione">Dimissione</option>
                               <option value="ricovero">Ricovero</option>
@@ -1120,23 +1142,23 @@ export default function AdminTransportsTab() {
 
                         {editForm.tipo_trasporto === 'altro' && (
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Descrizione Altro *</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Descrizione Altro *</label>
                             <input 
                               type="text"
                               value={editForm.altro_descrizione}
                               onChange={e => setEditForm(prev => ({ ...prev, altro_descrizione: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                             />
                           </div>
                         )}
 
                         {(editForm.tipo_trasporto === 'visita' || editForm.tipo_trasporto === 'altro') && (
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Variante A/R</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Variante A/R</label>
                             <select
                               value={editForm.variante_ar}
                               onChange={e => setEditForm(prev => ({ ...prev, variante_ar: e.target.value }))}
-                              className="w-full bg-slate-955 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
+                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
                               <option value="">Nessuna</option>
                               <option value="a_andata">Solo Andata</option>
@@ -1148,57 +1170,57 @@ export default function AdminTransportsTab() {
                       </div>
 
                       {/* Note */}
-                      <div className="bg-slate-955 border border-slate-850 p-4 rounded-2xl space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Note</label>
+                      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Note</label>
                         <textarea
                           rows="3"
                           value={editForm.note}
                           onChange={e => setEditForm(prev => ({ ...prev, note: e.target.value }))}
                           placeholder="Note aggiuntive..."
-                          className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all resize-none placeholder:text-slate-800"
+                          className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all resize-none placeholder:text-slate-300"
                         />
                       </div>
                     </div>
                   </div>
                 ) : (
-                  /* ================= VIEW MODE ================= */
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                  /* ================= VIEW MODE (Premium Light Theme) ================= */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in text-slate-800">
                     {/* Col 1 */}
                     <div className="space-y-4">
-                      {/* Paziente Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Dati Paziente */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
                           <User className="w-4 h-4" />
                           Paziente
                         </h4>
                         <div className="space-y-2">
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Cognome e Nome</span>
-                            <span className="text-sm font-bold text-slate-100">{selectedTransport.paziente_cognome_nome || 'N/D'}</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Cognome e Nome</span>
+                            <span className="text-sm font-bold text-slate-900">{selectedTransport.paziente_cognome_nome || 'N/D'}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Telefono</span>
-                              <span className="text-xs font-semibold text-slate-200">{selectedTransport.paziente_telefono || 'N/D'}</span>
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">Telefono</span>
+                              <span className="text-xs font-semibold text-slate-800">{selectedTransport.paziente_telefono || 'N/D'}</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Codice Fiscale</span>
-                              <span className="text-xs font-mono font-semibold text-slate-202">{selectedTransport.paziente_codice_fiscale || 'N/D'}</span>
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">Codice Fiscale</span>
+                              <span className="text-xs font-mono font-semibold text-slate-800">{selectedTransport.paziente_codice_fiscale || 'N/D'}</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Equipaggio Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Equipaggio */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
                           <User className="w-4 h-4" />
                           Equipaggio
                         </h4>
                         <div className="space-y-3">
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Capo Equipaggio (CE)</span>
-                            <span className="text-xs font-semibold text-slate-100">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Capo Equipaggio (CE)</span>
+                            <span className="text-xs font-semibold text-slate-800">
                               {(() => {
                                 const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
                                 const { ce_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
@@ -1211,8 +1233,8 @@ export default function AdminTransportsTab() {
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Autista / Soccorritore (AS)</span>
-                            <span className="text-xs font-semibold text-slate-100">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Autista / Soccorritore (AS)</span>
+                            <span className="text-xs font-semibold text-slate-800">
                               {(() => {
                                 const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
                                 const { as_esterno } = parseExternalCrewFromNotes(selectedTransport.note)
@@ -1227,16 +1249,16 @@ export default function AdminTransportsTab() {
                         </div>
                       </div>
 
-                      {/* Mezzo & Km Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Mezzo & Km */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
                           <Truck className="w-4 h-4" />
                           Mezzo e Chilometri
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2">
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Mezzo Utilizzato</span>
-                            <span className="text-xs font-semibold text-slate-202">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Mezzo Utilizzato</span>
+                            <span className="text-xs font-semibold text-slate-800">
                               {(() => {
                                 const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
                                 return vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : (selectedTransport.vehicle_id ? `Mezzo #${selectedTransport.vehicle_id}` : 'N/D')
@@ -1244,21 +1266,21 @@ export default function AdminTransportsTab() {
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Km Iniziali</span>
-                            <span className="text-xs font-mono font-bold text-slate-202">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Km Iniziali</span>
+                            <span className="text-xs font-mono font-semibold text-slate-800">
                               {selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Km Finali</span>
-                            <span className="text-xs font-mono font-bold text-slate-202">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Km Finali</span>
+                            <span className="text-xs font-mono font-semibold text-slate-800">
                               {selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}
                             </span>
                           </div>
                           {selectedTransport.km_finali !== null && selectedTransport.km_iniziali !== null && (
-                            <div className="col-span-2 border-t border-slate-850 pt-2 flex justify-between items-center">
-                              <span className="text-[10px] text-slate-500 uppercase font-bold">Distanza Percorsa</span>
-                              <span className="text-xs font-bold text-emerald-400 font-mono">
+                            <div className="col-span-2 border-t border-slate-200 pt-2 flex justify-between items-center">
+                              <span className="text-[10px] text-slate-400 uppercase font-bold">Distanza Percorsa</span>
+                              <span className="text-xs font-bold text-emerald-600 font-mono">
                                 +{Number(selectedTransport.km_finali) - Number(selectedTransport.km_iniziali)} km
                               </span>
                             </div>
@@ -1266,20 +1288,20 @@ export default function AdminTransportsTab() {
                         </div>
                       </div>
 
-                      {/* Pagamento Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Pagamento */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
                           <DollarSign className="w-4 h-4" />
                           Pagamento
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Metodo Pagamento</span>
-                            <span className="text-xs font-bold text-slate-100 capitalize">{selectedTransport.tipo_pagamento || 'N/D'}</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Metodo Pagamento</span>
+                            <span className="text-xs font-bold text-slate-900 capitalize">{selectedTransport.tipo_pagamento || 'N/D'}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Importo Riscosso</span>
-                            <span className="text-xs font-mono font-bold text-slate-100">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Importo Riscosso</span>
+                            <span className="text-xs font-mono font-bold text-slate-900">
                               {selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzione / N/D'}
                             </span>
                           </div>
@@ -1289,9 +1311,9 @@ export default function AdminTransportsTab() {
 
                     {/* Col 2 */}
                     <div className="space-y-4">
-                      {/* Percorso Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-4">
-                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Percorso */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-4">
+                        <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
                           <MapPin className="w-4 h-4" />
                           Percorso (Da / A)
                         </h4>
@@ -1299,16 +1321,16 @@ export default function AdminTransportsTab() {
                         {/* Partenza */}
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                            <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Partenza Da ({selectedTransport.da_tipo_luogo})</span>
+                            <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full" />
+                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Partenza Da ({selectedTransport.da_tipo_luogo})</span>
                           </div>
-                          <div className="pl-2.5 text-xs text-slate-200">
+                          <div className="pl-2.5 text-xs text-slate-800">
                             {selectedTransport.da_tipo_luogo === 'abitazione' ? (
                               <div className="font-semibold">{selectedTransport.da_via || 'N/D'}</div>
                             ) : (
                               <div>
-                                <div className="font-bold text-slate-100">{selectedTransport.da_nome || 'N/D'}</div>
-                                {selectedTransport.da_reparto && <div className="text-[10px] text-slate-400">Reparto: {selectedTransport.da_reparto}</div>}
+                                <div className="font-bold text-slate-900">{selectedTransport.da_nome || 'N/D'}</div>
+                                {selectedTransport.da_reparto && <div className="text-[10px] text-slate-500">Reparto: {selectedTransport.da_reparto}</div>}
                               </div>
                             )}
                           </div>
@@ -1317,60 +1339,60 @@ export default function AdminTransportsTab() {
                         {/* Destinazione */}
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-                            <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Destinazione A ({selectedTransport.a_tipo_luogo})</span>
+                            <span className="w-1.5 h-1.5 bg-rose-600 rounded-full" />
+                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Destinazione A ({selectedTransport.a_tipo_luogo})</span>
                           </div>
-                          <div className="pl-2.5 text-xs text-slate-200">
+                          <div className="pl-2.5 text-xs text-slate-800">
                             {selectedTransport.a_tipo_luogo === 'abitazione' ? (
                               <div className="font-semibold">{selectedTransport.a_via || 'N/D'}</div>
                             ) : (
                               <div>
-                                <div className="font-bold text-slate-100">{selectedTransport.a_nome || 'N/D'}</div>
-                                {selectedTransport.a_reparto && <div className="text-[10px] text-slate-400">Reparto: {selectedTransport.a_reparto}</div>}
+                                <div className="font-bold text-slate-900">{selectedTransport.a_nome || 'N/D'}</div>
+                                {selectedTransport.a_reparto && <div className="text-[10px] text-slate-500">Reparto: {selectedTransport.a_reparto}</div>}
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Dettagli Servizio Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                        <h4 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                      {/* Dettagli Servizio */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-3">
+                        <h4 className="text-xs font-bold text-teal-600 uppercase tracking-wider flex items-center gap-1.5">
                           <Calendar className="w-4 h-4" />
                           Dettagli Servizio
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Data</span>
-                            <span className="text-xs font-semibold text-slate-200">{formatDateString(selectedTransport.data)}</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Data</span>
+                            <span className="text-xs font-semibold text-slate-800">{formatDateString(selectedTransport.data)}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Ora Servizio</span>
-                            <span className="text-xs font-mono font-semibold text-slate-202">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Ora Servizio</span>
+                            <span className="text-xs font-mono font-semibold text-slate-800">
                               {selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Stato</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Stato</span>
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
                               selectedTransport.stato === 'terminato' 
-                                ? 'text-slate-400 bg-slate-800 border border-slate-700' 
-                                : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                ? 'text-slate-500 bg-slate-100 border border-slate-200' 
+                                : 'text-emerald-700 bg-emerald-50 border border-emerald-200'
                             }`}>
                               {selectedTransport.stato ? selectedTransport.stato.toUpperCase() : 'N/D'}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-500 block uppercase font-bold">Tipo Servizio</span>
-                            <span className="text-xs font-semibold text-slate-202 capitalize">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Tipo Servizio</span>
+                            <span className="text-xs font-semibold text-slate-800 capitalize">
                               {selectedTransport.tipo_trasporto || 'N/D'}
                               {selectedTransport.tipo_trasporto === 'altro' && selectedTransport.altro_descrizione ? ` (${selectedTransport.altro_descrizione})` : ''}
                             </span>
                           </div>
                           {selectedTransport.variante_ar && (
                             <div className="col-span-2">
-                              <span className="text-[10px] text-slate-500 block uppercase font-bold">Variante A/R</span>
-                              <span className="text-xs font-semibold text-slate-202 capitalize">
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">Variante A/R</span>
+                              <span className="text-xs font-semibold text-slate-800 capitalize">
                                 {selectedTransport.variante_ar.replace('_', ' ')}
                               </span>
                             </div>
@@ -1378,13 +1400,13 @@ export default function AdminTransportsTab() {
                         </div>
                       </div>
 
-                      {/* Note Details */}
-                      <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl space-y-2">
-                        <span className="text-[10px] text-slate-500 block uppercase font-bold font-semibold">Note del Servizio</span>
-                        <div className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {/* Note */}
+                      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-2">
+                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Note del Servizio</span>
+                        <div className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
                           {(() => {
                             const { notes } = parseExternalCrewFromNotes(selectedTransport.note)
-                            return notes || <span className="text-slate-600 font-semibold italic">Nessuna nota inserita.</span>
+                            return notes || <span className="text-slate-400 font-semibold italic">Nessuna nota inserita.</span>
                           })()}
                         </div>
                       </div>
@@ -1393,19 +1415,19 @@ export default function AdminTransportsTab() {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-rose-400 font-bold">
+              <div className="flex flex-col items-center justify-center py-20 text-rose-600 font-bold">
                 Dati non trovati.
               </div>
             )}
 
             {/* Modal Footer */}
-            <div className="flex flex-wrap items-center justify-between p-6 border-t border-slate-800 bg-slate-955 gap-4">
+            <div className="flex flex-wrap items-center justify-between p-6 border-t border-slate-100 bg-slate-50 gap-4">
               {/* Left Side Actions (Delete) */}
               <div>
                 {!isEditing && selectedTransport && (
                   deleteConfirm ? (
                     <div className="flex items-center gap-2 animate-fade-in">
-                      <span className="text-xs text-rose-400 font-bold flex items-center gap-1">
+                      <span className="text-xs text-rose-600 font-bold flex items-center gap-1">
                         <AlertTriangle className="w-4 h-4" /> Confermi la cancellazione?
                       </span>
                       <button 
@@ -1416,7 +1438,7 @@ export default function AdminTransportsTab() {
                       </button>
                       <button 
                         onClick={() => setDeleteConfirm(false)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer"
                       >
                         Annulla
                       </button>
@@ -1424,7 +1446,7 @@ export default function AdminTransportsTab() {
                   ) : (
                     <button 
                       onClick={() => setDeleteConfirm(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-slate-950 hover:bg-rose-950/30 text-rose-400 border border-rose-950/40 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Elimina Trasporto
@@ -1439,14 +1461,14 @@ export default function AdminTransportsTab() {
                   <>
                     <button
                       onClick={() => setIsEditing(false)}
-                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
                     >
                       Annulla
                     </button>
                     <button
                       onClick={handleSaveChanges}
                       disabled={saveLoading}
-                      className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >
                       {saveLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       Salva Modifiche
@@ -1456,14 +1478,14 @@ export default function AdminTransportsTab() {
                   <>
                     <button
                       onClick={handlePrintPDF}
-                      className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-250 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      <Download className="w-3.5 h-3.5 text-indigo-400" />
+                      <Download className="w-3.5 h-3.5 text-indigo-600" />
                       Scarica PDF
                     </button>
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <Edit className="w-3.5 h-3.5" />
                       Modifica

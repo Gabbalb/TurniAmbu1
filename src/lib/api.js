@@ -1953,7 +1953,6 @@ export const api = {
         const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
         crew.forEach(c => {
           if (String(c.transport_id) === String(transportId) && c.attivo) {
-            c.attivo = false
             c.ora_fine_ruolo = nowIso
           }
         })
@@ -1988,7 +1987,7 @@ export const api = {
 
       const { error: cError } = await supabase
         .from('transport_crew')
-        .update({ attivo: false, ora_fine_ruolo: nowIso })
+        .update({ ora_fine_ruolo: nowIso })
         .eq('transport_id', transportId)
         .eq('attivo', true)
 
