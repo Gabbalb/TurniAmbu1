@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import ReactDOM from 'react-dom'
 import { api } from '../lib/api'
 import { Search, RefreshCw, Truck, X, Edit, Trash2, Download, User, Calendar, Clock, MapPin, DollarSign, CheckCircle, Save, AlertTriangle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -7,11 +8,11 @@ import { it } from 'date-fns/locale'
 // Parse hidden JSON metadata from note field
 const parseExternalCrewFromNotes = (noteText) => {
   if (!noteText) return { notes: '', ce_esterno: '', as_esterno: '' }
-  const match = noteText.match(/<!--(\{.*\})-->/)
+  const match = noteText.match(//)
   if (match) {
     try {
       const meta = JSON.parse(match[1])
-      const notes = noteText.replace(/<!--(\{.*\})-->/, '').trim()
+      const notes = noteText.replace(//, '').trim()
       return { notes, ce_esterno: meta.ce_esterno || '', as_esterno: meta.as_esterno || '' }
     } catch (e) {
       return { notes: noteText, ce_esterno: '', as_esterno: '' }
@@ -25,7 +26,7 @@ const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
   const notesPart = (userNotes || '').trim()
   if (!ceEsterno && !asEsterno) return notesPart
   const meta = { ce_esterno: ceEsterno || '', as_esterno: asEsterno || '' }
-  return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
+  return `${notesPart}\n\n`
 }
 
 const formatDateString = (isoString) => {
@@ -1297,7 +1298,7 @@ export default function AdminTransportsTab() {
     </div>
 
     {/* SEZIONE STAMPA - visibile solo durante window.print() */}
-    {selectedTransport && (() => {
+    {selectedTransport && ReactDOM.createPortal((() => {
       const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
       const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
       const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
@@ -1424,7 +1425,7 @@ export default function AdminTransportsTab() {
 
         </div>
       )
-    })()}
+    })(), document.body)}
     </>
   )
 }
