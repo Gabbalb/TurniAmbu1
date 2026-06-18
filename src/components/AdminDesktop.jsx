@@ -463,6 +463,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
               <AdminTransportsTab 
                 initialSelectedId={selectedTransportIdForTab}
                 onClearInitialId={() => setSelectedTransportIdForTab(null)}
+                profile={adminProfile}
               />
             )}
 

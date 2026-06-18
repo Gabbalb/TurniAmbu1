@@ -2225,6 +2225,170 @@ export const api = {
       console.error('Errore nella cancellazione del trasporto:', err)
       return { error: err }
     }
+  },
+
+  createScheduledTransport: async (adminUserId, ceUserId, fields) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const newId = transports.length > 0 ? Math.max(...transports.map(t => t.id)) + 1 : 1
+      
+      const newTransport = {
+        id: newId,
+        data: fields.data || new Date().toISOString().split('T')[0],
+        stato: 'programmato',
+        ora_servizio: fields.ora_servizio ? `${fields.ora_servizio}:00` : null,
+        tipo_trasporto: fields.tipo_trasporto || 'ricovero',
+        da_tipo_luogo: fields.da_tipo_luogo || 'abitazione',
+        da_nome: fields.da_nome || null,
+        da_via: fields.da_via || null,
+        a_tipo_luogo: fields.a_tipo_luogo || 'ospedale',
+        a_nome: fields.a_nome || null,
+        a_via: fields.a_via || null,
+        paziente_cognome_nome: fields.paziente_cognome_nome || null,
+        paziente_telefono: fields.paziente_telefono || null,
+        note: fields.note || null,
+        creato_da: adminUserId,
+        created_at: nowIso,
+        updated_at: nowIso
+      }
+
+      transports.push(newTransport)
+      localStorage.setItem('ta_transports', JSON.stringify(transports))
+
+      if (ceUserId) {
+        const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+        crew.push({
+          id: Date.now(),
+          transport_id: newId,
+          user_id: ceUserId,
+          ruolo: 'CE',
+          attivo: true,
+          ora_inizio_ruolo: nowIso
+        })
+        localStorage.setItem('ta_transport_crew', JSON.stringify(crew))
+      }
+
+      return { data: newTransport, error: null }
+    }
+    try {
+      const { data: trans, error: tError } = await supabase
+        .from('transports')
+        .insert({
+          data: fields.data || new Date().toISOString().split('T')[0],
+          stato: 'programmato',
+          ora_servizio: fields.ora_servizio ? `${fields.ora_servizio}:00` : null,
+          tipo_trasporto: fields.tipo_trasporto || 'ricovero',
+          da_tipo_luogo: fields.da_tipo_luogo || 'abitazione',
+          da_nome: fields.da_nome || null,
+          da_via: fields.da_via || null,
+          a_tipo_luogo: fields.a_tipo_luogo || 'ospedale',
+          a_nome: fields.a_nome || null,
+          a_via: fields.a_via || null,
+          paziente_cognome_nome: fields.paziente_cognome_nome || null,
+          paziente_telefono: fields.paziente_telefono || null,
+          note: fields.note || null,
+          creato_da: adminUserId,
+          created_at: nowIso,
+          updated_at: nowIso
+        })
+        .select()
+        .single()
+
+      if (tError) throw tError
+
+      if (ceUserId) {
+        const { error: cError } = await supabase
+          .from('transport_crew')
+          .insert({
+            transport_id: trans.id,
+            user_id: ceUserId,
+            ruolo: 'CE',
+            attivo: true,
+            ora_inizio_ruolo: nowIso
+          })
+
+        if (cError) throw cError
+      }
+
+      return { data: trans, error: null }
+    } catch (err) {
+      console.error('Error creating scheduled transport:', err)
+      return { error: err }
+    }
+  },
+
+  fetchAssignedScheduledTransports: async (userId) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      
+      const assignedTransports = transports.filter(t => {
+        if (t.stato !== 'programmato') return false
+        const ce = crew.find(c => c.transport_id === t.id && c.ruolo === 'CE' && c.attivo && String(c.user_id) === String(userId))
+        return !!ce
+      })
+      return { data: assignedTransports, error: null }
+    }
+    try {
+      const { data: crewEntries, error: cError } = await supabase
+        .from('transport_crew')
+        .select('transport_id')
+        .eq('user_id', userId)
+        .eq('ruolo', 'CE')
+        .eq('attivo', true)
+
+      if (cError) throw cError
+      if (!crewEntries || crewEntries.length === 0) return { data: [], error: null }
+
+      const transportIds = crewEntries.map(ce => ce.transport_id)
+
+      const { data, error } = await supabase
+        .from('transports')
+        .select('*')
+        .in('id', transportIds)
+        .eq('stato', 'programmato')
+
+      return { data: data || [], error }
+    } catch (err) {
+      console.error('Error fetching assigned scheduled transports:', err)
+      return { error: err }
+    }
+  },
+
+  startScheduledTransport: async (transportId, userId) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const idx = transports.findIndex(t => String(t.id) === String(transportId))
+      if (idx !== -1) {
+        transports[idx].stato = 'attivo'
+        transports[idx].creato_da = userId
+        transports[idx].ora_inizio = nowIso
+        transports[idx].updated_at = nowIso
+        localStorage.setItem('ta_transports', JSON.stringify(transports))
+        return { data: transports[idx], error: null }
+      }
+      return { error: new Error('Trasporto non trovato') }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .update({
+          stato: 'attivo',
+          creato_da: userId,
+          ora_inizio: nowIso,
+          updated_at: nowIso
+        })
+        .eq('id', transportId)
+        .select()
+        .single()
+
+      return { data, error }
+    } catch (err) {
+      console.error('Error starting scheduled transport:', err)
+      return { error: err }
+    }
   }
 }
 

@@ -51,7 +51,7 @@ const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
   return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
 }
 
-export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile, onTerminateSuccess, readOnly = false }) {
+export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile, onTerminateSuccess, readOnly = false, onActivate }) {
   const [vehicles, setVehicles] = useState([])
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -63,6 +63,25 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   const [isLocalUnlocked, setIsLocalUnlocked] = useState(false)
 
   const isEffectiveReadOnly = readOnly && !isLocalUnlocked
+
+  const handleActivateProgrammed = async () => {
+    setIsActionLoading(true)
+    try {
+      const { data, error } = await api.startScheduledTransport(activeTransport.id, profile.id)
+      if (error) throw error
+      if (onActivate) {
+        await onActivate(activeTransport.id)
+      } else {
+        onRefresh?.()
+        onClose()
+      }
+    } catch (err) {
+      console.error("Error activating programmed transport:", err)
+      alert("Errore durante l'attivazione del trasporto: " + err.message)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
 
   // Local Form States
   const [localNotes, setLocalNotes] = useState('')
@@ -735,32 +754,62 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
       {/* SCROLLABLE FORM BODY */}
       <main className="flex-1 overflow-y-auto px-4 py-5 space-y-6 pb-24 scroll-smooth">
-        {readOnly && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+        {activeTransport.stato === 'programmato' ? (
+          <div className="bg-indigo-500/10 border border-indigo-500/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <Truck className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-amber-400 font-sans">Scheda in Sola Lettura</h4>
+                <h4 className="text-xs font-bold text-indigo-400 font-sans">Viaggio Programmato</h4>
                 <p className="text-[11px] text-slate-400 mt-0.5 leading-normal font-sans">
-                  {isLocalUnlocked 
-                    ? "Modifica sbloccata come Amministratore. Puoi apportare cambiamenti o concludere il trasporto."
-                    : "Questa scheda di trasporto è attiva ed è gestita da un altro soccorritore."}
+                  Questo viaggio è precompilato. Premi "Attiva Trasporto" per iniziare la compilazione.
                 </p>
               </div>
             </div>
-            {profile?.ruolo === 'admin' && (
+            {(profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id) && (
               <button
-                onClick={() => setIsLocalUnlocked(!isLocalUnlocked)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm font-sans ${
-                  isLocalUnlocked 
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700' 
-                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold'
-                }`}
+                onClick={handleActivateProgrammed}
+                disabled={isActionLoading}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-550 text-white font-bold rounded-xl text-xs transition-all shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
-                {isLocalUnlocked ? "Ripristina Blocco" : "Sblocca Modifica"}
+                {isActionLoading ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Attivazione...
+                  </>
+                ) : (
+                  'Attiva Trasporto'
+                )}
               </button>
             )}
           </div>
+        ) : (
+          readOnly && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-amber-400 font-sans">Scheda in Sola Lettura</h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-normal font-sans">
+                    {isLocalUnlocked 
+                      ? "Modifica sbloccata come Amministratore. Puoi apportare cambiamenti o concludere il trasporto."
+                      : "Questa scheda di trasporto è attiva ed è gestita da un altro soccorritore."}
+                  </p>
+                </div>
+              </div>
+              {profile?.ruolo === 'admin' && (
+                <button
+                  onClick={() => setIsLocalUnlocked(!isLocalUnlocked)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm font-sans ${
+                    isLocalUnlocked 
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700' 
+                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold'
+                  }`}
+                >
+                  {isLocalUnlocked ? "Ripristina Blocco" : "Sblocca Modifica"}
+                </button>
+              )}
+            </div>
+          )
         )}
 
         <div className={isEffectiveReadOnly ? 'pointer-events-none select-none' : ''}>

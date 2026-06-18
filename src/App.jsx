@@ -276,6 +276,11 @@ function AppContent() {
           refreshActiveTransport()
           setBoardRefreshKey(prev => prev + 1)
         }}
+        onActivate={async () => {
+          setViewOnlyTransport(null)
+          await refreshActiveTransport()
+          setIsTransportDrawerOpen(true)
+        }}
       />
 
       {/* Success Modal – trasporto chiuso correttamente */}
