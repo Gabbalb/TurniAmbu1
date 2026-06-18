@@ -164,13 +164,15 @@ function AppContent() {
   }
 
   // Schermata principale per gli utenti autenticati (Mobile layout)
+  const userActiveTransport = (profile?.ruolo === 'admin' || activeShift) ? activeTransport : null
+
   return (
     <Layout
       currentView={view}
       setView={setView}
       onOpenBulkModal={() => setIsBulkOpen(true)}
       onNavigateToAdmin={() => navigateTo('/admin')}
-      activeTransport={activeTransport}
+      activeTransport={userActiveTransport}
       isDrawerOpen={isTransportDrawerOpen}
       onExpandDrawer={() => setIsTransportDrawerOpen(true)}
     >
@@ -204,7 +206,7 @@ function AppContent() {
       )}
       {view === 'transport' && (
         <TransportTab
-          activeTransport={activeTransport}
+          activeTransport={userActiveTransport}
           profile={profile}
           activeShift={activeShift}
           activeShiftLoading={activeShiftLoading}
@@ -213,6 +215,7 @@ function AppContent() {
           startLoading={startLoading}
           onStartNewTransport={handleStartNewTransport}
           onViewOnlyOpen={setViewOnlyTransport}
+          refreshKey={boardRefreshKey}
         />
       )}
       {view.startsWith('admin') && (
@@ -240,7 +243,7 @@ function AppContent() {
         }}
       />
       <TransportDrawer
-        activeTransport={activeTransport}
+        activeTransport={userActiveTransport}
         setActiveTransport={setActiveTransport}
         isOpen={isTransportDrawerOpen}
         onClose={() => setIsTransportDrawerOpen(false)}
@@ -255,6 +258,10 @@ function AppContent() {
         onClose={() => setViewOnlyTransport(null)}
         profile={profile}
         readOnly={true}
+        onRefresh={() => {
+          refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
+        }}
       />
 
       {/* Success Modal – trasporto chiuso correttamente */}

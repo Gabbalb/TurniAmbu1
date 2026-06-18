@@ -201,20 +201,28 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
   const handleSaveChanges = async () => {
     setSaveLoading(true)
     try {
-      const fullNote = buildNotesWithExternalCrew(
-        editForm.note, 
-        editForm.is_ce_esterno ? editForm.ce_esterno : '', 
-        editForm.is_as_esterno ? editForm.as_esterno : ''
-      )
-      
+      let finalNote = editForm.note || ''
       const isStatusTransitionToTerminated = selectedTransport.stato === 'attivo' && editForm.stato === 'terminato'
       if (isStatusTransitionToTerminated) {
+        if (!finalNote.includes('scheda chiusa da [admin]')) {
+          finalNote = finalNote.trim() 
+            ? `${finalNote}\n\nscheda chiusa da [admin]` 
+            : 'scheda chiusa da [admin]'
+          setEditForm(prev => ({ ...prev, note: finalNote }))
+        }
+
         await api.terminateTransport(
           selectedTransportId, 
           editForm.km_finali !== '' ? Number(editForm.km_finali) : 0, 
           editForm.vehicle_id ? Number(editForm.vehicle_id) : null
         )
       }
+
+      const fullNote = buildNotesWithExternalCrew(
+        finalNote, 
+        editForm.is_ce_esterno ? editForm.ce_esterno : '', 
+        editForm.is_as_esterno ? editForm.as_esterno : ''
+      )
       
       const transportUpdates = {
         paziente_cognome_nome: editForm.paziente_cognome_nome || null,

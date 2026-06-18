@@ -250,15 +250,8 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       const payValLower = payVal.toLowerCase()
       const isCustomPay = payValLower && !['contante', 'pos', 'buono', 'convenzione'].includes(payValLower)
       setLocalAltroPagamento(isCustomPay ? payVal : '')
-      setIsLocalUnlocked(false)
     }
   }, [activeTransport])
-
-  useEffect(() => {
-    if (!isOpen) {
-      setIsLocalUnlocked(false)
-    }
-  }, [isOpen])
 
   if (!activeTransport) return null
 
@@ -308,7 +301,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       if (error) throw error
     } catch (err) {
       console.error(`Error saving field ${field}:`, err)
-      onRefresh() // revert on error
+      onRefresh?.() // revert on error
     }
   }
 
@@ -325,7 +318,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       if (error) throw error
     } catch (err) {
       console.error('Error saving fields:', err)
-      onRefresh() // revert on error
+      onRefresh?.() // revert on error
     }
   }
 
@@ -374,7 +367,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       if (error) throw error
     } catch (err) {
       console.error('Error saving shift and crew:', err)
-      onRefresh() // revert on error
+      onRefresh?.() // revert on error
     }
   }
 
@@ -392,7 +385,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       if (error) throw error
     } catch (err) {
       console.error('Error saving notes and metadata:', err)
-      onRefresh() // revert on error
+      onRefresh?.() // revert on error
     }
   }
 
@@ -437,7 +430,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       if (error) throw error
     } catch (err) {
       console.error(`Error saving crew member for role ${role}:`, err)
-      onRefresh() // revert on error
+      onRefresh?.() // revert on error
     }
   }
 
@@ -565,12 +558,22 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
     }
 
     try {
+      if (profile?.ruolo === 'admin') {
+        const currentNotes = localNotes || ''
+        const appendedNote = currentNotes.trim() 
+          ? `${currentNotes}\n\nscheda chiusa da [admin]` 
+          : 'scheda chiusa da [admin]'
+        setLocalNotes(appendedNote)
+        const fullNotesText = buildNotesWithExternalCrew(appendedNote, ceEsterno, asEsterno)
+        await api.updateTransportField(activeTransport.id, 'note', fullNotesText)
+      }
+
       const { error } = await api.terminateTransport(activeTransport.id, finalVal, activeTransport.vehicle_id)
       if (error) throw error
       setIsTerminating(false)
       setKmFinali('')
       onClose()
-      onRefresh()
+      onRefresh?.()
       if (onTerminateSuccess) {
         onTerminateSuccess()
       }

@@ -11,7 +11,8 @@ export default function TransportTab({
   setIsTransportDrawerOpen,
   startLoading,
   onStartNewTransport,
-  onViewOnlyOpen
+  onViewOnlyOpen,
+  refreshKey
 }) {
   const [isConfirmingStart, setIsConfirmingStart] = useState(false)
   const [allActiveTransports, setAllActiveTransports] = useState([])
@@ -58,6 +59,12 @@ export default function TransportTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.ruolo])
+
+  useEffect(() => {
+    if (profile?.ruolo === 'admin') {
+      loadAllActiveTransports()
+    }
+  }, [refreshKey])
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-6 text-left">
