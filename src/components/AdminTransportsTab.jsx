@@ -1339,49 +1339,21 @@ export default function AdminTransportsTab() {
             </div>
           </div>
 
-          <PSection title="Paziente">
-            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-red-200">
-              <PRow label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
-              <PRow label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
-              <PRow label="Telefono" value={selectedTransport.paziente_telefono} />
-            </div>
-          </PSection>
-
-          <PSection title="Equipaggio">
-            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-yellow-200">
-              <PRow label="Capo Equipaggio (CE)" value={ceName} />
-              <PRow label="Autista / Soccorritore (AS)" value={asName} />
-            </div>
-          </PSection>
-
-          <PSection title="Servizio e Mezzo">
-            <div className="grid grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-green-200">
+          <PSection title="Servizio">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-green-200">
               <PRow label="Data" value={formatDateString(selectedTransport.data)} />
               <PRow label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
-              <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
-              <PRow label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
-              <PRow label="Km Percorsi" value={(selectedTransport.km_finali - selectedTransport.km_iniziali) !== null ? `${selectedTransport.km_finali - selectedTransport.km_iniziali} km` : 'N/D' }/>
-              <div className="col-span-2"><PRow label="Mezzo Utilizzato" value={vehicleName} /></div>
               <div><PRow label="Data e Ora Inizio" value={formatDateTimeString(selectedTransport.ora_inizio)} /></div>
               <div><PRow label="Data e Ora Fine" value={formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'} /></div>
             </div>
           </PSection>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <PSection title="Tipologia Trasporto">
-              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                <PRow label="Tipo" value={(selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1)} />
-                {selectedTransport.variante_ar && <PRow label="Variante A/R" value={selectedTransport.variante_ar.replace(/_/g, ' ')} />}
-                {selectedTransport.tipo_trasporto === 'altro' && <PRow label="Descrizione" value={selectedTransport.altro_descrizione} />}
-              </div>
-            </PSection>
-            <PSection title="Pagamento">
-              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                <PRow label="Metodo" value={selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D'} />
-                <PRow label="Importo Riscosso" value={selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'} />
-              </div>
-            </PSection>
-          </div>
+           <PSection title="Equipaggio">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-yellow-200">
+              <PRow label="Capo Equipaggio (CE)" value={ceName} />
+              <PRow label="Autista / Soccorritore (AS)" value={asName} />
+            </div>
+          </PSection>
 
           <PSection title="Percorso">
             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-blue-200">
@@ -1399,6 +1371,38 @@ export default function AdminTransportsTab() {
               </div>
             </div>
           </PSection>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <PSection title="Mezzo">
+              <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
+              <PRow label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
+              <PRow label="Km Percorsi" value={(selectedTransport.km_finali - selectedTransport.km_iniziali) !== null ? `${selectedTransport.km_finali - selectedTransport.km_iniziali} km` : 'N/D' }/>
+            </PSection>
+            <PSection title="Tipologia Trasporto">
+              <div className="bg-gray-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <PRow label="Tipo" value={(selectedTransport.tipo_trasporto || 'N/D').charAt(0).toUpperCase() + (selectedTransport.tipo_trasporto || '').slice(1)} />
+                {selectedTransport.variante_ar && <PRow label="Variante A/R" value={selectedTransport.variante_ar.replace(/_/g, ' ')} />}
+                {selectedTransport.tipo_trasporto === 'altro' && <PRow label="Descrizione" value={selectedTransport.altro_descrizione} />}
+              </div>
+            </PSection>
+          </div>
+
+            <PSection title="Paziente">
+            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-red-200">
+              <PRow label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
+              <PRow label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
+              <PRow label="Telefono" value={selectedTransport.paziente_telefono} />
+            </div>
+          </PSection>
+
+           <PSection title="Pagamento">
+              <div className="grid grid-cols-3 gap-4 bg-yellow-50 p-4 rounded-xl border border-green-200">
+                <PRow label="Metodo" value={selectedTransport.tipo_pagamento ? selectedTransport.tipo_pagamento.charAt(0).toUpperCase() + selectedTransport.tipo_pagamento.slice(1) : 'N/D'} />
+                <PRow label="Importo Riscosso" value={selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'} />
+              </div>
+            </PSection>
+
+          
 
           {cleanNotes && (
             <PSection title="Note del Servizio">
