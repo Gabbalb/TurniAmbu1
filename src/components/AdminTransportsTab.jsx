@@ -1355,7 +1355,7 @@ export default function AdminTransportsTab() {
           </PSection>
 
           <PSection title="Servizio e Mezzo">
-            <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-green-200">
+            <div className="grid grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-green-200">
               <PRow label="Data" value={formatDateString(selectedTransport.data)} />
               <PRow label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
               <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
