@@ -1340,7 +1340,7 @@ export default function AdminTransportsTab() {
           </div>
 
           <PSection title="Paziente">
-            <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-red-200">
               <PRow label="Cognome e Nome" value={selectedTransport.paziente_cognome_nome} />
               <PRow label="Codice Fiscale" value={selectedTransport.paziente_codice_fiscale} mono />
               <PRow label="Telefono" value={selectedTransport.paziente_telefono} />
@@ -1348,18 +1348,19 @@ export default function AdminTransportsTab() {
           </PSection>
 
           <PSection title="Equipaggio">
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-yellow-200">
               <PRow label="Capo Equipaggio (CE)" value={ceName} />
               <PRow label="Autista / Soccorritore (AS)" value={asName} />
             </div>
           </PSection>
 
           <PSection title="Servizio e Mezzo">
-            <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-green-200">
               <PRow label="Data" value={formatDateString(selectedTransport.data)} />
               <PRow label="Ora Servizio" value={selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'} />
               <PRow label="Km Iniziali" value={selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'} />
               <PRow label="Km Finali" value={selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'} />
+              <PRow label="Km Percorsi" value={(selectedTransport.km_finali - selectedTransport.km_iniziali) !== null ? `${selectedTransport.km_finali - selectedTransport.km_iniziali} km` : 'N/D' }/>
               <div className="col-span-2"><PRow label="Mezzo Utilizzato" value={vehicleName} /></div>
               <div><PRow label="Data e Ora Inizio" value={formatDateTimeString(selectedTransport.ora_inizio)} /></div>
               <div><PRow label="Data e Ora Fine" value={formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'} /></div>
@@ -1383,7 +1384,7 @@ export default function AdminTransportsTab() {
           </div>
 
           <PSection title="Percorso">
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-blue-200">
               <div>
                 <p className="text-[10px] uppercase font-bold text-slate-400">Partenza Da <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase">{selectedTransport.da_tipo_luogo}</span></p>
                 <p className="text-xs font-semibold text-slate-800 mt-0.5">
@@ -1404,17 +1405,6 @@ export default function AdminTransportsTab() {
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{cleanNotes}</div>
             </PSection>
           )}
-
-          <div className="mt-12 grid grid-cols-2 gap-12 text-center">
-            <div className="flex flex-col items-center">
-              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
-              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma del Capo Equipaggio</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-4/5 border-b border-slate-900 mb-2 h-8" />
-              <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Firma dell'Amministratore</span>
-            </div>
-          </div>
 
         </div>
       )
