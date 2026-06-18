@@ -147,10 +147,10 @@ if (USE_MOCK) {
   }
   if (!localStorage.getItem('ta_vehicles')) {
     localStorage.setItem('ta_vehicles', JSON.stringify([
-      { id: 1, nome: 'Ambulanza 1 (Fiat Ducato)', targa: 'AM123BU', attivo: true, km_attuali: 120500 },
-      { id: 2, nome: 'Ambulanza 2 (VW Crafter)', targa: 'AM456BU', attivo: true, km_attuali: 89400 },
-      { id: 3, nome: 'Auto Medica (Subaru Forester)', targa: 'MD789MD', attivo: true, km_attuali: 45200 },
-      { id: 4, nome: 'Mezzo Disabili (Fiat Doblò)', targa: 'DS321DB', attivo: true, km_attuali: 15300 }
+      { id: 1, nome: 'Ambulanza 1', targa: 'AM123BU', attivo: true, km_attuali: 120500 },
+      { id: 2, nome: 'Ambulanza 2', targa: 'AM456BU', attivo: true, km_attuali: 89400 },
+      { id: 3, nome: 'Auto Medica', targa: 'MD789MD', attivo: true, km_attuali: 45200 },
+      { id: 4, nome: 'Mezzo Disabili', targa: 'DS321DB', attivo: true, km_attuali: 15300 }
     ]))
   }
   if (!localStorage.getItem('ta_transports')) {
@@ -1673,12 +1673,24 @@ export const api = {
   },
 
   createTransport: async (userId) => {
-    const todayStr = new Date().toISOString().split('T')[0]
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const todayStr = `${year}-${month}-${day}`
     const nowIso = new Date().toISOString()
+    
+    // Format local time as HH:MM
+    const now = new Date()
+    const hh = String(now.getHours()).padStart(2, '0')
+    const mm = String(now.getMinutes()).padStart(2, '0')
+    const localTimeStr = `${hh}:${mm}`
+
     const defaultTransport = {
       data: todayStr,
       stato: 'attivo',
       ora_inizio: nowIso,
+      ora_servizio: localTimeStr,
       tipo_trasporto: 'dimissione',
       da_tipo_luogo: 'ospedale',
       a_tipo_luogo: 'abitazione',
@@ -1735,6 +1747,133 @@ export const api = {
       return { data, error }
     } catch (err) {
       console.error(`Errore aggiornamento campo ${field}:`, err)
+      return { error: err }
+    }
+  },
+
+  updateTransportFields: async (transportId, fields) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const index = transports.findIndex(t => String(t.id) === String(transportId))
+      if (index !== -1) {
+        Object.assign(transports[index], fields)
+        transports[index].updated_at = nowIso
+        localStorage.setItem('ta_transports', JSON.stringify(transports))
+        return { data: transports[index], error: null }
+      }
+      return { error: new Error('Trasporto non trovato') }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .update({ ...fields, updated_at: nowIso })
+        .eq('id', transportId)
+        .select()
+        .single()
+      return { data, error }
+    } catch (err) {
+      console.error(`Errore aggiornamento campi:`, err)
+      return { error: err }
+    }
+  },
+
+  updateTransportShiftAndCrew: async (transportId, shiftId, ceUserId, asUserId) => {
+    const nowIso = new Date().toISOString()
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const index = transports.findIndex(t => String(t.id) === String(transportId))
+      if (index !== -1) {
+        transports[index].shift_id = shiftId
+        transports[index].updated_at = nowIso
+        localStorage.setItem('ta_transports', JSON.stringify(transports))
+      }
+
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      crew.forEach(c => {
+        if (String(c.transport_id) === String(transportId) && c.attivo) {
+          c.attivo = false
+          c.ora_fine_ruolo = nowIso
+        }
+      })
+
+      if (ceUserId) {
+        crew.push({
+          id: crew.length + 1,
+          transport_id: Number(transportId),
+          user_id: ceUserId,
+          ruolo: 'CE',
+          vehicle_id: null,
+          attivo: true,
+          ora_inizio_ruolo: nowIso,
+          ora_fine_ruolo: null,
+          is_partial: false,
+          created_at: nowIso
+        })
+      }
+      if (asUserId) {
+        crew.push({
+          id: crew.length + 2,
+          transport_id: Number(transportId),
+          user_id: asUserId,
+          ruolo: 'autista',
+          vehicle_id: null,
+          attivo: true,
+          ora_inizio_ruolo: nowIso,
+          ora_fine_ruolo: null,
+          is_partial: false,
+          created_at: nowIso
+        })
+      }
+      localStorage.setItem('ta_transport_crew', JSON.stringify(crew))
+      return { error: null }
+    }
+    try {
+      const { error: tError } = await supabase
+        .from('transports')
+        .update({ shift_id: shiftId, updated_at: nowIso })
+        .eq('id', transportId)
+
+      if (tError) throw tError
+
+      const { error: updErr } = await supabase
+        .from('transport_crew')
+        .update({ attivo: false, ora_fine_ruolo: nowIso })
+        .eq('transport_id', transportId)
+        .eq('attivo', true)
+
+      if (updErr) throw updErr
+
+      const inserts = []
+      if (ceUserId) {
+        inserts.push({
+          transport_id: transportId,
+          user_id: ceUserId,
+          ruolo: 'CE',
+          attivo: true,
+          ora_inizio_ruolo: nowIso
+        })
+      }
+      if (asUserId) {
+        inserts.push({
+          transport_id: transportId,
+          user_id: asUserId,
+          ruolo: 'autista',
+          attivo: true,
+          ora_inizio_ruolo: nowIso
+        })
+      }
+
+      if (inserts.length > 0) {
+        const { error: insErr } = await supabase
+          .from('transport_crew')
+          .insert(inserts)
+        if (insErr) throw insErr
+      }
+
+      return { error: null }
+    } catch (err) {
+      console.error('Errore updateTransportShiftAndCrew:', err)
       return { error: err }
     }
   },

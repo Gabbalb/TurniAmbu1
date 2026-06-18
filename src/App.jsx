@@ -537,9 +537,9 @@ function AppContent() {
           setBoardRefreshKey(prev => prev + 1)
         }}
       />
-
       <TransportDrawer
         activeTransport={activeTransport}
+        setActiveTransport={setActiveTransport}
         isOpen={isTransportDrawerOpen}
         onClose={() => setIsTransportDrawerOpen(false)}
         onRefresh={refreshActiveTransport}

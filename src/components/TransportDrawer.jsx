@@ -48,7 +48,7 @@ const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
   return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
 }
 
-export default function TransportDrawer({ activeTransport, isOpen, onClose, onRefresh, profile }) {
+export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile }) {
   const [vehicles, setVehicles] = useState([])
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -107,6 +107,111 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
     }
     loadData()
   }, [])
+
+  // Auto-focus centering for inputs when virtual keyboard pops up on mobile
+  useEffect(() => {
+    const handleGlobalFocus = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 300)
+      }
+    }
+    document.addEventListener('focus', handleGlobalFocus, true)
+    return () => {
+      document.removeEventListener('focus', handleGlobalFocus, true)
+    }
+  }, [])
+
+  // Auto-autocompile crew from board on mount/open if crew is empty and ora_servizio is set
+  useEffect(() => {
+    if (isOpen && activeTransport) {
+      const activeCe = activeTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+      const activeAs = activeTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+      const serviceTime = activeTransport.ora_servizio
+      if (!activeCe && !activeAs && serviceTime) {
+        const autocompile = async () => {
+          try {
+            const { data: shifts } = await api.fetchActiveShiftsAndBookingsForDate(activeTransport.data)
+            if (!shifts || shifts.length === 0) return
+
+            const serviceMin = timeStringToMinutes(serviceTime)
+            
+            // Find matching shift
+            let matchedShift = null
+            for (const s of shifts) {
+              const startMin = timeStringToMinutes(s.ora_inizio)
+              const endMin = timeStringToMinutes(s.ora_fine)
+              if (startMin < endMin) {
+                if (serviceMin >= startMin && serviceMin < endMin) {
+                  matchedShift = s
+                  break
+                }
+              } else {
+                if (serviceMin >= startMin || serviceMin < endMin) {
+                  matchedShift = s
+                  break
+                }
+              }
+            }
+
+            if (matchedShift) {
+              // Find CE
+              const ceBookings = matchedShift.bookings?.filter(b => b.ruolo_turno === 'CE') || []
+              let matchedCe = null
+              for (const b of ceBookings) {
+                const startStr = b.is_partial && b.ora_inizio_effettiva ? b.ora_inizio_effettiva : matchedShift.ora_inizio
+                const endStr = b.is_partial && b.ora_fine_effettiva ? b.ora_fine_effettiva : matchedShift.ora_fine
+                const startMin = timeStringToMinutes(startStr)
+                const endMin = timeStringToMinutes(endStr)
+                if (startMin < endMin) {
+                  if (serviceMin >= startMin && serviceMin < endMin) { matchedCe = b; break; }
+                } else {
+                  if (serviceMin >= startMin || serviceMin < endMin) { matchedCe = b; break; }
+                }
+              }
+              if (!matchedCe && ceBookings.length > 0) matchedCe = ceBookings[0]
+
+              // Find AS/Autista
+              const asBookings = matchedShift.bookings?.filter(b => b.ruolo_turno === 'autista') || []
+              let matchedAs = null
+              for (const b of asBookings) {
+                const startStr = b.is_partial && b.ora_inizio_effettiva ? b.ora_inizio_effettiva : matchedShift.ora_inizio
+                const endStr = b.is_partial && b.ora_fine_effettiva ? b.ora_fine_effettiva : matchedShift.ora_fine
+                const startMin = timeStringToMinutes(startStr)
+                const endMin = timeStringToMinutes(endStr)
+                if (startMin < endMin) {
+                  if (serviceMin >= startMin && serviceMin < endMin) { matchedAs = b; break; }
+                } else {
+                  if (serviceMin >= startMin || serviceMin < endMin) { matchedAs = b; break; }
+                }
+              }
+              if (!matchedAs && asBookings.length > 0) matchedAs = asBookings[0]
+
+              if (matchedCe?.user_id) {
+                setIsCeEsterno(false)
+                setCeEsterno('')
+              }
+              if (matchedAs?.user_id) {
+                setIsAsEsterno(false)
+                setAsEsterno('')
+              }
+
+              // Save shift and crew atomically
+              await handleSaveShiftAndCrew(
+                matchedShift.id,
+                matchedCe?.user_id || null,
+                matchedAs?.user_id || null
+              )
+            }
+          } catch (err) {
+            console.error('Error auto-autocompiling crew from board:', err)
+          }
+        }
+        autocompile()
+      }
+    }
+  }, [isOpen, activeTransport?.id])
 
   // Sync state with activeTransport when it changes
   useEffect(() => {
@@ -174,35 +279,144 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
 
   // Field change & blur handlers
   const handleSaveField = async (field, value) => {
+    // Optimistic Update
+    setActiveTransport(prev => {
+      if (!prev) return prev
+      return { ...prev, [field]: value }
+    })
+    
     try {
       const { error } = await api.updateTransportField(activeTransport.id, field, value)
       if (error) throw error
-      onRefresh()
     } catch (err) {
       console.error(`Error saving field ${field}:`, err)
+      onRefresh() // revert on error
+    }
+  }
+
+  const handleSaveFields = async (fieldsObj) => {
+    // Optimistic Update
+    setActiveTransport(prev => {
+      if (!prev) return prev
+      return { ...prev, ...fieldsObj }
+    })
+    
+    try {
+      const { error } = await api.updateTransportFields(activeTransport.id, fieldsObj)
+      if (error) throw error
+    } catch (err) {
+      console.error('Error saving fields:', err)
+      onRefresh() // revert on error
+    }
+  }
+
+  const handleSaveShiftAndCrew = async (shiftId, ceUserId, asUserId) => {
+    // Optimistic Update
+    setActiveTransport(prev => {
+      if (!prev) return prev
+      const newCrewList = [...(prev.crew || [])]
+      // Deactivate current active members
+      newCrewList.forEach((c, idx) => {
+        if (c.attivo) {
+          newCrewList[idx] = { ...c, attivo: false, ora_fine_ruolo: new Date().toISOString() }
+        }
+      })
+      // Add new members
+      if (ceUserId) {
+        newCrewList.push({
+          id: Date.now(),
+          transport_id: prev.id,
+          user_id: ceUserId,
+          ruolo: 'CE',
+          attivo: true,
+          ora_inizio_ruolo: new Date().toISOString()
+        })
+      }
+      if (asUserId) {
+        newCrewList.push({
+          id: Date.now() + 1,
+          transport_id: prev.id,
+          user_id: asUserId,
+          ruolo: 'AS',
+          attivo: true,
+          ora_inizio_ruolo: new Date().toISOString()
+        })
+      }
+      return {
+        ...prev,
+        shift_id: shiftId,
+        crew: newCrewList
+      }
+    })
+
+    try {
+      const { error } = await api.updateTransportShiftAndCrew(activeTransport.id, shiftId, ceUserId, asUserId)
+      if (error) throw error
+    } catch (err) {
+      console.error('Error saving shift and crew:', err)
+      onRefresh() // revert on error
     }
   }
 
   // Save notes with metadata
   const handleSaveNotes = async (notesVal, ceEst, asEst) => {
     const fullNotesText = buildNotesWithExternalCrew(notesVal, ceEst, asEst)
+    // Optimistic Update
+    setActiveTransport(prev => {
+      if (!prev) return prev
+      return { ...prev, note: fullNotesText }
+    })
+    
     try {
       const { error } = await api.updateTransportField(activeTransport.id, 'note', fullNotesText)
       if (error) throw error
-      onRefresh()
     } catch (err) {
       console.error('Error saving notes and metadata:', err)
+      onRefresh() // revert on error
     }
   }
 
   // Save crew members (internal users)
   const handleSaveCrewMember = async (role, userId) => {
+    // Optimistic Update
+    setActiveTransport(prev => {
+      if (!prev) return prev
+      
+      const newCrewList = [...(prev.crew || [])]
+      // Deactivate current active member for this role
+      const activeIdx = newCrewList.findIndex(c => c.ruolo === role && c.attivo)
+      if (activeIdx !== -1) {
+        newCrewList[activeIdx] = {
+          ...newCrewList[activeIdx],
+          attivo: false,
+          ora_fine_ruolo: new Date().toISOString()
+        }
+      }
+      
+      // If we are assigning a user, add them
+      if (userId) {
+        newCrewList.push({
+          id: Date.now(), // temporary id
+          transport_id: prev.id,
+          user_id: userId,
+          ruolo: role,
+          attivo: true,
+          ora_inizio_ruolo: new Date().toISOString()
+        })
+      }
+      
+      return {
+        ...prev,
+        crew: newCrewList
+      }
+    })
+
     try {
       const { error } = await api.updateTransportCrewMember(activeTransport.id, role, userId)
       if (error) throw error
-      onRefresh()
     } catch (err) {
       console.error(`Error saving crew member for role ${role}:`, err)
+      onRefresh() // revert on error
     }
   }
 
@@ -266,21 +480,21 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
         }
         if (!matchedAs && asBookings.length > 0) matchedAs = asBookings[0]
 
-        // Link to shift
-        await handleSaveField('shift_id', matchedShift.id)
-
-        // Save CE
         if (matchedCe?.user_id) {
           setIsCeEsterno(false)
           setCeEsterno('')
-          await handleSaveCrewMember('CE', matchedCe.user_id)
         }
-        // Save AS
         if (matchedAs?.user_id) {
           setIsAsEsterno(false)
           setAsEsterno('')
-          await handleSaveCrewMember('AS', matchedAs.user_id)
         }
+
+        // Save shift and crew atomically
+        await handleSaveShiftAndCrew(
+          matchedShift.id,
+          matchedCe?.user_id || null,
+          matchedAs?.user_id || null
+        )
       }
     } catch (err) {
       console.error('Error autocompiling crew from board:', err)
@@ -289,15 +503,27 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
 
   // Handle vehicle selection
   const handleSelectVehicle = async (vehicleId) => {
-    await handleSaveField('vehicle_id', vehicleId ? Number(vehicleId) : null)
     if (vehicleId) {
       try {
         const { km } = await api.fetchLastKmForVehicle(Number(vehicleId))
         setLocalKmIniziali(km || 0)
-        await handleSaveField('km_iniziali', km || 0)
+        await handleSaveFields({
+          vehicle_id: Number(vehicleId),
+          km_iniziali: km || 0
+        })
       } catch (err) {
         console.error('Error fetching vehicle km:', err)
+        await handleSaveFields({
+          vehicle_id: Number(vehicleId),
+          km_iniziali: 0
+        })
       }
+    } else {
+      setLocalKmIniziali('')
+      await handleSaveFields({
+        vehicle_id: null,
+        km_iniziali: null
+      })
     }
   }
 
@@ -590,7 +816,7 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                 <option value="">Seleziona mezzo...</option>
                 {vehicles.map(v => (
                   <option key={v.id} value={v.id}>
-                    {v.nome} ({v.targa})
+                    {v.nome}{v.targa ? ` (${v.targa})` : ''}
                   </option>
                 ))}
               </select>
@@ -642,14 +868,15 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={t}
                   type="button"
                   onClick={() => {
-                    handleSaveField('tipo_trasporto', t.toLowerCase())
+                    const updates = { tipo_trasporto: t.toLowerCase() }
                     if (t !== 'Altro') {
                       setLocalAltroDescrizione('')
-                      handleSaveField('altro_descrizione', null)
+                      updates.altro_descrizione = null
                     }
                     if (t !== 'Visita' && t !== 'Altro') {
-                      handleSaveField('variante_ar', null)
+                      updates.variante_ar = null
                     }
+                    handleSaveFields(updates)
                   }}
                   className={`py-3 px-4 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
                     activeTransport.tipo_trasporto?.toLowerCase() === t.toLowerCase()
@@ -690,9 +917,9 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                 <button
                   key={v}
                   type="button"
-                  onClick={() => handleSaveField('variante_ar', v === 'A/R' ? 'ar' : v.toLowerCase())}
+                  onClick={() => handleSaveField('variante_ar', v === 'A/R' ? 'andata_ritorno' : v.toLowerCase())}
                   className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    (activeTransport.variante_ar === 'ar' && v === 'A/R') || activeTransport.variante_ar === v.toLowerCase()
+                    (activeTransport.variante_ar === 'andata_ritorno' && v === 'A/R') || activeTransport.variante_ar === v.toLowerCase()
                       ? 'bg-indigo-600 border-indigo-500 text-white'
                       : 'bg-slate-900/65 border-slate-800 text-slate-400'
                   }`}
@@ -718,13 +945,15 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={l}
                   type="button"
                   onClick={() => {
-                    handleSaveField('da_tipo_luogo', l.toLowerCase())
                     setLocalDaReparto('')
                     setLocalDaNome('')
                     setLocalDaVia('')
-                    handleSaveField('da_reparto', null)
-                    handleSaveField('da_nome', null)
-                    handleSaveField('da_via', null)
+                    handleSaveFields({
+                      da_tipo_luogo: l.toLowerCase(),
+                      da_reparto: null,
+                      da_nome: null,
+                      da_via: null
+                    })
                   }}
                   className={`flex-1 py-2.5 px-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     activeTransport.da_tipo_luogo?.toLowerCase() === l.toLowerCase()
@@ -792,13 +1021,15 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                   key={l}
                   type="button"
                   onClick={() => {
-                    handleSaveField('a_tipo_luogo', l.toLowerCase())
                     setLocalAReparto('')
                     setLocalANome('')
                     setLocalAVia('')
-                    handleSaveField('a_reparto', null)
-                    handleSaveField('a_nome', null)
-                    handleSaveField('a_via', null)
+                    handleSaveFields({
+                      a_tipo_luogo: l.toLowerCase(),
+                      a_reparto: null,
+                      a_nome: null,
+                      a_via: null
+                    })
                   }}
                   className={`flex-1 py-2.5 px-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     activeTransport.a_tipo_luogo?.toLowerCase() === l.toLowerCase()
@@ -931,16 +1162,16 @@ export default function TransportDrawer({ activeTransport, isOpen, onClose, onRe
                     key={p}
                     type="button"
                     onClick={() => {
+                      setLocalAltroPagamento('')
                       if (p === 'Altro...') {
-                        setLocalAltroPagamento('')
-                        handleSaveField('tipo_pagamento', '')
+                        handleSaveFields({ tipo_pagamento: '' })
                       } else {
-                        setLocalAltroPagamento('')
-                        handleSaveField('tipo_pagamento', p.toLowerCase())
+                        const updates = { tipo_pagamento: p.toLowerCase() }
                         if (p.toLowerCase() === 'convenzione') {
                           setLocalImporto('')
-                          handleSaveField('importo', null)
+                          updates.importo = null
                         }
+                        handleSaveFields(updates)
                       }
                     }}
                     className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
