@@ -21,12 +21,12 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
   })
 
   return (
-    <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-6 animate-fade-in text-left">
+    <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-6 animate-fade-in text-left">
       
       {/* Header with Search and Filter */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/60 font-sans">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 font-sans">
         <div>
-          <h3 className="text-lg font-bold text-slate-100 font-sans">Storico dei Turni Passati</h3>
+          <h3 className="text-lg font-bold text-slate-800 font-sans">Storico dei Turni Passati</h3>
           <p className="text-xs text-slate-500 mt-0.5 font-sans">Visualizza le presenze e i turni prenotati dai soccorritori nel passato</p>
         </div>
 
@@ -39,7 +39,7 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
               placeholder="Filtra per soccorritore..."
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
-              className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold outline-none transition-all placeholder:text-slate-600 font-sans"
+              className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 font-sans"
             />
           </div>
 
@@ -47,7 +47,7 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
           <select
             value={filterShift}
             onChange={(e) => setFilterShift(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 outline-none"
+            className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none"
           >
             <option value="all">Tutte le Fasce</option>
             <option value="1">Mattina (06:00 - 14:00)</option>
@@ -61,7 +61,7 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse font-sans">
           <thead>
-            <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider">
+            <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
               <th className="py-3 px-4">Data Turno</th>
               <th className="py-3 px-4">Orario</th>
               <th className="py-3 px-4">Soccorritore</th>
@@ -70,34 +70,34 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
               <th className="py-3 px-4 text-right">Data Prenotazione</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60 font-semibold text-slate-300">
+          <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
             {filteredPastBookings.map(b => (
-              <tr key={b.id} className="hover:bg-slate-800/25 transition-colors">
-                <td className="py-3 px-4 text-slate-200">
+              <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                <td className="py-3 px-4 text-slate-850">
                   {b.shifts?.data ? format(parseISO(b.shifts.data), 'dd EEEE MMM yyyy', { locale: it }) : 'Data N/D'}
                 </td>
-                <td className="py-3 px-4 text-slate-400 font-mono">
+                <td className="py-3 px-4 text-slate-500 font-mono">
                   {b.shifts ? `${b.shifts.ora_inizio.slice(0, 5)} - ${b.shifts.ora_fine.slice(0, 5)}` : 'N/D'}
                 </td>
-                <td className="py-3 px-4 text-slate-200 font-bold">
+                <td className="py-3 px-4 text-slate-900 font-bold">
                   {b.profiles?.nome && b.profiles?.cognome ? `${b.profiles.nome} ${b.profiles.cognome}` : (b.profiles?.username || 'Username N/D')}
                 </td>
                 <td className="py-3 px-4">
                   <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-extrabold ${
                     b.ruolo_turno === 'autista' 
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15' 
-                      : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/15'
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                      : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
                   }`}>
                     {b.ruolo_turno}
                   </span>
                 </td>
                 <td className="py-3 px-4">
                   {b.is_partial ? (
-                    <span className="text-rose-400 font-medium bg-rose-500/5 px-2 py-0.5 rounded border border-rose-500/10 text-[10px]" title={b.nota_parziale}>
+                    <span className="text-rose-600 font-medium bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-[10px]" title={b.nota_parziale}>
                       Parziale (Nota: {b.nota_parziale || 'Nessuna'})
                     </span>
                   ) : (
-                    <span className="text-emerald-400 font-medium bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-[10px]">
+                    <span className="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
                       Turno Intero
                     </span>
                   )}
@@ -110,7 +110,7 @@ export default function AdminHistoryTab({ pastBookings, formatItalianDateTime })
           </tbody>
         </table>
         {filteredPastBookings.length === 0 && (
-          <div className="text-center py-16 text-slate-500 font-bold">
+          <div className="text-center py-16 text-slate-400 font-bold">
             Nessuna prenotazione passata registrata o corrisponde ai filtri selezionati.
           </div>
         )}

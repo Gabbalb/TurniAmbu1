@@ -9,7 +9,7 @@ import DatiPersonali from './components/DatiPersonali'
 import DisponibilitaModal from './components/DisponibilitaModal'
 import TimbraTurno from './components/TimbraTurno'
 import StoricoOre from './components/StoricoOre'
-import { ShieldCheck, ShieldAlert, RefreshCw, Key, User, Truck } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, RefreshCw, Key, User, Truck, Check } from 'lucide-react'
 import TransportDrawer from './components/TransportDrawer'
 import { api } from './lib/api'
 
@@ -22,6 +22,7 @@ function AppContent() {
   const [isTransportDrawerOpen, setIsTransportDrawerOpen] = useState(false)
   const [isConfirmingStart, setIsConfirmingStart] = useState(false)
   const [startLoading, setStartLoading] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const refreshActiveTransport = async () => {
     if (!profile?.id) return
@@ -544,7 +545,48 @@ function AppContent() {
         onClose={() => setIsTransportDrawerOpen(false)}
         onRefresh={refreshActiveTransport}
         profile={profile}
+        onTerminateSuccess={() => setShowSuccessModal(true)}
       />
+
+      {/* Success Modal – trasporto chiuso correttamente */}
+      {showSuccessModal && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowSuccessModal(false)}
+        >
+          <div
+            className="relative bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl px-10 py-10 flex flex-col items-center gap-5 max-w-xs w-full mx-4 animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Glow ring */}
+            <div className="absolute inset-0 rounded-3xl bg-emerald-500/5 pointer-events-none" />
+
+            {/* Animated checkmark circle */}
+            <div className="relative flex items-center justify-center w-20 h-20">
+              <div className="absolute inset-0 rounded-full bg-emerald-500/15 animate-ping" style={{ animationDuration: '1.8s' }} />
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-600/30">
+                <Check className="w-10 h-10 text-white" strokeWidth={3} />
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-extrabold text-slate-100 tracking-tight">Servizio Chiuso</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Il trasporto è stato chiuso e registrato correttamente.
+              </p>
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="mt-1 w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-2xl text-sm font-bold transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+            >
+              Ottimo!
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

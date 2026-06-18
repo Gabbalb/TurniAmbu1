@@ -48,7 +48,7 @@ const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
   return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
 }
 
-export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile }) {
+export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile, onTerminateSuccess }) {
   const [vehicles, setVehicles] = useState([])
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -548,7 +548,9 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       setKmFinali('')
       onClose()
       onRefresh()
-      alert("Il trasporto è stato chiuso correttamente")
+      if (onTerminateSuccess) {
+        onTerminateSuccess()
+      }
     } catch (err) {
       console.error('Error terminating transport:', err)
       setTerminateError('Errore durante la chiusura del trasporto.')

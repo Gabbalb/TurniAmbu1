@@ -210,19 +210,27 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
   }
 
+  const getTabClass = (tabName) => {
+    return `flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+      activeTab === tabName
+        ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600 shadow-sm font-bold'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-l-4 border-transparent'
+    }`
+  }
+
   return (
     <>
-      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans w-full text-left print:hidden">
+      <div className="flex h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans w-full text-left print:hidden">
         {/* SIDEBAR */}
-        <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between flex-shrink-0 z-20">
+        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0 z-20">
           <div>
             {/* Brand Logo & Name */}
-            <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-0.5 shadow-md border border-slate-700">
+            <div className="p-6 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-0.5 shadow-md border border-slate-200">
                 <img src="/logo.png" alt="GM Turni Logo" className="w-full h-full object-contain rounded-full" />
               </div>
               <div>
-                <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent leading-none">
+                <h2 className="text-xl font-bold text-slate-800 leading-none">
                   GM Turni
                 </h2>
                 <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-1 block">
@@ -235,11 +243,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
             <nav className="p-4 flex flex-col gap-1.5">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'dashboard'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('dashboard')}
               >
                 <Home className="w-5 h-5" />
                 <span>Dashboard Generale</span>
@@ -247,11 +251,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('utenti')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'utenti'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('utenti')}
               >
                 <Users className="w-5 h-5" />
                 <span>Gestione Utenti</span>
@@ -259,11 +259,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('storico')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'storico'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('storico')}
               >
                 <Calendar className="w-5 h-5" />
                 <span>Tabellone Storico</span>
@@ -271,11 +267,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('equipaggi')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'equipaggi'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('equipaggi')}
               >
                 <ShieldCheck className="w-5 h-5" />
                 <span>Gestione Equipaggi</span>
@@ -283,11 +275,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('ore')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'ore'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('ore')}
               >
                 <Clock className="w-5 h-5" />
                 <span>Convalida Ore</span>
@@ -295,11 +283,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('notifiche')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'notifiche'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('notifiche')}
               >
                 <AlertCircle className="w-5 h-5" />
                 <span>Log & Telegram</span>
@@ -307,11 +291,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('trasporti')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'trasporti'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('trasporti')}
               >
                 <Truck className="w-5 h-5" />
                 <span>Registro Trasporti</span>
@@ -319,11 +299,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
 
               <button
                 onClick={() => setActiveTab('mezzi')}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'mezzi'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-l-4 border-indigo-500 shadow-lg shadow-indigo-600/5'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
-                }`}
+                className={getTabClass('mezzi')}
               >
                 <Truck className="w-5 h-5" />
                 <span>Gestione Mezzi</span>
@@ -335,14 +311,14 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           <div className="p-4 flex flex-col gap-2">
             <button
               onClick={onBackToMobile}
-              className="flex items-center justify-center gap-2.5 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-700/50 cursor-pointer font-sans"
+              className="flex items-center justify-center gap-2.5 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-200 cursor-pointer font-sans"
             >
               <span>Torna all'App Mobile</span>
             </button>
 
             <button
               onClick={onLogout}
-              className="flex items-center justify-center gap-2.5 w-full bg-rose-950/25 hover:bg-rose-900/40 text-rose-300 hover:text-rose-200 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-rose-900/30 cursor-pointer font-sans"
+              className="flex items-center justify-center gap-2.5 w-full bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-rose-200 cursor-pointer font-sans"
             >
               <LogOut className="w-4 h-4" />
               <span>Esci dalla sessione</span>
@@ -351,12 +327,12 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-950">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
           
           {/* HEADER */}
-          <header className="h-20 bg-slate-900/60 border-b border-slate-800 px-8 flex items-center justify-between flex-shrink-0 z-10 font-sans">
+          <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10 font-sans">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-extrabold capitalize text-slate-100 font-sans">
+              <h1 className="text-2xl font-extrabold capitalize text-slate-800 font-sans">
                 {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
               </h1>
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
@@ -366,22 +342,22 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
               {/* Pulsante refresh */}
               <button
                 onClick={handleManualRefresh}
-                className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl border border-slate-700/50 transition-all hover:scale-105 active:scale-95 cursor-pointer font-sans"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-xl border border-slate-200 transition-all hover:scale-105 active:scale-95 cursor-pointer font-sans"
                 title="Ricarica Dati"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
               </button>
 
               {/* Profile badge */}
-              <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700/40 px-4 py-2 rounded-2xl">
-                <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center font-bold text-slate-100 text-sm shadow-md">
+              <div className="flex items-center gap-3 bg-slate-100 border border-slate-200 px-4 py-2 rounded-2xl">
+                <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center font-bold text-white text-sm shadow-md">
                   {(adminProfile?.nome || adminProfile?.username || 'A').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-200">
+                  <span className="text-xs font-bold text-slate-800">
                     {adminProfile?.nome && adminProfile?.cognome ? `${adminProfile.nome} ${adminProfile.cognome}` : (adminProfile?.username || 'Amministratore')}
                   </span>
-                  <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
+                  <span className="text-[9px] text-slate-550 font-semibold uppercase tracking-wider">
                     Ruolo: {adminProfile?.ruolo || 'admin'}
                   </span>
                 </div>
@@ -393,10 +369,10 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           <main className="flex-1 overflow-y-auto p-8 relative">
             
             {loading && (
-              <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col items-center gap-3 shadow-2xl">
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col items-center gap-3 shadow-2xl">
                   <LoaderComponent />
-                  <span className="text-xs font-bold text-slate-300 font-sans">Caricamento dati amministratore...</span>
+                  <span className="text-xs font-bold text-slate-600 font-sans">Caricamento dati amministratore...</span>
                 </div>
               </div>
             )}

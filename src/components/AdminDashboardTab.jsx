@@ -111,24 +111,24 @@ export default function AdminDashboardTab({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* Column 1 & 2: Today's Shifts coverage detail */}
-        <div className="xl:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col gap-4 shadow-xl">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800/60 font-sans">
+        <div className="xl:col-span-2 bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-4 shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200 font-sans">
             <div>
-              <h3 className="text-lg font-bold text-slate-100 font-sans">Copertura Turni Odierna</h3>
+              <h3 className="text-lg font-bold text-slate-800 font-sans">Copertura Turni Odierna</h3>
               <p className="text-xs text-slate-500 mt-0.5 font-sans">Dettaglio degli slot operativi e volontari assegnati per oggi</p>
             </div>
-            <span className="text-xs bg-slate-800 px-3 py-1.5 rounded-full font-bold text-slate-300">
+            <span className="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-700">
               Oggi: {format(new Date(), 'dd MMMM yyyy', { locale: it })}
             </span>
           </div>
 
           {todayShifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-3 border border-slate-700/40">
+              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 mb-3 border border-slate-200">
                 <Calendar className="w-5 h-5" />
               </div>
-              <span className="text-sm font-bold text-slate-400">Nessun turno programmato per oggi</span>
-              <p className="text-xs text-slate-600 max-w-xs leading-relaxed mt-1">
+              <span className="text-sm font-bold text-slate-650">Nessun turno programmato per oggi</span>
+              <p className="text-xs text-slate-500 max-w-xs leading-relaxed mt-1 font-medium">
                 Crea o aggiungi equipaggi per questa data per far registrare i volontari.
               </p>
             </div>
@@ -143,12 +143,12 @@ export default function AdminDashboardTab({
                 const ceBooking = bookingsForShift.find(b => b.ruolo_turno === 'CE')
 
                 return (
-                  <div key={shift.id} className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div key={shift.id} className="bg-slate-55 border border-slate-200/60 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">
                         {crewObj?.nome || `Equipaggio ${shift.crew_id}`}
                       </span>
-                      <div className="flex items-center gap-2 text-sm font-extrabold text-slate-200">
+                      <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800">
                         <span>Fascia: {shift.ora_inizio.slice(0, 5)} - {shift.ora_fine.slice(0, 5)}</span>
                       </div>
                     </div>
@@ -158,11 +158,11 @@ export default function AdminDashboardTab({
                       {/* Slot Autista */}
                       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs border font-semibold ${
                         autistaBooking 
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                          : 'bg-rose-500/5 border-rose-500/15 text-rose-400 border-dashed animate-pulse-subtle'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                          : 'bg-rose-50 border-rose-200/80 text-rose-600 border-dashed animate-pulse-subtle'
                       }`}>
-                        <div className={`w-2 h-2 rounded-full ${autistaBooking ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                        <span className="font-bold uppercase text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">Autista</span>
+                        <div className={`w-2 h-2 rounded-full ${autistaBooking ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        <span className="font-bold uppercase text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">Autista</span>
                         <span className="truncate max-w-[120px]">
                           {autistaBooking 
                             ? (autistaBooking.profiles?.nome ? `${autistaBooking.profiles.nome} ${autistaBooking.profiles.cognome.slice(0, 1)}.` : autistaBooking.profiles?.username) 
@@ -173,11 +173,11 @@ export default function AdminDashboardTab({
                       {/* Slot Capo Equipaggio */}
                       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs border font-semibold ${
                         ceBooking 
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                          : 'bg-rose-500/5 border-rose-500/15 text-rose-400 border-dashed animate-pulse-subtle'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                          : 'bg-rose-50 border-rose-200/80 text-rose-600 border-dashed animate-pulse-subtle'
                       }`}>
-                        <div className={`w-2 h-2 rounded-full ${ceBooking ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                        <span className="font-bold uppercase text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">CE / Soccorritore</span>
+                        <div className={`w-2 h-2 rounded-full ${ceBooking ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        <span className="font-bold uppercase text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">CE / Soccorritore</span>
                         <span className="truncate max-w-[120px]">
                           {ceBooking 
                             ? (ceBooking.profiles?.nome ? `${ceBooking.profiles.nome} ${ceBooking.profiles.cognome.slice(0, 1)}.` : ceBooking.profiles?.username) 
@@ -192,24 +192,24 @@ export default function AdminDashboardTab({
           )}
 
           {/* Quick Action: Aggiungi Equipaggio a Turno */}
-          <form onSubmit={handleAddCrewToShift} className="bg-slate-950/40 border border-slate-800/80 p-4 rounded-2xl flex flex-col md:flex-row items-end gap-3 mt-2">
+          <form onSubmit={handleAddCrewToShift} className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex flex-col md:flex-row items-end gap-3 mt-2">
             <div className="flex-1 w-full flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Giorno del Turno</label>
+              <label className="text-[10px] font-bold text-slate-550 uppercase tracking-widest">Giorno del Turno</label>
               <input 
                 type="date"
                 value={crewDate}
                 onChange={(e) => setCrewDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 outline-none transition-all"
+                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition-all"
                 required
               />
             </div>
 
             <div className="flex-1 w-full flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fascia Oraria</label>
+              <label className="text-[10px] font-bold text-slate-550 uppercase tracking-widest">Fascia Oraria</label>
               <select
                 value={crewShiftId}
                 onChange={(e) => setCrewShiftId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 outline-none transition-all"
+                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition-all"
               >
                 <option value="1">Mattina (06:00 - 14:00)</option>
                 <option value="2">Pomeriggio (14:00 - 22:00)</option>
@@ -218,11 +218,11 @@ export default function AdminDashboardTab({
             </div>
 
             <div className="flex-1 w-full flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seleziona Equipaggio</label>
+              <label className="text-[10px] font-bold text-slate-550 uppercase tracking-wider">Seleziona Equipaggio</label>
               <select
                 value={crewSelectedId}
                 onChange={(e) => setCrewSelectedId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 outline-none transition-all"
+                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition-all"
                 required
               >
                 {crews.filter(c => c.id !== 1).map(c => (
@@ -233,7 +233,7 @@ export default function AdminDashboardTab({
 
             <button
               type="submit"
-              className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all hover:scale-102 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+              className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all hover:scale-102 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
             >
               <Plus className="w-4 h-4" />
               <span>Aggiungi</span>
@@ -245,13 +245,13 @@ export default function AdminDashboardTab({
         <div className="flex flex-col gap-6">
           
           {/* Telegram Broadcaster */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col gap-3 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/60 font-semibold font-sans">
-              <h3 className="text-base font-bold text-slate-100">Broadcast Telegram</h3>
+          <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-3 shadow-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 font-semibold font-sans">
+              <h3 className="text-base font-bold text-slate-800">Broadcast Telegram</h3>
               <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
             </div>
             
-            <p className="text-[11px] text-slate-500 leading-relaxed text-left">
+            <p className="text-[11px] text-slate-550 leading-relaxed text-left">
               Invia un annuncio flash a tutti i soccorritori. Il trigger del database pubblicherà immediatamente il messaggio nel gruppo Telegram integrato.
             </p>
 
@@ -260,12 +260,12 @@ export default function AdminDashboardTab({
                 value={announcementText}
                 onChange={(e) => setAnnouncementText(e.target.value)}
                 placeholder="Scrivi qui il tuo avviso ufficiale... (es: Cercasi urgente autista per stasera!)"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl p-3 text-xs font-semibold text-slate-200 outline-none transition-all h-24 placeholder:text-slate-700 resize-none font-sans"
+                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl p-3 text-xs font-semibold text-slate-800 outline-none transition-all h-24 placeholder:text-slate-400 resize-none font-sans"
                 required
               />
 
               {announcementSuccess && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-2 rounded-xl text-center text-[10px] font-bold">
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-xl text-center text-[10px] font-bold">
                   ✓ Annuncio inviato e pubblicato con successo!
                 </div>
               )}
@@ -273,7 +273,7 @@ export default function AdminDashboardTab({
               <button
                 type="submit"
                 disabled={announcementLoading || !announcementText.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow cursor-pointer font-sans"
+                className="w-full bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-2.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow cursor-pointer font-sans"
               >
                 {announcementLoading ? (
                   <>
@@ -291,12 +291,12 @@ export default function AdminDashboardTab({
           </div>
 
           {/* Mini-Audit Log (Last 4 logs) */}
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col gap-3 shadow-xl font-sans">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/60 font-semibold font-sans">
-              <h3 className="text-base font-bold text-slate-100">Attività Recenti</h3>
+          <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-3 shadow-sm font-sans">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 font-semibold font-sans">
+              <h3 className="text-base font-bold text-slate-800">Attività Recenti</h3>
               <button 
                 onClick={() => setActiveTab('notifiche')}
-                className="text-[10px] text-indigo-400 font-bold hover:underline cursor-pointer"
+                className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
               >
                 Vedi tutti
               </button>
@@ -311,10 +311,10 @@ export default function AdminDashboardTab({
                       {style.icon}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <p className="text-xs font-semibold text-slate-200 leading-normal line-clamp-2">
+                      <p className="text-xs font-semibold text-slate-800 leading-normal line-clamp-2">
                         {notif.messaggio}
                       </p>
-                      <span className="text-[9px] text-slate-500 font-medium mt-1">
+                      <span className="text-[9px] text-slate-400 font-medium mt-1">
                         {formatItalianDateTime(notif.created_at)}
                       </span>
                     </div>
@@ -323,7 +323,7 @@ export default function AdminDashboardTab({
               })}
               
               {notifications.length === 0 && (
-                <div className="text-center py-6 text-xs text-slate-600">
+                <div className="text-center py-6 text-xs text-slate-400 font-semibold">
                   Nessuna notifica registrata nel sistema
                 </div>
               )}
@@ -342,52 +342,52 @@ function getNotificationBadgeStyle(tipo) {
     case 'registrazione':
     case 'profilo_modificato':
       return {
-        bg: 'bg-indigo-500/10',
-        color: 'text-indigo-400',
-        border: 'border-indigo-500/15',
+        bg: 'bg-indigo-50',
+        color: 'text-indigo-650',
+        border: 'border-indigo-150',
         icon: <Users className="w-4 h-4" />
       }
     case 'prenotazione_effettuata':
       return {
-        bg: 'bg-emerald-500/10',
-        color: 'text-emerald-400',
-        border: 'border-emerald-500/15',
+        bg: 'bg-emerald-50',
+        color: 'text-emerald-700',
+        border: 'border-emerald-150',
         icon: <Check className="w-4 h-4" />
       }
     case 'prenotazione_cancellata':
       return {
-        bg: 'bg-rose-500/10',
-        color: 'text-rose-400',
-        border: 'border-rose-500/15',
+        bg: 'bg-rose-50',
+        color: 'text-rose-650',
+        border: 'border-rose-150',
         icon: <X className="w-4 h-4" />
       }
     case 'timbratura_inizio':
     case 'timbratura_fine':
       return {
-        bg: 'bg-amber-500/10',
-        color: 'text-amber-400',
-        border: 'border-amber-500/15',
+        bg: 'bg-amber-50',
+        color: 'text-amber-700',
+        border: 'border-amber-150',
         icon: <Clock className="w-4 h-4" />
       }
     case 'annuncio':
       return {
-        bg: 'bg-purple-500/10',
-        color: 'text-purple-400',
-        border: 'border-purple-500/15',
+        bg: 'bg-purple-50',
+        color: 'text-purple-700',
+        border: 'border-purple-150',
         icon: <PlusCircle className="w-4 h-4" />
       }
     case 'accesso_admin':
       return {
-        bg: 'bg-indigo-500/15',
-        color: 'text-indigo-300',
-        border: 'border-indigo-500/25',
+        bg: 'bg-indigo-50',
+        color: 'text-indigo-700',
+        border: 'border-indigo-200',
         icon: <ShieldAlert className="w-4 h-4" />
       }
     default:
       return {
-        bg: 'bg-slate-800',
-        color: 'text-slate-400',
-        border: 'border-slate-700/50',
+        bg: 'bg-slate-100',
+        color: 'text-slate-600',
+        border: 'border-slate-200',
         icon: <AlertCircle className="w-4 h-4" />
       }
   }

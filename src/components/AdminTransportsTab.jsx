@@ -37,6 +37,15 @@ const formatDateString = (isoString) => {
   }
 }
 
+const formatDateTimeString = (isoString) => {
+  if (!isoString) return ''
+  try {
+    return format(parseISO(isoString), 'dd/MM/yyyy HH:mm', { locale: it })
+  } catch (e) {
+    return isoString
+  }
+}
+
 export default function AdminTransportsTab() {
   const [transports, setTransports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -296,234 +305,154 @@ export default function AdminTransportsTab() {
 
     const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
 
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) {
-      alert('Il blocco popup del browser impedisce l\'apertura del PDF. Consenti i popup per questa applicazione.')
-      return
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${pdfFilename}</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: #333;
+      margin: 40px;
+      line-height: 1.6;
     }
+    .header {
+      border-bottom: 2px solid #4f46e5;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { margin: 0; color: #1e1b4b; font-size: 24px; }
+    .status {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      background-color: ${selectedTransport.stato === 'terminato' ? '#f3f4f6' : '#ecfdf5'};
+      color: ${selectedTransport.stato === 'terminato' ? '#4b5563' : '#047857'};
+      border: 1px solid ${selectedTransport.stato === 'terminato' ? '#e5e7eb' : '#a7f3d0'};
+    }
+    .section { margin-bottom: 25px; }
+    .section-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #4f46e5;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 5px;
+      margin-bottom: 15px;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .field { margin-bottom: 10px; }
+    .label { font-size: 11px; color: #6b7280; font-weight: bold; text-transform: uppercase; }
+    .value { font-size: 14px; color: #111827; font-weight: 500; }
+    .notes-box {
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 15px;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    @media print { body { margin: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Scheda Registro Trasporto #${selectedTransport.id}</h1>
+      <p style="margin:5px 0 0 0;color:#6b7280;font-size:13px;">Data: ${formatDateString(selectedTransport.data)}</p>
+    </div>
+    <span class="status">${selectedTransport.stato}</span>
+  </div>
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${pdfFilename}</title>
-        <style>
-          body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            color: #333;
-            margin: 40px;
-            line-height: 1.6;
-          }
-          .header {
-            border-bottom: 2px solid #4f46e5;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-          .header h1 {
-            margin: 0;
-            color: #1e1b4b;
-            font-size: 24px;
-          }
-          .status {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            background-color: ${selectedTransport.stato === 'terminato' ? '#f3f4f6' : '#ecfdf5'};
-            color: ${selectedTransport.stato === 'terminato' ? '#4b5563' : '#047857'};
-            border: 1px solid ${selectedTransport.stato === 'terminato' ? '#e5e7eb' : '#a7f3d0'};
-          }
-          .section {
-            margin-bottom: 25px;
-          }
-          .section-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #4f46e5;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-          }
-          .grid {
-            display: grid;
-            grid-template-cols: 1fr 1fr;
-            gap: 15px;
-          }
-          .field {
-            margin-bottom: 10px;
-          }
-          .label {
-            font-size: 11px;
-            color: #6b7280;
-            font-weight: bold;
-            text-transform: uppercase;
-          }
-          .value {
-            font-size: 14px;
-            color: #111827;
-            font-weight: 500;
-          }
-          .notes-box {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 15px;
-            font-size: 13px;
-            white-space: pre-wrap;
-          }
-          @media print {
-            body { margin: 20px; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <h1>Scheda Registro Trasporto #${selectedTransport.id}</h1>
-            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 13px;">Data: ${formatDateString(selectedTransport.data)}</p>
-          </div>
-          <span class="status">${selectedTransport.stato}</span>
+  <div class="section">
+    <div class="section-title">1. Equipaggio</div>
+    <div class="grid">
+      <div class="field"><div class="label">Capo Equipaggio (CE)</div><div class="value">${ceName}</div></div>
+      <div class="field"><div class="label">Autista / Soccorritore (AS)</div><div class="value">${asName}</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2. Dati Servizio e Mezzo</div>
+    <div class="grid">
+      <div class="field"><div class="label">Mezzo Utilizzato</div><div class="value">${vehicleName}</div></div>
+      <div class="field"><div class="label">Ora Servizio</div><div class="value">${selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}</div></div>
+      <div class="field"><div class="label">Chilometri Iniziali</div><div class="value">${selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}</div></div>
+      <div class="field"><div class="label">Chilometri Finali</div><div class="value">${selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}</div></div>
+      <div class="field"><div class="label">Data e Ora Inizio</div><div class="value">${formatDateTimeString(selectedTransport.ora_inizio) || 'N/D'}</div></div>
+      <div class="field"><div class="label">Data e Ora Fine</div><div class="value">${formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'}</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">3. Tipologia Trasporto</div>
+    <div class="grid">
+      <div class="field"><div class="label">Tipo Trasporto</div><div class="value" style="text-transform:capitalize;">${selectedTransport.tipo_trasporto}</div></div>
+      ${selectedTransport.tipo_trasporto === 'altro' ? `<div class="field"><div class="label">Descrizione Altro</div><div class="value">${selectedTransport.altro_descrizione || 'N/D'}</div></div>` : ''}
+      ${selectedTransport.variante_ar ? `<div class="field"><div class="label">Variante A/R</div><div class="value" style="text-transform:capitalize;">${selectedTransport.variante_ar.replace('_', ' ')}</div></div>` : ''}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">4. Percorso (Da / A)</div>
+    <div class="grid">
+      <div class="field">
+        <div class="label">Partenza Da</div>
+        <div class="value">
+          <strong style="color:#6b7280;font-size:11px;text-transform:uppercase;">[${selectedTransport.da_tipo_luogo}]</strong><br/>
+          ${selectedTransport.da_tipo_luogo === 'abitazione' ? (selectedTransport.da_via || 'N/D') : `${selectedTransport.da_nome || 'N/D'} ${selectedTransport.da_reparto ? `(Reparto: ${selectedTransport.da_reparto})` : ''}`}
         </div>
-
-        <div class="section">
-          <div class="section-title">1. Equipaggio</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Capo Equipaggio (CE)</div>
-              <div class="value">${ceName}</div>
-            </div>
-            <div class="field">
-              <div class="label">Autista / Soccorritore (AS)</div>
-              <div class="value">${asName}</div>
-            </div>
-          </div>
+      </div>
+      <div class="field">
+        <div class="label">Destinazione A</div>
+        <div class="value">
+          <strong style="color:#6b7280;font-size:11px;text-transform:uppercase;">[${selectedTransport.a_tipo_luogo}]</strong><br/>
+          ${selectedTransport.a_tipo_luogo === 'abitazione' ? (selectedTransport.a_via || 'N/D') : `${selectedTransport.a_nome || 'N/D'} ${selectedTransport.a_reparto ? `(Reparto: ${selectedTransport.a_reparto})` : ''}`}
         </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="section">
-          <div class="section-title">2. Dati Servizio e Mezzo</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Mezzo Utilizzato</div>
-              <div class="value">${vehicleName}</div>
-            </div>
-            <div class="field">
-              <div class="label">Ora Servizio</div>
-              <div class="value">${selectedTransport.ora_servizio ? selectedTransport.ora_servizio.slice(0, 5) : 'N/D'}</div>
-            </div>
-            <div class="field">
-              <div class="label">Chilometri Iniziali</div>
-              <div class="value">${selectedTransport.km_iniziali !== null ? `${selectedTransport.km_iniziali} km` : 'N/D'}</div>
-            </div>
-            <div class="field">
-              <div class="label">Chilometri Finali</div>
-              <div class="value">${selectedTransport.km_finali !== null ? `${selectedTransport.km_finali} km` : 'N/D'}</div>
-            </div>
-          </div>
-        </div>
+  <div class="section">
+    <div class="section-title">5. Dati Paziente</div>
+    <div class="grid">
+      <div class="field"><div class="label">Cognome e Nome</div><div class="value" style="font-weight:bold;">${selectedTransport.paziente_cognome_nome || 'N/D'}</div></div>
+      <div class="field"><div class="label">Codice Fiscale</div><div class="value">${selectedTransport.paziente_codice_fiscale || 'N/D'}</div></div>
+      <div class="field" style="grid-column:span 2;"><div class="label">Contatti</div><div class="value">${selectedTransport.paziente_telefono ? `Telefono: ${selectedTransport.paziente_telefono}` : 'N/D'}</div></div>
+    </div>
+  </div>
 
-        <div class="section">
-          <div class="section-title">3. Tipologia Trasporto</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Tipo Trasporto</div>
-              <div class="value" style="text-transform: capitalize;">${selectedTransport.tipo_trasporto}</div>
-            </div>
-            ${selectedTransport.tipo_trasporto === 'altro' ? `
-              <div class="field">
-                <div class="label">Descrizione Altro</div>
-                <div class="value">${selectedTransport.altro_descrizione || 'N/D'}</div>
-              </div>
-            ` : ''}
-            ${selectedTransport.variante_ar ? `
-              <div class="field">
-                <div class="label">Variante A/R</div>
-                <div class="value" style="text-transform: capitalize;">${selectedTransport.variante_ar.replace('_', ' ')}</div>
-              </div>
-            ` : ''}
-          </div>
-        </div>
+  <div class="section">
+    <div class="section-title">6. Pagamento</div>
+    <div class="grid">
+      <div class="field"><div class="label">Metodo Pagamento</div><div class="value" style="text-transform:capitalize;">${selectedTransport.tipo_pagamento || 'N/D'}</div></div>
+      <div class="field"><div class="label">Importo</div><div class="value" style="font-weight:bold;">${selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'}</div></div>
+    </div>
+  </div>
 
-        <div class="section">
-          <div class="section-title">4. Percorso (Da / A)</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Partenza Da</div>
-              <div class="value">
-                <strong style="color: #6b7280; font-size: 11px; text-transform: uppercase;">[${selectedTransport.da_tipo_luogo}]</strong><br/>
-                ${selectedTransport.da_tipo_luogo === 'abitazione' ? (selectedTransport.da_via || 'N/D') : `${selectedTransport.da_nome || 'N/D'} ${selectedTransport.da_reparto ? `(Reparto: ${selectedTransport.da_reparto})` : ''}`}
-              </div>
-            </div>
-            <div class="field">
-              <div class="label">Destinazione A</div>
-              <div class="value">
-                <strong style="color: #6b7280; font-size: 11px; text-transform: uppercase;">[${selectedTransport.a_tipo_luogo}]</strong><br/>
-                ${selectedTransport.a_tipo_luogo === 'abitazione' ? (selectedTransport.a_via || 'N/D') : `${selectedTransport.a_nome || 'N/D'} ${selectedTransport.a_reparto ? `(Reparto: ${selectedTransport.a_reparto})` : ''}`}
-              </div>
-            </div>
-          </div>
-        </div>
+  ${cleanNotes ? `<div class="section"><div class="section-title">Note</div><div class="notes-box">${cleanNotes}</div></div>` : ''}
 
-        <div class="section">
-          <div class="section-title">5. Dati Paziente</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Cognome e Nome</div>
-              <div class="value" style="font-weight: bold;">${selectedTransport.paziente_cognome_nome || 'N/D'}</div>
-            </div>
-            <div class="field">
-              <div class="label">Codice Fiscale</div>
-              <div class="value">${selectedTransport.paziente_codice_fiscale || 'N/D'}</div>
-            </div>
-            <div class="field" style="grid-column: span 2;">
-              <div class="label">Contatti</div>
-              <div class="value">${selectedTransport.paziente_telefono ? `Telefono: ${selectedTransport.paziente_telefono}` : 'N/D'}</div>
-            </div>
-          </div>
-        </div>
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`
 
-        <div class="section">
-          <div class="section-title">6. Pagamento</div>
-          <div class="grid">
-            <div class="field">
-              <div class="label">Metodo Pagamento</div>
-              <div class="value" style="text-transform: capitalize;">${selectedTransport.tipo_pagamento || 'N/D'}</div>
-            </div>
-            <div class="field">
-              <div class="label">Importo</div>
-              <div class="value" style="font-weight: bold;">${selectedTransport.importo !== null ? `€ ${Number(selectedTransport.importo).toFixed(2)}` : 'Convenzionato / Gratis'}</div>
-            </div>
-          </div>
-        </div>
-
-        ${cleanNotes ? `
-          <div class="section">
-            <div class="section-title">Note</div>
-            <div class="notes-box">${cleanNotes}</div>
-          </div>
-        ` : ''}
-
-        <script>
-          window.onload = function() {
-            window.print();
-          }
-        </script>
-      </body>
-      </html>
-    `
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
-    
-    // Explicit trigger for print to bypass popup limitations
-    setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-    }, 500)
+    // Download diretto via Blob — nessun popup richiesto
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${pdfFilename}.html`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   // Filtered transports memo
@@ -1387,6 +1316,18 @@ export default function AdminTransportsTab() {
                             <span className="text-xs font-semibold text-slate-800 capitalize">
                               {selectedTransport.tipo_trasporto || 'N/D'}
                               {selectedTransport.tipo_trasporto === 'altro' && selectedTransport.altro_descrizione ? ` (${selectedTransport.altro_descrizione})` : ''}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Data e Ora Inizio</span>
+                            <span className="text-xs font-semibold text-slate-800">
+                              {formatDateTimeString(selectedTransport.ora_inizio) || 'N/D'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Data e Ora Fine</span>
+                            <span className="text-xs font-semibold text-slate-800">
+                              {formatDateTimeString(selectedTransport.ora_fine) || 'Servizio attivo (in corso)'}
                             </span>
                           </div>
                           {selectedTransport.variante_ar && (
