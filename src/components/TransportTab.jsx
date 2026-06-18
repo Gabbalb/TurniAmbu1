@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Truck } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Truck, RefreshCw } from 'lucide-react'
+import { api } from '../lib/api'
 
 export default function TransportTab({
   activeTransport,
@@ -9,14 +10,54 @@ export default function TransportTab({
   setView,
   setIsTransportDrawerOpen,
   startLoading,
-  onStartNewTransport
+  onStartNewTransport,
+  onViewOnlyOpen
 }) {
   const [isConfirmingStart, setIsConfirmingStart] = useState(false)
+  const [allActiveTransports, setAllActiveTransports] = useState([])
+  const [allActiveLoading, setAllActiveLoading] = useState(false)
+  const [users, setUsers] = useState([])
+  const [vehicles, setVehicles] = useState([])
 
   const handleConfirmStart = async () => {
     await onStartNewTransport()
     setIsConfirmingStart(false)
   }
+
+  const loadAllActiveTransports = async () => {
+    if (profile?.ruolo !== 'admin') return
+    setAllActiveLoading(true)
+    try {
+      const { data, error } = await api.fetchAllActiveTransports()
+      if (!error) {
+        setAllActiveTransports(data || [])
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setAllActiveLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (profile?.ruolo === 'admin') {
+      loadAllActiveTransports()
+      
+      // Load helper lists
+      const loadHelpers = async () => {
+        try {
+          const { data: usrList } = await api.fetchProfiles()
+          setUsers(usrList || [])
+          const { data: vehList } = await api.fetchVehicles()
+          setVehicles(vehList || [])
+        } catch (err) {
+          console.error(err)
+        }
+      }
+      loadHelpers()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.ruolo])
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-6 text-left">
@@ -83,6 +124,85 @@ export default function TransportTab({
           >
             Apri Scheda
           </button>
+        </div>
+      )}
+
+      {/* Admin view for all active transports in the system */}
+      {profile?.ruolo === 'admin' && (
+        <div className="space-y-4 border-t border-slate-800/80 pt-6 mt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Truck className="w-4 h-4 text-indigo-400" />
+              Tutti i trasporti attivi in corso
+            </h3>
+            <button 
+              onClick={loadAllActiveTransports}
+              disabled={allActiveLoading}
+              className="p-1.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 rounded-lg transition-colors cursor-pointer border border-slate-700/50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${allActiveLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {allActiveTransports.length === 0 ? (
+            <div className="bg-slate-900/40 border border-slate-800/60 p-6 rounded-2xl text-center text-xs text-slate-500 font-sans">
+              Nessun trasporto attivo in corso nel sistema.
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {allActiveTransports.map(t => {
+                const ce = t.crew?.find(c => c.ruolo === 'CE')
+                const as = t.crew?.find(c => c.ruolo === 'AS')
+                
+                const ceUser = users.find(u => u.id === ce?.user_id)
+                const asUser = users.find(u => u.id === as?.user_id)
+                
+                const veh = vehicles.find(v => v.id === t.vehicle_id)
+                const creator = users.find(u => u.id === t.creato_da)
+
+                return (
+                  <div key={t.id} className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl flex flex-col gap-3 shadow relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-100 font-sans">Scheda #{t.id}</span>
+                        <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold px-2 py-0.5 rounded-full uppercase font-sans">
+                          {t.tipo_trasporto}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-sans font-medium">
+                        Inizio: {t.ora_servizio || 'N/D'}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 space-y-1 text-left font-sans">
+                      <p>
+                        <strong className="text-slate-350">Da:</strong> {t.da_nome || 'N/D'} {t.da_reparto ? `(Rep: ${t.da_reparto})` : ''}
+                      </p>
+                      <p>
+                        <strong className="text-slate-355">A:</strong> {t.a_nome || 'N/D'} {t.a_reparto ? `(Rep: ${t.a_reparto})` : ''}
+                      </p>
+                      <p>
+                        <strong className="text-slate-355">Mezzo:</strong> {veh ? `${veh.nome} (${veh.targa})` : 'Da assegnare'}
+                      </p>
+                      <p>
+                        <strong className="text-slate-355">Equipaggio:</strong> CE: {ceUser ? `${ceUser.nome} ${ceUser.cognome}` : 'Da assegnare'} | AS: {asUser ? `${asUser.nome} ${asUser.cognome}` : 'Da assegnare'}
+                      </p>
+                      <p>
+                        <strong className="text-slate-355">Avviato da:</strong> {creator ? `${creator.nome} ${creator.cognome}` : 'Sconosciuto'}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => onViewOnlyOpen(t)}
+                      className="w-full py-2 bg-slate-800 hover:bg-slate-750 text-indigo-400 hover:text-indigo-300 rounded-xl text-xs font-bold transition-all cursor-pointer font-sans"
+                    >
+                      Visualizza Scheda
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

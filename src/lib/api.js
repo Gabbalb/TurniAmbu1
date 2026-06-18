@@ -1626,6 +1626,59 @@ export const api = {
     }
   },
 
+  fetchAllActiveTransports: async () => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const activeTransports = transports.filter(t => t.stato === 'attivo')
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      
+      const mapped = activeTransports.map(t => {
+        const activeCrew = crew.filter(c => c.transport_id === t.id && c.attivo)
+        const mappedCrew = activeCrew.map(c => ({
+          ...c,
+          ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+        }))
+        return { ...t, crew: mappedCrew }
+      })
+      
+      return { data: mapped, error: null }
+    }
+    try {
+      const { data: transports, error: tError } = await supabase
+        .from('transports')
+        .select('*')
+        .eq('stato', 'attivo')
+        .order('ora_inizio', { ascending: false })
+        
+      if (tError) throw tError
+      if (!transports || transports.length === 0) return { data: [], error: null }
+      
+      const transportIds = transports.map(t => t.id)
+      const { data: crew, error: cError } = await supabase
+        .from('transport_crew')
+        .select('*')
+        .in('transport_id', transportIds)
+        .eq('attivo', true)
+        
+      if (cError) throw cError
+      
+      const mapped = transports.map(t => {
+        const activeCrew = (crew || [])
+          .filter(c => c.transport_id === t.id)
+          .map(c => ({
+            ...c,
+            ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+          }))
+        return { ...t, crew: activeCrew }
+      })
+      
+      return { data: mapped, error: null }
+    } catch (err) {
+      console.error('Errore recupero tutti i trasporti attivi:', err)
+      return { error: err }
+    }
+  },
+
   fetchActiveTransport: async (userId) => {
     if (USE_MOCK) {
       const transports = JSON.parse(localStorage.getItem('ta_transports')) || []

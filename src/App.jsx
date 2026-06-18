@@ -24,6 +24,7 @@ function AppContent() {
   const [isTransportDrawerOpen, setIsTransportDrawerOpen] = useState(false)
   const [startLoading, setStartLoading] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [viewOnlyTransport, setViewOnlyTransport] = useState(null)
 
   const [activeShift, setActiveShift] = useState(null)
   const [activeShiftLoading, setActiveShiftLoading] = useState(false)
@@ -211,6 +212,7 @@ function AppContent() {
           setIsTransportDrawerOpen={setIsTransportDrawerOpen}
           startLoading={startLoading}
           onStartNewTransport={handleStartNewTransport}
+          onViewOnlyOpen={setViewOnlyTransport}
         />
       )}
       {view.startsWith('admin') && (
@@ -245,6 +247,14 @@ function AppContent() {
         onRefresh={refreshActiveTransport}
         profile={profile}
         onTerminateSuccess={() => setShowSuccessModal(true)}
+      />
+      <TransportDrawer
+        activeTransport={viewOnlyTransport}
+        setActiveTransport={setViewOnlyTransport}
+        isOpen={!!viewOnlyTransport}
+        onClose={() => setViewOnlyTransport(null)}
+        profile={profile}
+        readOnly={true}
       />
 
       {/* Success Modal – trasporto chiuso correttamente */}
