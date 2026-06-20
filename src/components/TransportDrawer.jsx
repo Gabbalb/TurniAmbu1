@@ -245,30 +245,33 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   // Sync state with activeTransport when it changes
   useEffect(() => {
     if (activeTransport) {
+      const activeField = document.activeElement ? document.activeElement.getAttribute('data-field') : null
+
       const { notes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(activeTransport.note)
-      setLocalNotes(notes)
-      setCeEsterno(ce_esterno)
-      setAsEsterno(as_esterno)
+      if (activeField !== 'note') setLocalNotes(notes)
+      if (activeField !== 'ce_esterno') setCeEsterno(ce_esterno)
+      if (activeField !== 'as_esterno') setAsEsterno(as_esterno)
       setIsCeEsterno(!!ce_esterno)
       setIsAsEsterno(!!as_esterno)
 
-      setLocalOraServizio(activeTransport.ora_servizio ? activeTransport.ora_servizio.slice(0, 5) : '')
-      setLocalKmIniziali(activeTransport.km_iniziali || '')
-      setLocalAltroDescrizione(activeTransport.altro_descrizione || '')
-      setLocalDaReparto(activeTransport.da_reparto || '')
-      setLocalDaNome(activeTransport.da_nome || '')
-      setLocalDaVia(activeTransport.da_via || '')
-      setLocalAReparto(activeTransport.a_reparto || '')
-      setLocalANome(activeTransport.a_nome || '')
-      setLocalAVia(activeTransport.a_via || '')
-      setLocalPazienteNome(activeTransport.paziente_cognome_nome || '')
-      setLocalPazienteCF(activeTransport.paziente_codice_fiscale || '')
-      setLocalPazienteTel(activeTransport.paziente_telefono || '')
-      setLocalImporto(activeTransport.importo || '')
+      if (activeField !== 'ora_servizio') setLocalOraServizio(activeTransport.ora_servizio ? activeTransport.ora_servizio.slice(0, 5) : '')
+      if (activeField !== 'km_iniziali') setLocalKmIniziali(activeTransport.km_iniziali || '')
+      if (activeField !== 'altro_descrizione') setLocalAltroDescrizione(activeTransport.altro_descrizione || '')
+      if (activeField !== 'da_reparto') setLocalDaReparto(activeTransport.da_reparto || '')
+      if (activeField !== 'da_nome') setLocalDaNome(activeTransport.da_nome || '')
+      if (activeField !== 'da_via') setLocalDaVia(activeTransport.da_via || '')
+      if (activeField !== 'a_reparto') setLocalAReparto(activeTransport.a_reparto || '')
+      if (activeField !== 'a_nome') setLocalANome(activeTransport.a_nome || '')
+      if (activeField !== 'a_via') setLocalAVia(activeTransport.a_via || '')
+      if (activeField !== 'paziente_cognome_nome') setLocalPazienteNome(activeTransport.paziente_cognome_nome || '')
+      if (activeField !== 'paziente_codice_fiscale') setLocalPazienteCF(activeTransport.paziente_codice_fiscale || '')
+      if (activeField !== 'paziente_telefono') setLocalPazienteTel(activeTransport.paziente_telefono || '')
+      if (activeField !== 'importo') setLocalImporto(activeTransport.importo || '')
+      
       const payVal = activeTransport.tipo_pagamento || ''
       const payValLower = payVal.toLowerCase()
       const isCustomPay = payValLower && !['contante', 'pos', 'buono', 'convenzione'].includes(payValLower)
-      setLocalAltroPagamento(isCustomPay ? payVal : '')
+      if (activeField !== 'tipo_pagamento') setLocalAltroPagamento(isCustomPay ? payVal : '')
     }
   }, [activeTransport])
 
@@ -898,6 +901,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 {isCeEsterno ? (
                   <input
                     type="text"
+                    data-field="ce_esterno"
                     placeholder="Nome operatore esterno"
                     value={ceEsterno}
                     onChange={(e) => setCeEsterno(e.target.value)}
@@ -948,6 +952,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 {isAsEsterno ? (
                   <input
                     type="text"
+                    data-field="as_esterno"
                     placeholder="Nome operatore esterno"
                     value={asEsterno}
                     onChange={(e) => setAsEsterno(e.target.value)}
@@ -1007,6 +1012,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
               </div>
               <input
                 type="time"
+                data-field="ora_servizio"
                 value={localOraServizio}
                 onChange={(e) => setLocalOraServizio(e.target.value)}
                 onBlur={async () => {
@@ -1024,6 +1030,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
               <label className="text-xs font-semibold text-slate-400">Km Iniziali *</label>
               <input
                 type="number"
+                data-field="km_iniziali"
                 value={localKmIniziali}
                 onChange={(e) => setLocalKmIniziali(e.target.value)}
                 onBlur={() => handleSaveField('km_iniziali', localKmIniziali ? Number(localKmIniziali) : null)}
@@ -1074,6 +1081,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Specifica Altro *</label>
                 <input
                   type="text"
+                  data-field="altro_descrizione"
                   value={localAltroDescrizione}
                   onChange={(e) => setLocalAltroDescrizione(e.target.value)}
                   onBlur={() => handleSaveField('altro_descrizione', localAltroDescrizione)}
@@ -1151,6 +1159,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo Abitazione *</label>
                 <input
                   type="text"
+                  data-field="da_via"
                   value={localDaVia}
                   onChange={(e) => setLocalDaVia(e.target.value)}
                   onBlur={() => handleSaveField('da_via', localDaVia)}
@@ -1164,6 +1173,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Reparto</label>
                   <input
                     type="text"
+                    data-field="da_reparto"
                     value={localDaReparto}
                     onChange={(e) => setLocalDaReparto(e.target.value)}
                     onBlur={() => handleSaveField('da_reparto', localDaReparto)}
@@ -1175,6 +1185,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Nome Struttura *</label>
                   <input
                     type="text"
+                    data-field="da_nome"
                     value={localDaNome}
                     onChange={(e) => setLocalDaNome(e.target.value)}
                     onBlur={() => handleSaveField('da_nome', localDaNome)}
@@ -1227,6 +1238,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo Abitazione *</label>
                 <input
                   type="text"
+                  data-field="a_via"
                   value={localAVia}
                   onChange={(e) => setLocalAVia(e.target.value)}
                   onBlur={() => handleSaveField('a_via', localAVia)}
@@ -1240,6 +1252,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Reparto</label>
                   <input
                     type="text"
+                    data-field="a_reparto"
                     value={localAReparto}
                     onChange={(e) => setLocalAReparto(e.target.value)}
                     onBlur={() => handleSaveField('a_reparto', localAReparto)}
@@ -1251,6 +1264,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Nome Struttura *</label>
                   <input
                     type="text"
+                    data-field="a_nome"
                     value={localANome}
                     onChange={(e) => setLocalANome(e.target.value)}
                     onBlur={() => handleSaveField('a_nome', localANome)}
@@ -1275,6 +1289,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
               <label className="text-xs font-semibold text-slate-400">Cognome e nome *</label>
               <input
                 type="text"
+                data-field="paziente_cognome_nome"
                 value={localPazienteNome}
                 onChange={(e) => setLocalPazienteNome(e.target.value)}
                 onBlur={() => handleSaveField('paziente_cognome_nome', localPazienteNome)}
@@ -1288,6 +1303,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-xs font-semibold text-slate-400">Telefono</label>
                 <input
                   type="text"
+                  data-field="paziente_telefono"
                   value={localPazienteTel}
                   onChange={(e) => setLocalPazienteTel(e.target.value)}
                   onBlur={() => handleSaveField('paziente_telefono', localPazienteTel)}
@@ -1299,6 +1315,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-xs font-semibold text-slate-400">Codice Fiscale</label>
                 <input
                   type="text"
+                  data-field="paziente_codice_fiscale"
                   value={localPazienteCF}
                   onChange={(e) => setLocalPazienteCF(e.target.value)}
                   onBlur={() => handleSaveField('paziente_codice_fiscale', localPazienteCF)}
@@ -1311,6 +1328,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-400">Note</label>
               <textarea
+                data-field="note"
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
                 onBlur={() => handleSaveNotes(localNotes, ceEsterno, asEsterno)}
@@ -1373,6 +1391,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Specifica Pagamento *</label>
                   <input
                     type="text"
+                    data-field="tipo_pagamento"
                     value={localAltroPagamento}
                     onChange={(e) => setLocalAltroPagamento(e.target.value)}
                     onBlur={() => handleSaveField('tipo_pagamento', localAltroPagamento)}
@@ -1387,6 +1406,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 <label className="text-xs font-semibold text-slate-400">Importo (€)</label>
                 <input
                   type="number"
+                  data-field="importo"
                   value={localImporto}
                   onChange={(e) => setLocalImporto(e.target.value)}
                   onBlur={() => handleSaveField('importo', localImporto ? Number(localImporto) : null)}

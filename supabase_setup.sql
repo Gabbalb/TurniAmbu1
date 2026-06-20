@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS public.transports (
   creato_da uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   precompilato_da_admin boolean DEFAULT false NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL,
-  updated_at timestamptz DEFAULT now() NOT NULL
+  updated_at timestamptz DEFAULT now() NOT NULL,
+  CONSTRAINT transports_stato_check CHECK (stato IN ('attivo', 'terminato', 'programmato'))
 );
 
 -- Tabella Equipaggio Trasporti

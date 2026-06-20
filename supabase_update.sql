@@ -94,4 +94,10 @@ CREATE POLICY "Consenti cancellazione trasporti a proprietari e admin"
   TO authenticated
   USING (public.es_admin() OR creato_da = auth.uid());
 
+-- 10. Aggiorna il vincolo stato per accettare 'programmato'
+ALTER TABLE public.transports
+DROP CONSTRAINT IF EXISTS transports_stato_check;
 
+ALTER TABLE public.transports
+ADD CONSTRAINT transports_stato_check
+CHECK (stato IN ('attivo', 'terminato', 'programmato'));
