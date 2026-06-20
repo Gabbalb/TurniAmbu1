@@ -379,7 +379,18 @@ export default function TransportTab({
                 </div>
 
                 <button
-                  onClick={() => onViewOnlyOpen(t)}
+                  onClick={async () => {
+                    try {
+                      const { data: detail, error } = await api.fetchTransportDetail(t.id)
+                      if (!error && detail) {
+                        onViewOnlyOpen(detail)
+                      } else {
+                        onViewOnlyOpen(t)
+                      }
+                    } catch (e) {
+                      onViewOnlyOpen(t)
+                    }
+                  }}
                   className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans text-center"
                 >
                   Visualizza Scheda per Attivare

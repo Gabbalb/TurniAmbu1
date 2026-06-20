@@ -51,7 +51,19 @@ const buildNotesWithExternalCrew = (userNotes, ceEsterno, asEsterno) => {
   return `${notesPart}\n\n<!--${JSON.stringify(meta)}-->`
 }
 
-export default function TransportDrawer({ activeTransport, setActiveTransport, isOpen, onClose, onRefresh, profile, onTerminateSuccess, readOnly = false, onActivate }) {
+export default function TransportDrawer({
+  activeTransport,
+  setActiveTransport,
+  isOpen,
+  onClose,
+  onRefresh,
+  profile,
+  onTerminateSuccess,
+  readOnly = false,
+  onActivate,
+  activeShift,
+  onGoToClockIn
+}) {
   const [vehicles, setVehicles] = useState([])
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -778,9 +790,13 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
             </div>
             {(profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id || profile?.id === activeAs?.user_id) && (
               <button
-                onClick={handleActivateProgrammed}
+                onClick={(!activeShift && profile?.ruolo !== 'admin') ? onGoToClockIn : handleActivateProgrammed}
                 disabled={isActionLoading}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-550 text-white font-bold rounded-xl text-xs transition-all shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                className={`px-4 py-2 text-white font-bold rounded-xl text-xs transition-all shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-1.5 ${
+                  (!activeShift && profile?.ruolo !== 'admin')
+                    ? 'bg-amber-600 hover:bg-amber-550 border border-amber-500/20'
+                    : 'bg-indigo-600 hover:bg-indigo-550'
+                }`}
               >
                 {isActionLoading ? (
                   <>
@@ -788,7 +804,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                     Attivazione...
                   </>
                 ) : (
-                  'Attiva Trasporto'
+                  (!activeShift && profile?.ruolo !== 'admin') ? 'Timbra per attivare' : 'Attiva Trasporto'
                 )}
               </button>
             )}

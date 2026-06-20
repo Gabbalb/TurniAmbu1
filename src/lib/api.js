@@ -2328,7 +2328,15 @@ export const api = {
         const isMember = crew.some(c => c.transport_id === t.id && c.attivo && String(c.user_id) === String(userId))
         return isMember
       })
-      return { data: assignedTransports, error: null }
+      const mapped = assignedTransports.map(t => {
+        const activeCrew = crew.filter(c => c.transport_id === t.id && c.attivo)
+        const mappedCrew = activeCrew.map(c => ({
+          ...c,
+          ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+        }))
+        return { ...t, crew: mappedCrew }
+      })
+      return { data: mapped, error: null }
     }
     try {
       const { data: crewEntries, error: cError } = await supabase
@@ -2348,7 +2356,28 @@ export const api = {
         .in('id', transportIds)
         .eq('stato', 'programmato')
 
-      return { data: data || [], error }
+      if (error) throw error
+      if (!data || data.length === 0) return { data: [], error: null }
+
+      const { data: crew, error: cError2 } = await supabase
+        .from('transport_crew')
+        .select('*')
+        .in('transport_id', transportIds)
+        .eq('attivo', true)
+
+      if (cError2) throw cError2
+
+      const mapped = data.map(t => {
+        const activeCrew = (crew || [])
+          .filter(c => c.transport_id === t.id)
+          .map(c => ({
+            ...c,
+            ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+          }))
+        return { ...t, crew: activeCrew }
+      })
+
+      return { data: mapped, error: null }
     } catch (err) {
       console.error('Error fetching assigned scheduled transports:', err)
       return { error: err }

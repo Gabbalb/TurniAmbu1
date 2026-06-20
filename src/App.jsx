@@ -280,6 +280,7 @@ function AppContent() {
           refreshActiveTransport()
           setBoardRefreshKey(prev => prev + 1)
         }}
+        activeShift={activeShift}
       />
       <TransportDrawer
         activeTransport={viewOnlyTransport}
@@ -301,6 +302,11 @@ function AppContent() {
           await refreshActiveTransport()
           setBoardRefreshKey(prev => prev + 1)
           setIsTransportDrawerOpen(true)
+        }}
+        activeShift={activeShift}
+        onGoToClockIn={() => {
+          setViewOnlyTransport(null)
+          setView('clock-shift')
         }}
       />
 
