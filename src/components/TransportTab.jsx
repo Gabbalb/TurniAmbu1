@@ -22,25 +22,10 @@ export default function TransportTab({
 
   const [assignedScheduled, setAssignedScheduled] = useState([])
   const [scheduledLoading, setScheduledLoading] = useState(false)
-  const [isSchedulingOpen, setIsSchedulingOpen] = useState(false)
-  const [scheduleForm, setScheduleForm] = useState({
-    data: new Date().toISOString().split('T')[0],
-    ora_servizio: '',
-    tipo_trasporto: 'ricovero',
-    da_tipo_luogo: 'abitazione',
-    da_nome: '',
-    da_via: '',
-    a_tipo_luogo: 'ospedale',
-    a_nome: '',
-    a_via: '',
-    paziente_cognome_nome: '',
-    paziente_telefono: '',
-    note: '',
-    ce_user_id: ''
-  })
+  const [isStartingProgrammed, setIsStartingProgrammed] = useState(false)
 
   const loadAssignedScheduled = async () => {
-    if (!profile?.id || profile?.ruolo === 'admin') return
+    if (!profile?.id) return
     setScheduledLoading(true)
     try {
       const { data, error } = await api.fetchAssignedScheduledTransports(profile.id)
@@ -65,6 +50,30 @@ export default function TransportTab({
   const handleConfirmStart = async () => {
     await onStartNewTransport()
     setIsConfirmingStart(false)
+  }
+
+  const handleStartProgrammedTransport = async () => {
+    setIsStartingProgrammed(true)
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const { data, error } = await api.createScheduledTransport(profile?.id || 'admin', null, {
+        data: todayStr,
+        tipo_trasporto: 'dimissione',
+        da_tipo_luogo: 'ospedale',
+        a_tipo_luogo: 'abitazione'
+      })
+      if (error) throw error
+      
+      const { data: detail, error: detError } = await api.fetchTransportDetail(data.id)
+      if (detError) throw detError
+      
+      onViewOnlyOpen(detail)
+    } catch (err) {
+      console.error('Error starting programmed transport:', err)
+      alert(err.message || 'Errore durante la creazione del viaggio programmato.')
+    } finally {
+      setIsStartingProgrammed(false)
+    }
   }
 
   const loadAllActiveTransports = async () => {
@@ -109,52 +118,10 @@ export default function TransportTab({
   }, [refreshKey])
 
   useEffect(() => {
-    if (profile?.id && profile?.ruolo !== 'admin' && activeShift && !activeTransport) {
+    if (profile?.id) {
       loadAssignedScheduled()
     }
-  }, [profile?.id, profile?.ruolo, activeShift, activeTransport, refreshKey])
-
-  const handleCreateSchedule = async (e) => {
-    e.preventDefault()
-    if (!scheduleForm.ce_user_id) {
-      alert("Seleziona un Capo Equipaggio (CE) da assegnare.")
-      return
-    }
-    
-    try {
-      const { error } = await api.createScheduledTransport(
-        profile.id,
-        scheduleForm.ce_user_id,
-        scheduleForm
-      )
-      if (error) {
-        alert("Errore nella programmazione del viaggio: " + error.message)
-      } else {
-        alert("Viaggio programmato con successo!")
-        setIsSchedulingOpen(false)
-        setScheduleForm({
-          data: new Date().toISOString().split('T')[0],
-          ora_servizio: '',
-          tipo_trasporto: 'ricovero',
-          da_tipo_luogo: 'abitazione',
-          da_nome: '',
-          da_via: '',
-          a_tipo_luogo: 'ospedale',
-          a_nome: '',
-          a_via: '',
-          paziente_cognome_nome: '',
-          paziente_telefono: '',
-          note: '',
-          ce_user_id: ''
-        })
-        if (profile?.ruolo === 'admin') {
-          loadAllActiveTransports()
-        }
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
+  }, [profile?.id, refreshKey])
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-6 text-left">
@@ -204,10 +171,11 @@ export default function TransportTab({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsSchedulingOpen(true)}
-                  className="w-full py-4 bg-slate-800 hover:bg-slate-700/60 text-indigo-400 border border-indigo-500/20 hover:border-indigo-500/30 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 cursor-pointer text-base font-sans"
+                  onClick={handleStartProgrammedTransport}
+                  disabled={isStartingProgrammed}
+                  className="w-full py-4 bg-slate-800 hover:bg-slate-700/60 text-indigo-400 border border-indigo-500/20 hover:border-indigo-500/30 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 cursor-pointer text-base font-sans disabled:opacity-50"
                 >
-                  NUOVO PROGRAMMATO
+                  {isStartingProgrammed ? 'Creazione in corso...' : 'NUOVO PROGRAMMATO'}
                 </button>
               </div>
             ) : (
@@ -380,7 +348,7 @@ export default function TransportTab({
       )}
 
       {/* SEZIONE: VIAGGI PROGRAMMATI ASSEGNATI */}
-      {profile?.ruolo !== 'admin' && activeShift && !activeTransport && assignedScheduled.length > 0 && (
+      {assignedScheduled.length > 0 && (
         <div className="space-y-4 border-t border-slate-800/80 pt-6 mt-4">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 font-sans">
             <Truck className="w-4 h-4 text-indigo-400" />
@@ -422,161 +390,7 @@ export default function TransportTab({
         </div>
       )}
 
-      {/* MODAL DI PROGRAMMAZIONE VIAGGIO */}
-      {isSchedulingOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <form onSubmit={handleCreateSchedule} className="bg-slate-900 border border-slate-800 p-6 rounded-3xl w-full max-w-md space-y-5 shadow-2xl relative my-8 text-left animate-slide-up">
-            <div>
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-400" />
-                Programma Nuovo Viaggio
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">Precompila i dettagli del viaggio e assegnalo ad un CE.</p>
-            </div>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Data *</label>
-                  <input
-                    type="date"
-                    required
-                    value={scheduleForm.data}
-                    onChange={e => setScheduleForm(prev => ({ ...prev, data: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Ora Servizio</label>
-                  <input
-                    type="time"
-                    value={scheduleForm.ora_servizio}
-                    onChange={e => setScheduleForm(prev => ({ ...prev, ora_servizio: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Assegna Capo Equipaggio (CE) *</label>
-                <select
-                  required
-                  value={scheduleForm.ce_user_id}
-                  onChange={e => setScheduleForm(prev => ({ ...prev, ce_user_id: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                >
-                  <option value="">Seleziona un soccorritore...</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome} {u.cognome} ({u.username})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/60 space-y-3">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Paziente</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Nome e Cognome</label>
-                    <input
-                      type="text"
-                      placeholder="Es. Mario Rossi"
-                      value={scheduleForm.paziente_cognome_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, paziente_cognome_nome: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Telefono</label>
-                    <input
-                      type="tel"
-                      placeholder="Es. 333123456"
-                      value={scheduleForm.paziente_telefono}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, paziente_telefono: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/60 space-y-3">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Percorso</span>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Da (Luogo)</label>
-                    <input
-                      type="text"
-                      placeholder="Es. Casa, Ospedale"
-                      value={scheduleForm.da_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, da_nome: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">A (Luogo)</label>
-                    <input
-                      type="text"
-                      placeholder="Es. Centro Medico"
-                      value={scheduleForm.a_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, a_nome: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Da (Indirizzo/Via)</label>
-                    <input
-                      type="text"
-                      placeholder="Via Roma 10"
-                      value={scheduleForm.da_via}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, da_via: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">A (Indirizzo/Via)</label>
-                    <input
-                      type="text"
-                      placeholder="Corso Italia 50"
-                      value={scheduleForm.a_via}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, a_via: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Note precompilate</label>
-                <textarea
-                  placeholder="Es. Richiesto trasporto con sedia, paziente non deambulante..."
-                  value={scheduleForm.note}
-                  onChange={e => setScheduleForm(prev => ({ ...prev, note: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition-all h-20 resize-none font-sans"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsSchedulingOpen(false)}
-                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl text-xs font-bold transition-all cursor-pointer font-sans text-center"
-              >
-                Annulla
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer font-sans"
-              >
-                Salva Programmato
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   )
 }

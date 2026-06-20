@@ -291,7 +291,7 @@ function AppContent() {
           setBoardRefreshKey(prev => prev + 1)
         }}
         profile={profile}
-        readOnly={true}
+        readOnly={viewOnlyTransport?.stato === 'programmato' ? (profile?.ruolo === 'admin' ? false : true) : true}
         onRefresh={() => {
           refreshActiveTransport()
           setBoardRefreshKey(prev => prev + 1)

@@ -281,6 +281,8 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   const activeCe = activeTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
   const activeAs = activeTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
 
+  const isCrewEditable = !isEffectiveReadOnly || (activeTransport.stato === 'programmato' && (profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id || profile?.id === activeAs?.user_id || !activeCe?.user_id))
+
   // Section validation for blue dots
   const isSectionIncomplete = (section) => {
     switch (section) {
@@ -345,7 +347,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
   }
 
   const handleSaveShiftAndCrew = async (shiftId, ceUserId, asUserId) => {
-    if (isEffectiveReadOnly) return
+    if (!isCrewEditable) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -413,7 +415,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Save crew members (internal users)
   const handleSaveCrewMember = async (role, userId) => {
-    if (isEffectiveReadOnly) return
+    if (!isCrewEditable) return
     // Optimistic Update
     setActiveTransport(prev => {
       if (!prev) return prev
@@ -458,7 +460,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
   // Trigger autocompilation from tabellone/shifts
   const handleAutocompileFromBoard = async () => {
-    if (isEffectiveReadOnly) return
+    if (!isCrewEditable) return
     if (!localOraServizio) return
     try {
       const { data: shifts } = await api.fetchActiveShiftsAndBookingsForDate(activeTransport.data)
@@ -684,8 +686,12 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
           
           {/* Active indicator */}
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-            <span className="text-xs font-bold text-slate-200">Trasporto Attivo</span>
+            <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+              activeTransport.stato === 'programmato' ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}></span>
+            <span className="text-xs font-bold text-slate-200">
+              {activeTransport.stato === 'programmato' ? 'Trasporto Programmato' : 'Trasporto Attivo'}
+            </span>
           </div>
         </div>
 
@@ -770,7 +776,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 </p>
               </div>
             </div>
-            {(profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id) && (
+            {(profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id || profile?.id === activeAs?.user_id) && (
               <button
                 onClick={handleActivateProgrammed}
                 disabled={isActionLoading}
@@ -817,7 +823,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
           )
         )}
 
-        <div className={isEffectiveReadOnly ? 'pointer-events-none select-none' : ''}>
+        <div className={isCrewEditable ? '' : 'pointer-events-none select-none'}>
         
         {/* SECTION 1: EQUIPAGGIO BOX */}
         <section ref={sectionRefs.equipaggio} className="space-y-3">
@@ -830,7 +836,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
 
           {/* Yellow Summary Card */}
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col gap-2 relative">
-            {!isEffectiveReadOnly && (
+            {isCrewEditable && (
               <button
                 onClick={() => setIsEditCrewOpen(!isEditCrewOpen)}
                 className="absolute top-3.5 right-3.5 p-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 rounded-xl transition-colors cursor-pointer"
@@ -979,6 +985,8 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
             </div>
           )}
         </section>
+        </div>
+        <div className={isEffectiveReadOnly ? 'pointer-events-none select-none' : ''}>
 
         {/* SECTION 2: DATI TRASPORTO */}
         <section ref={sectionRefs.mezzo} className="space-y-3.5 text-left border-t border-slate-800 pt-5">
@@ -1465,12 +1473,21 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => setIsTerminating(true)}
-                className="w-full py-4 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white rounded-2xl font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2.5 cursor-pointer text-base"
-              >
-                Termina servizio
-              </button>
+              activeTransport.stato === 'programmato' ? (
+                <button
+                  onClick={onClose}
+                  className="w-full py-4 bg-gradient-to-tr from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 active:scale-95 text-white rounded-2xl font-bold shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2.5 cursor-pointer text-base"
+                >
+                  Assegna
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsTerminating(true)}
+                  className="w-full py-4 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white rounded-2xl font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2.5 cursor-pointer text-base"
+                >
+                  Termina servizio
+                </button>
+              )
             )}
           </div>
         )}

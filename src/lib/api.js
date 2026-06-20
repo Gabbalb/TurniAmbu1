@@ -2325,8 +2325,8 @@ export const api = {
       
       const assignedTransports = transports.filter(t => {
         if (t.stato !== 'programmato') return false
-        const ce = crew.find(c => c.transport_id === t.id && c.ruolo === 'CE' && c.attivo && String(c.user_id) === String(userId))
-        return !!ce
+        const isMember = crew.some(c => c.transport_id === t.id && c.attivo && String(c.user_id) === String(userId))
+        return isMember
       })
       return { data: assignedTransports, error: null }
     }
@@ -2335,7 +2335,6 @@ export const api = {
         .from('transport_crew')
         .select('transport_id')
         .eq('user_id', userId)
-        .eq('ruolo', 'CE')
         .eq('attivo', true)
 
       if (cError) throw cError
