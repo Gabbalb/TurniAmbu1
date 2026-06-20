@@ -757,7 +757,7 @@ export default function TransportDrawer({
             ))}
 
             {/* Action buttons inside menu */}
-            {!isEffectiveReadOnly && activeTransport && (
+            {activeTransport && (!isEffectiveReadOnly || (activeTransport.stato === 'programmato' && (profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id || profile?.id === activeAs?.user_id))) && (
               <button
                 onClick={() => {
                   setIsMenuOpen(false)
@@ -767,7 +767,7 @@ export default function TransportDrawer({
                 }}
                 className="w-full flex items-center justify-between p-3.5 bg-rose-950/30 hover:bg-rose-950/40 border border-rose-900/40 hover:border-rose-800 rounded-2xl text-sm font-bold text-rose-400 transition-all cursor-pointer mt-4"
               >
-                <span>Annulla / Trasferisci Trasporto</span>
+                <span>{activeTransport.stato === 'programmato' ? 'Elimina / Annulla Trasporto' : 'Annulla / Trasferisci Trasporto'}</span>
                 <Trash2 className="w-4 h-4 text-rose-400" />
               </button>
             )}
@@ -1536,7 +1536,9 @@ export default function TransportDrawer({
             {cancelChoice === null ? (
               <div className="space-y-4 py-2">
                 <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  Scegli cosa fare con questa scheda di trasporto attualmente attiva.
+                  {activeTransport.stato === 'programmato' 
+                    ? 'Scegli cosa fare con questa scheda di trasporto programmata.' 
+                    : 'Scegli cosa fare con questa scheda di trasporto attualmente attiva.'}
                 </p>
                 <div className="flex flex-col gap-3 font-sans">
                   <button
@@ -1546,13 +1548,15 @@ export default function TransportDrawer({
                     <Trash2 className="w-4 h-4" />
                     Elimina/Annulla Scheda
                   </button>
-                  <button
-                    onClick={() => setCancelChoice('transfer')}
-                    className="w-full py-3 bg-indigo-950/30 hover:bg-indigo-950/50 border border-indigo-900/40 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-350 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Users className="w-4 h-4" />
-                    Cambia Autore (Trasferisci)
-                  </button>
+                  {activeTransport.stato !== 'programmato' && (
+                    <button
+                      onClick={() => setCancelChoice('transfer')}
+                      className="w-full py-3 bg-indigo-950/30 hover:bg-indigo-950/50 border border-indigo-900/40 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-350 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Users className="w-4 h-4" />
+                      Cambia Autore (Trasferisci)
+                    </button>
+                  )}
                 </div>
               </div>
             ) : cancelChoice === 'delete' ? (
