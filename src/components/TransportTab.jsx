@@ -412,7 +412,7 @@ export default function TransportTab({
 
                 <button
                   onClick={() => onViewOnlyOpen(t)}
-                  className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans text-center"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer font-sans text-center"
                 >
                   Visualizza Scheda per Attivare
                 </button>
@@ -569,7 +569,7 @@ export default function TransportTab({
               </button>
               <button
                 type="submit"
-                className="flex-1 py-3 bg-indigo-650 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer font-sans"
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer font-sans"
               >
                 Salva Programmato
               </button>

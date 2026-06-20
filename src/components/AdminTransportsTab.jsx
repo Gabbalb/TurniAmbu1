@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { Search, RefreshCw, Truck, X, Edit, Trash2, Download, User, Calendar, Clock, MapPin, DollarSign, CheckCircle, Save, AlertTriangle } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
+import TransportDrawer from './TransportDrawer'
 
 // Parse hidden JSON metadata from note field
 const parseExternalCrewFromNotes = (noteText) => {
@@ -68,23 +69,12 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [isForceUnlocked, setIsForceUnlocked] = useState(false)
 
-  // Scheduling States
-  const [isSchedulingOpen, setIsSchedulingOpen] = useState(false)
-  const [scheduleForm, setScheduleForm] = useState({
-    data: new Date().toISOString().split('T')[0],
-    ora_servizio: '',
-    tipo_trasporto: 'ricovero',
-    da_tipo_luogo: 'abitazione',
-    da_nome: '',
-    da_via: '',
-    a_tipo_luogo: 'ospedale',
-    a_nome: '',
-    a_via: '',
-    paziente_cognome_nome: '',
-    paziente_telefono: '',
-    note: '',
-    ce_user_id: ''
-  })
+  // Drawer States for Scheduling
+  const [drawerTransport, setDrawerTransport] = useState(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+
+  // Downloaded PDF session state
+  const [downloadedTransports, setDownloadedTransports] = useState(new Set())
 
   // Users and Vehicles lists for dropdowns
   const [vehicles, setVehicles] = useState([])
@@ -123,46 +113,28 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
     is_as_esterno: false
   })
 
-  const handleCreateSchedule = async (e) => {
-    e.preventDefault()
-    if (!scheduleForm.ce_user_id) {
-      alert("Seleziona un Capo Equipaggio (CE) da assegnare.")
-      return
-    }
-    setSaveLoading(true)
+  const handleStartProgrammedTransport = async () => {
+    setLoading(true)
     try {
-      const { error } = await api.createScheduledTransport(
-        profile?.id || 'admin',
-        scheduleForm.ce_user_id,
-        scheduleForm
-      )
-      if (error) {
-        alert("Errore nella programmazione del viaggio: " + error.message)
-      } else {
-        alert("Viaggio programmato con successo!")
-        setIsSchedulingOpen(false)
-        setScheduleForm({
-          data: new Date().toISOString().split('T')[0],
-          ora_servizio: '',
-          tipo_trasporto: 'ricovero',
-          da_tipo_luogo: 'abitazione',
-          da_nome: '',
-          da_via: '',
-          a_tipo_luogo: 'ospedale',
-          a_nome: '',
-          a_via: '',
-          paziente_cognome_nome: '',
-          paziente_telefono: '',
-          note: '',
-          ce_user_id: ''
-        })
-        loadTransports()
-      }
+      const todayStr = new Date().toISOString().split('T')[0]
+      const { data, error } = await api.createScheduledTransport(profile?.id || 'admin', null, {
+        data: todayStr,
+        tipo_trasporto: 'dimissione',
+        da_tipo_luogo: 'ospedale',
+        a_tipo_luogo: 'abitazione'
+      })
+      if (error) throw error
+      
+      const { data: detail, error: detError } = await api.fetchTransportDetail(data.id)
+      if (detError) throw detError
+      
+      setDrawerTransport(detail)
+      setIsDrawerOpen(true)
     } catch (err) {
-      console.error(err)
-      alert("Errore del client durante il salvataggio.")
+      console.error('Error starting programmed transport:', err)
+      alert(err.message || 'Errore durante la creazione del viaggio programmato.')
     } finally {
-      setSaveLoading(false)
+      setLoading(false)
     }
   }
 
@@ -366,6 +338,12 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
   const handlePrintPDF = () => {
     if (!selectedTransport) return
 
+    setDownloadedTransports(prev => {
+      const next = new Set(prev)
+      next.add(selectedTransport.id)
+      return next
+    })
+
     const vehicle = vehicles.find(v => v.id === selectedTransport.vehicle_id)
     const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
 
@@ -396,6 +374,52 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
     document.title = pdfFilename
     window.print()
     setTimeout(() => { document.title = originalTitle }, 1000)
+  }
+
+  const handlePrintPDFForTransport = (t) => {
+    if (!t) return
+
+    setDownloadedTransports(prev => {
+      const next = new Set(prev)
+      next.add(t.id)
+      return next
+    })
+
+    const vehicle = vehicles.find(v => v.id === t.vehicle_id)
+    const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
+
+    const activeCe = t.crew?.find(c => c.ruolo === 'CE' && c.attivo)
+    const activeAs = t.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+
+    const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(t.note)
+
+    const ceUser = activeCe?.user_id ? users.find(usr => usr.id === activeCe.user_id) : null
+    const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
+
+    const asUser = activeAs?.user_id ? users.find(usr => usr.id === activeAs.user_id) : null
+    const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
+
+    const dayStr = t.data
+      ? format(parseISO(t.data), 'dd-MM-yyyy')
+      : 'N-D'
+    const timeStr = t.ora_servizio
+      ? t.ora_servizio.slice(0, 5).replace(':', '-')
+      : 'N-D'
+    const patientNameClean = (t.paziente_cognome_nome || 'N-D')
+      .trim()
+      .replace(/[\s\W]+/g, '_')
+
+    const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
+
+    const originalTitle = document.title
+    document.title = pdfFilename
+
+    setSelectedTransport(t)
+
+    setTimeout(() => {
+      window.print()
+      setTimeout(() => { document.title = originalTitle }, 1000)
+    }, 120)
   }
 
   // Filtered transports memo
@@ -451,8 +475,9 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
 
         <div className="flex gap-2.5 z-10">
           <button
-            onClick={() => setIsSchedulingOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-indigo-600/10"
+            onClick={handleStartProgrammedTransport}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-indigo-600/10 disabled:opacity-50"
           >
             <Truck className="w-3.5 h-3.5" />
             Programma Viaggio
@@ -543,6 +568,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                 <th className="py-3.5 px-4">Km Iniziali/Finali</th>
                 <th className="py-3.5 px-4">Pagamento / Importo</th>
                 <th className="py-3.5 px-4">Compilato Da</th>
+                <th className="py-3.5 px-4 text-center">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-150 text-slate-700">
@@ -612,6 +638,26 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                       </div>
                     </td>
                     <td className="py-4 px-4 text-slate-500 font-semibold">{operatorName}</td>
+                    <td className="py-4 px-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePrintPDFForTransport(t)
+                        }}
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer border ${
+                          downloadedTransports.has(t.id)
+                            ? 'bg-emerald-50 border-emerald-250 text-emerald-600'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                        }`}
+                        title={downloadedTransports.has(t.id) ? "Scaricato in questa sessione" : "Scarica PDF"}
+                      >
+                        {downloadedTransports.has(t.id) ? (
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -626,9 +672,9 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
       </div>
 
       {/* Details / Edit Centered Floating Modal with backdrop blur */}
-      {isDetailOpen && (
+      {isDetailOpen && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in text-left">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl relative flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -1412,179 +1458,25 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {/* PC Admin Scheduling Modal */}
-      {isSchedulingOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in text-left">
-          <form onSubmit={handleCreateSchedule} className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600" />
-                Programma Nuovo Viaggio
-              </h3>
-              <button 
-                type="button"
-                onClick={() => setIsSchedulingOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors p-1.5 hover:bg-slate-100 rounded-xl cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Data *</label>
-                  <input
-                    type="date"
-                    required
-                    value={scheduleForm.data}
-                    onChange={e => setScheduleForm(prev => ({ ...prev, data: e.target.value }))}
-                    className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Ora Servizio</label>
-                  <input
-                    type="time"
-                    value={scheduleForm.ora_servizio}
-                    onChange={e => setScheduleForm(prev => ({ ...prev, ora_servizio: e.target.value }))}
-                    className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Assegna Capo Equipaggio (CE) *</label>
-                <select
-                  required
-                  value={scheduleForm.ce_user_id}
-                  onChange={e => setScheduleForm(prev => ({ ...prev, ce_user_id: e.target.value }))}
-                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
-                >
-                  <option value="">Seleziona un soccorritore...</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome} {u.cognome} ({u.username})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 space-y-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><User className="w-3.5 h-3.5" /> Paziente</span>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Cognome e Nome</label>
-                    <input
-                      type="text"
-                      placeholder="Mario Rossi"
-                      value={scheduleForm.paziente_cognome_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, paziente_cognome_nome: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Telefono</label>
-                    <input
-                      type="tel"
-                      placeholder="333123456"
-                      value={scheduleForm.paziente_telefono}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, paziente_telefono: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 space-y-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Percorso</span>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Da (Luogo)</label>
-                    <input
-                      type="text"
-                      placeholder="Casa, Ospedale..."
-                      value={scheduleForm.da_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, da_nome: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">A (Luogo)</label>
-                    <input
-                      type="text"
-                      placeholder="Centro Medico, Ospedale..."
-                      value={scheduleForm.a_nome}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, a_nome: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Da (Indirizzo/Via)</label>
-                    <input
-                      type="text"
-                      placeholder="Via Roma 10"
-                      value={scheduleForm.da_via}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, da_via: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">A (Indirizzo/Via)</label>
-                    <input
-                      type="text"
-                      placeholder="Corso Italia 50"
-                      value={scheduleForm.a_via}
-                      onChange={e => setScheduleForm(prev => ({ ...prev, a_via: e.target.value }))}
-                      className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Note precompilate</label>
-                <textarea
-                  placeholder="Note aggiuntive per l'equipaggio..."
-                  value={scheduleForm.note}
-                  onChange={e => setScheduleForm(prev => ({ ...prev, note: e.target.value }))}
-                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all h-20 resize-none font-sans"
-                />
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex gap-3 p-6 border-t border-slate-100 bg-slate-50 rounded-b-3xl">
-              <button
-                type="button"
-                onClick={() => setIsSchedulingOpen(false)}
-                className="flex-1 py-3 bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer text-center font-sans"
-              >
-                Annulla
-              </button>
-              <button
-                type="submit"
-                disabled={saveLoading}
-                className="flex-1 py-3 bg-indigo-650 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 font-sans"
-              >
-                {saveLoading ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Salvataggio...
-                  </>
-                ) : (
-                  'Salva Programmato'
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+      {/* PC Admin Scheduling Drawer */}
+      {isDrawerOpen && drawerTransport && ReactDOM.createPortal(
+        <TransportDrawer
+          activeTransport={drawerTransport}
+          setActiveTransport={setDrawerTransport}
+          isOpen={isDrawerOpen}
+          onClose={() => {
+            setIsDrawerOpen(false)
+            setDrawerTransport(null)
+            loadTransports()
+          }}
+          onRefresh={loadTransports}
+          profile={profile}
+          readOnly={false}
+        />,
+        document.body
       )}
     </div>
 

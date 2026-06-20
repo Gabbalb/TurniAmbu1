@@ -158,7 +158,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       const activeCe = activeTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
       const activeAs = activeTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
       const serviceTime = activeTransport.ora_servizio
-      if (!activeCe && !activeAs && serviceTime) {
+      if (!activeCe && !activeAs && serviceTime && activeTransport.stato !== 'programmato') {
         const autocompile = async () => {
           try {
             const { data: shifts } = await api.fetchActiveShiftsAndBookingsForDate(activeTransport.data)
@@ -612,6 +612,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       setIsCancelModalOpen(false)
       setCancelChoice(null)
       onClose()
+      onRefresh?.()
     } catch (err) {
       console.error(err)
       alert(err.message || 'Errore durante l\'eliminazione del trasporto.')
@@ -645,6 +646,7 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
       setCancelChoice(null)
       setSelectedNewAuthorId('')
       onClose()
+      onRefresh?.()
     } catch (err) {
       console.error(err)
       alert(err.message || 'Errore durante il trasferimento del trasporto.')
@@ -1009,7 +1011,9 @@ export default function TransportDrawer({ activeTransport, setActiveTransport, i
                 onChange={(e) => setLocalOraServizio(e.target.value)}
                 onBlur={async () => {
                   await handleSaveField('ora_servizio', localOraServizio || null)
-                  await handleAutocompileFromBoard()
+                  if (activeTransport.stato !== 'programmato') {
+                    await handleAutocompileFromBoard()
+                  }
                 }}
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all"
               />

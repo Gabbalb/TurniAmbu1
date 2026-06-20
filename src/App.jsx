@@ -94,6 +94,7 @@ function AppContent() {
       if (error) throw error
       setActiveTransport(data)
       setIsTransportDrawerOpen(true)
+      setBoardRefreshKey(prev => prev + 1)
     } catch (err) {
       console.error('Error starting transport:', err)
       alert(err.message || 'Errore durante l\'avvio del trasporto.')
@@ -122,6 +123,10 @@ function AppContent() {
   const [selectedBoardSlot, setSelectedBoardSlot] = useState(null)
   const [isBulkOpen, setIsBulkOpen] = useState(false)
   const [boardRefreshKey, setBoardRefreshKey] = useState(0)
+
+  useEffect(() => {
+    setBoardRefreshKey(prev => prev + 1)
+  }, [activeTransport?.id])
 
   // Se l'applicazione sta caricando lo stato iniziale della sessione
   if (loading) {
@@ -260,16 +265,31 @@ function AppContent() {
         activeTransport={userActiveTransport}
         setActiveTransport={setActiveTransport}
         isOpen={isTransportDrawerOpen}
-        onClose={() => setIsTransportDrawerOpen(false)}
-        onRefresh={refreshActiveTransport}
+        onClose={() => {
+          setIsTransportDrawerOpen(false)
+          refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
+        }}
+        onRefresh={() => {
+          refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
+        }}
         profile={profile}
-        onTerminateSuccess={() => setShowSuccessModal(true)}
+        onTerminateSuccess={() => {
+          setShowSuccessModal(true)
+          refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
+        }}
       />
       <TransportDrawer
         activeTransport={viewOnlyTransport}
         setActiveTransport={setViewOnlyTransport}
         isOpen={!!viewOnlyTransport}
-        onClose={() => setViewOnlyTransport(null)}
+        onClose={() => {
+          setViewOnlyTransport(null)
+          refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
+        }}
         profile={profile}
         readOnly={true}
         onRefresh={() => {
@@ -279,6 +299,7 @@ function AppContent() {
         onActivate={async () => {
           setViewOnlyTransport(null)
           await refreshActiveTransport()
+          setBoardRefreshKey(prev => prev + 1)
           setIsTransportDrawerOpen(true)
         }}
       />
