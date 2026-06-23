@@ -7,7 +7,6 @@ import {
   Calendar,
   Clock,
   AlertCircle,
-  RefreshCw,
   PlusCircle,
   Plus,
   Check,
@@ -30,10 +29,6 @@ export default function AdminDashboardTab({
   decimalToHHMM,
   setActiveTab
 }) {
-  const [announcementText, setAnnouncementText] = useState('')
-  const [announcementLoading, setAnnouncementLoading] = useState(false)
-  const [announcementSuccess, setAnnouncementSuccess] = useState(false)
-
   // Local state for Quick Action Crew addition
   const [crewDate, setCrewDate] = useState('')
   const [crewShiftId, setCrewShiftId] = useState('1')
@@ -46,36 +41,6 @@ export default function AdminDashboardTab({
       setCrewSelectedId(String(reinforcementCrews[0].id))
     }
   }, [crews])
-
-
-
-  // Invio Annuncio Telegram
-  const handleSendAnnouncement = async (e) => {
-    e.preventDefault()
-    if (!announcementText.trim()) return
-
-    setAnnouncementLoading(true)
-    setAnnouncementSuccess(false)
-
-    try {
-      const { error } = await api.createAnnouncement(
-        announcementText.trim(),
-        'admin.system'
-      )
-      if (error) {
-        alert("Errore nell'invio dell'annuncio: " + error.message)
-      } else {
-        setAnnouncementText('')
-        setAnnouncementSuccess(true)
-        setTimeout(() => setAnnouncementSuccess(false), 5000)
-        onRefresh()
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setAnnouncementLoading(false)
-    }
-  }
 
   // Aggiungi Equipaggio ad un Turno
   const handleAddCrewToShift = async (e) => {
@@ -340,55 +305,9 @@ export default function AdminDashboardTab({
             )}
           </div>
         </div>
-
-        {/* Column 3: Quick Telegram Broadcaster & Recent Audit Log */}
+        
+        {/* Column 3: Recent Audit Log */}
         <div className="flex flex-col gap-6">
-          
-          {/* Telegram Broadcaster */}
-          <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-3 shadow-sm">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 font-semibold font-sans">
-              <h3 className="text-base font-bold text-slate-800">Broadcast Telegram</h3>
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-            </div>
-            
-            <p className="text-[11px] text-slate-550 leading-relaxed text-left">
-              Invia un annuncio flash a tutti i soccorritori. Il trigger del database pubblicherà immediatamente il messaggio nel gruppo Telegram integrato.
-            </p>
-
-            <form onSubmit={handleSendAnnouncement} className="flex flex-col gap-3 font-sans">
-              <textarea
-                value={announcementText}
-                onChange={(e) => setAnnouncementText(e.target.value)}
-                placeholder="Scrivi qui il tuo avviso ufficiale... (es: Cercasi urgente autista per stasera!)"
-                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl p-3 text-xs font-semibold text-slate-800 outline-none transition-all h-24 placeholder:text-slate-400 resize-none font-sans"
-                required
-              />
-
-              {announcementSuccess && (
-                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-xl text-center text-[10px] font-bold">
-                  ✓ Annuncio inviato e pubblicato con successo!
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={announcementLoading || !announcementText.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-2.5 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow cursor-pointer font-sans"
-              >
-                {announcementLoading ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Invio in corso...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Invia a Telegram</span>
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
 
           {/* Mini-Audit Log (Last 4 logs) */}
           <div className="bg-white border border-slate-200 p-6 rounded-3xl flex flex-col gap-3 shadow-sm font-sans">
