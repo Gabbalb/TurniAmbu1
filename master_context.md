@@ -177,12 +177,12 @@ TurniAmbu (nome interno: `gm-turni`) è un'applicazione web single-page (SPA) de
 - I moduli utente (visualizzazione propri turni, disponibilità, storico) sono strutturati e collegati.
 - **Risolto Bug Eliminazione Trasporti**: Aggiornate le policy RLS su `transports`, `transport_crew` e `transport_handoffs` per consentire al proprietario (creatore) del trasporto di eliminarlo e pulire a cascata i record figli (evitando il blocco di PostgreSQL su RLS cascade).
 - **Consolidamento Database**: Unificato lo schema di configurazione in un unico file `supabase_setup.sql` eliminando il vecchio `supabase_update.sql`.
-- **Notifiche Telegram Avanzate**: Configurato un sistema di notifiche automatiche tramite trigger su `clocked_shifts` e `transports` che invia a Telegram un report formattato (Titolo, Utente, Azione, Ora) in occasione di inizio/fine turno e creazione/avvio/conclusione/trasferimento/cancellazione dei trasporti.
+- **Disattivazione Canale Telegram**: L'invio delle notifiche a Telegram è stato rimosso. La funzione `send_notification_telegram` nel database è stata modificata per eseguire solo `RETURN NEW;` e la "Console Telegram" è stata rimossa dall'interfaccia amministratore (`AdminNotificationsTab.jsx` e `AdminDesktop.jsx`).
 - **Protezione Turni Convalidati**: Implementato il blocco di modifica/cancellazione sui turni convalidati (`pagato = true`) sia a livello di policy RLS sul database che a livello di interfaccia utente (Pencil button nascosto per i non-admin).
 - **Annullamento della Convalida dei Turni**: Aggiunta la possibilità per gli amministratori, sia dall'interfaccia responsive (`AdminPanel.jsx`) che da quella desktop (`AdminHoursTab.jsx`), di annullare la convalida di un turno timbrato (`pagato = false`) in caso di errore, chiamando la nuova funzione API `unvalidateShift`.
 
 ## To-Do / Lavori in Corso
-- In attesa di feedback dall'utente sulla corretta eliminazione dei trasporti, ricezione delle notifiche Telegram, blocco dei turni convalidati e annullamento della convalida.
+- In attesa di feedback dall'utente sulla corretta eliminazione dei trasporti, blocco dei turni convalidati e annullamento della convalida.
 
 ## Convenzioni del Progetto
 - **Codice**: Componenti React scritti in `.jsx` utilizzando functional components e hooks.

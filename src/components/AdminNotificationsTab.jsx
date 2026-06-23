@@ -1,11 +1,9 @@
-import React, { useState } from 'react'
-import { api } from '../lib/api'
+import React from 'react'
 import {
   Users,
   Calendar,
   Clock,
   AlertCircle,
-  RefreshCw,
   PlusCircle,
   Check,
   X,
@@ -17,37 +15,6 @@ export default function AdminNotificationsTab({
   formatItalianDateTime,
   onRefresh
 }) {
-  const [announcementText, setAnnouncementText] = useState('')
-  const [announcementLoading, setAnnouncementLoading] = useState(false)
-  const [announcementSuccess, setAnnouncementSuccess] = useState(false)
-
-  // Invio Annuncio Telegram
-  const handleSendAnnouncement = async (e) => {
-    e.preventDefault()
-    if (!announcementText.trim()) return
-
-    setAnnouncementLoading(true)
-    setAnnouncementSuccess(false)
-
-    try {
-      const { error } = await api.createAnnouncement(
-        announcementText.trim(),
-        'admin.system'
-      )
-      if (error) {
-        alert("Errore nell'invio dell'annuncio: " + error.message)
-      } else {
-        setAnnouncementText('')
-        setAnnouncementSuccess(true)
-        setTimeout(() => setAnnouncementSuccess(false), 5000)
-        onRefresh()
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setAnnouncementLoading(false)
-    }
-  }
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 animate-fade-in text-left font-sans">
@@ -101,59 +68,8 @@ export default function AdminNotificationsTab({
         </div>
       </div>
 
-      {/* Announcements Panel (Right side) */}
+      {/* Legend & Info (Right side) */}
       <div className="flex flex-col gap-6 font-sans">
-        
-        <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-4 font-sans">
-          <h3 className="text-base font-bold text-slate-800 pb-2 border-b border-slate-200 font-sans">
-            Console Telegram Integrata
-          </h3>
-
-          <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm animate-pulse-subtle">
-            <PlusCircle className="w-5 h-5" />
-          </div>
-
-          <p className="text-xs text-slate-550 leading-relaxed font-medium">
-            Questo strumento comunica direttamente col bot Telegram integrato del gruppo soccorritori. Digitando un annuncio, questo verrà inserito come notifica di sistema e inoltrato istantaneamente su Telegram tramite HTTP POST (pg_net) programmato a livello di database.
-          </p>
-
-          <form onSubmit={handleSendAnnouncement} className="flex flex-col gap-4 mt-2">
-            <div className="flex flex-col gap-1.5 font-sans">
-              <label className="text-[10px] text-slate-550 font-bold uppercase tracking-widest">Messaggio dell'Avviso *</label>
-              <textarea
-                value={announcementText}
-                onChange={(e) => setAnnouncementText(e.target.value)}
-                placeholder="Digita qui il testo dell'annuncio ufficiale..."
-                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl p-3.5 text-xs font-semibold text-slate-800 outline-none transition-all h-32 placeholder:text-slate-400 resize-none font-sans"
-                required
-              />
-            </div>
-
-            {announcementSuccess && (
-              <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2.5 rounded-xl text-center text-xs font-bold font-sans">
-                ✓ Annuncio inviato a Telegram con successo!
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={announcementLoading || !announcementText.trim()}
-              className="w-full bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer font-sans"
-            >
-              {announcementLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Pubblicazione...</span>
-                </>
-              ) : (
-                <>
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Pubblica Annuncio</span>
-                </>
-              )}
-            </button>
-          </form>
-        </div>
 
         {/* Legend of Notification Types */}
         <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-3 font-sans">

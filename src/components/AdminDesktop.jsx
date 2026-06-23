@@ -292,7 +292,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 className={getTabClass('notifiche')}
               >
                 <AlertCircle className="w-5 h-5" />
-                <span>Log & Telegram</span>
+                <span>Log Eventi</span>
               </button>
 
               <button
@@ -339,7 +339,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10 font-sans">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-extrabold capitalize text-slate-800 font-sans">
-                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Audit Log & Telegram' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
+                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Registro Eventi' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
               </h1>
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
             </div>
