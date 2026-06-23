@@ -245,7 +245,13 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
             </thead>
             <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
               {filteredProfiles.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                <tr 
+                  key={p.id} 
+                  onClick={() => startEditingProfile(p)}
+                  className={`hover:bg-slate-50 transition-colors cursor-pointer ${
+                    editingProfile?.id === p.id ? 'bg-indigo-50/50 hover:bg-indigo-50/70 border-l-4 border-l-indigo-500' : ''
+                  }`}
+                >
                   <td className="py-3 px-4 font-mono text-slate-500">{p.username}</td>
                   <td className="py-3 px-4 text-slate-800 font-bold">
                     {p.nome || p.cognome ? `${p.nome || ''} ${p.cognome || ''}`.trim() : 'N/D'}
@@ -280,14 +286,20 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => startEditingProfile(p)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEditingProfile(p)
+                        }}
                         className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-lg border border-slate-200 transition-all cursor-pointer"
                         title="Modifica Profilo"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteUser(p)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteUser(p)
+                        }}
                         className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 rounded-lg border border-rose-200 transition-all cursor-pointer"
                         title="Elimina Utente"
                       >
@@ -478,17 +490,47 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
         ) : editingProfile ? (
           // Edit form panel
           <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-4 animate-slide-up text-left">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Pencil className="w-4.5 h-4.5 text-amber-600" />
-                <span>Modifica: {editingProfile.username}</span>
-              </h3>
+            <div className="flex items-start justify-between pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md font-sans">
+                  {`${editNome.charAt(0) || ''}${editCognome.charAt(0) || ''}`.toUpperCase() || 'U'}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-extrabold text-slate-800 font-sans leading-tight">
+                    {editNome || editCognome ? `${editNome} ${editCognome}` : editingProfile.username}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono leading-none">@{editingProfile.username}</span>
+                </div>
+              </div>
               <button 
                 onClick={() => setEditingProfile(null)}
-                className="text-slate-500 hover:text-slate-700 text-xs font-bold bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg cursor-pointer border border-slate-200 transition-colors"
+                className="text-slate-500 hover:text-slate-700 text-xs font-bold bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg cursor-pointer border border-slate-200 transition-colors font-sans"
               >
                 Chiudi
               </button>
+            </div>
+
+            {/* Quick Badges Summary */}
+            <div className="flex flex-wrap gap-1.5 -mt-1 pb-2 border-b border-slate-100 font-sans">
+              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase border ${
+                editStato === 'admin' 
+                  ? 'bg-indigo-50 text-indigo-600 border-indigo-200' 
+                  : editStato === 'dipendente' 
+                    ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                    : 'bg-slate-100 text-slate-650 border-slate-200'
+              }`}>
+                {editStato}
+              </span>
+              <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase text-slate-600">
+                {editQualifica === 'autista' ? 'Autista' : 'Capo Equipaggio'}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase border ${
+                editAttivo 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-250' 
+                  : 'bg-rose-50 text-rose-700 border-rose-250'
+              }`}>
+                {editAttivo ? 'Attivo' : 'Disattivo'}
+              </span>
             </div>
 
             <form onSubmit={handleUpdateProfileSubmit} className="flex flex-col gap-3.5 text-left font-sans">
@@ -619,12 +661,22 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md mt-2 cursor-pointer font-sans"
-              >
-                Salva Profilo
-              </button>
+              <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-slate-200">
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md cursor-pointer font-sans"
+                >
+                  Salva Profilo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteUser(editingProfile)}
+                  className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 font-bold text-xs py-3 rounded-xl border border-rose-200 transition-all cursor-pointer font-sans flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Elimina Utente</span>
+                </button>
+              </div>
             </form>
           </div>
         ) : (
