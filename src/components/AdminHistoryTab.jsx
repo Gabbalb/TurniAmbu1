@@ -22,7 +22,10 @@ import {
   Pencil, 
   Trash2, 
   X, 
-  Loader2 
+  Loader2,
+  Sunrise,
+  Sun,
+  Moon
 } from 'lucide-react'
 import { api } from '../lib/api'
 
@@ -241,9 +244,31 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
     return nameA.localeCompare(nameB)
   })
 
-  // Rendering di una riga di riepilogo fasce nella cella del giorno (con etichette e supporto parziali)
+  const getFasciaIcon = (label) => {
+    switch (label) {
+      case 'alba':
+        return <Sunrise className="w-3 h-3 text-orange-400 flex-shrink-0" />
+      case 'sole':
+        return <Sun className="w-3 h-3 text-amber-500 flex-shrink-0" />
+      case 'luna':
+        return <Moon className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+      default:
+        return null
+    }
+  }
+
+  // Rendering di una riga di riepilogo fasce nella cella del giorno (con icone al posto del testo)
   const renderCellFascia = (label, shiftData) => {
-    if (!shiftData) return <div className="text-[8px] text-slate-350 font-sans leading-none py-0.5"><span className="font-semibold text-slate-350">{label}:</span> -/-</div>
+    const icon = getFasciaIcon(label)
+    if (!shiftData) {
+      return (
+        <div className="flex items-center gap-1 text-[8px] text-slate-350 font-sans leading-none py-0.5 opacity-40">
+          {icon}
+          <span>-/-</span>
+        </div>
+      )
+    }
+
     const { autisti, ces } = shiftData
     const hasAutista = autisti.length > 0
     const hasCe = ces.length > 0
@@ -256,8 +281,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
     }
 
     return (
-      <div className={`text-[8.5px] font-sans leading-none py-0.5 truncate ${colorClass}`}>
-        <span className="font-bold text-slate-400 mr-0.5">{label}:</span> {formatRoleInitials(autisti)}/{formatRoleInitials(ces)}
+      <div className={`flex items-center gap-1 text-[8.5px] font-sans leading-none py-0.5 truncate ${colorClass}`}>
+        {icon}
+        <span>{formatRoleInitials(autisti)}/{formatRoleInitials(ces)}</span>
       </div>
     )
   }
