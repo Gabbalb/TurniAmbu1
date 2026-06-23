@@ -972,14 +972,84 @@ CREATE TRIGGER tr_transport_notification_change
   AFTER INSERT OR UPDATE OR DELETE ON public.transports
   FOR EACH ROW EXECUTE FUNCTION public.on_transport_notification_change();
 
+-- Funzione e Trigger per inviare le notifiche a Telegram tramite pg_net
 CREATE OR REPLACE FUNCTION public.send_notification_telegram()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  telegram_token text;
+  telegram_chat_id text;
+  title_text text;
+  formatted_msg text;
 BEGIN
-  -- Disattivato: invio notifiche Telegram rimosso
+  -- Recupera il token dal Supabase Vault
+  BEGIN
+    SELECT decrypted_secret INTO telegram_token 
+    FROM vault.decrypted_secrets 
+    WHERE name = 'telegram_token' 
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    telegram_token := NULL;
+  END;
+
+  -- Recupera il chat ID dal Supabase Vault
+  BEGIN
+    SELECT decrypted_secret INTO telegram_chat_id 
+    FROM vault.decrypted_secrets 
+    WHERE name = 'telegram_chat_id' 
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    telegram_chat_id := NULL;
+  END;
+
+  -- Se il token o il chat_id non sono configurati nel Vault, esce senza errori
+  IF telegram_token IS NULL OR telegram_chat_id IS NULL THEN
+     RETURN NEW;
+  END IF;
+
+  -- Determina il titolo del messaggio in base al tipo di notifica (incluso l'emoji e il grassetto)
+  CASE NEW.tipo
+    WHEN 'timbratura_inizio' THEN title_text := '🟢 <b>Turno timbrato</b>';
+    WHEN 'timbratura_fine' THEN title_text := '🔴 <b>Turno concluso</b>';
+    WHEN 'trasporto_creato' THEN title_text := '📅 <b>Trasporto creato</b>';
+    WHEN 'trasporto_attivato' THEN title_text := '🚑 <b>Trasporto iniziato</b>';
+    WHEN 'trasporto_concluso' THEN title_text := '🏁 <b>Trasporto concluso</b>';
+    WHEN 'trasporto_eliminato' THEN title_text := '🗑️ <b>Trasporto eliminato</b>';
+    WHEN 'trasporto_trasferito' THEN title_text := '🔄 <b>Trasporto trasferito</b>';
+    WHEN 'registrazione' THEN title_text := '🆕 <b>Registrazione nuovo utente</b>';
+    WHEN 'prenotazione_creata' THEN title_text := '✅ <b>Prenotazione turno</b>';
+    WHEN 'prenotazione_creata_bulk' THEN title_text := '✅ <b>Prenotazioni multiple (Bulk)</b>';
+    WHEN 'prenotazione_cancellata' THEN title_text := '❌ <b>Prenotazione cancellata</b>';
+    WHEN 'prenotazione_cancellata_bulk' THEN title_text := '❌ <b>Prenotazioni cancellate (Bulk)</b>';
+    WHEN 'prenotazione_modificata' THEN title_text := '🔄 <b>Prenotazione modificata</b>';
+    WHEN 'profilo_modificato' THEN title_text := '👤 <b>Profilo modificato</b>';
+    ELSE title_text := '🔔 <b>GM Turni - Notifica</b>';
+  END CASE;
+
+  -- Formatta il messaggio secondo la struttura richiesta dall'utente, stampando il titolo in prima riga senza etichette
+  formatted_msg := concat(
+    title_text, chr(10), chr(10),
+    '👤 <b>Utente:</b> ', COALESCE(NEW.creato_da, 'Sistema'), chr(10),
+    '📝 <b>Azione:</b> ', COALESCE(NEW.messaggio, 'Notifica'), chr(10),
+    '⏰ <b>Ora:</b> ', to_char(COALESCE(NEW.created_at, now()) AT TIME ZONE 'Europe/Rome', 'HH24:MI "del" DD/MM/YYYY')
+  );
+
+  PERFORM net.http_post(
+    url := 'https://api.telegram.org/bot' || telegram_token || '/sendMessage',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body := jsonb_build_object(
+      'chat_id', telegram_chat_id,
+      'text', formatted_msg,
+      'parse_mode', 'HTML'
+    ),
+    timeout_milliseconds := 5000
+  );
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$;
