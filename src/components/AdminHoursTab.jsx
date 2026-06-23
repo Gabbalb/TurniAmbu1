@@ -102,6 +102,23 @@ export default function AdminHoursTab({
     }
   }
 
+  const handleUnvalidateShift = async (shiftId) => {
+    if (!window.confirm('Sei sicuro di voler annullare la convalida di questo turno?')) return
+
+    setEmpLoading(true)
+    try {
+      const { error } = await api.unvalidateShift(shiftId)
+      if (error) throw error
+
+      alert('Convalida annullata con successo!')
+      onRefresh()
+    } catch (err) {
+      alert("Errore nell'annullamento della convalida: " + err.message)
+    } finally {
+      setEmpLoading(false)
+    }
+  }
+
   // Modifica Orario Timbratura Singola (Apertura Modale)
   const handleOpenEditShiftModal = (shift) => {
     setEditingShift(shift)
@@ -414,7 +431,16 @@ export default function AdminHoursTab({
                         </td>
                         <td className="py-3 px-3 text-center">
                           {shift.pagato ? (
-                            <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 text-[9px] font-bold">CONVALIDATO</span>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className="text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 text-[9px] font-bold">CONVALIDATO</span>
+                              <button
+                                onClick={() => handleUnvalidateShift(shift.id)}
+                                className="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer flex items-center justify-center"
+                                title="Annulla Convalida"
+                              >
+                                Annulla
+                              </button>
+                            </div>
                           ) : (
                             <span className="text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 text-[9px] font-bold">DA CONVALIDARE</span>
                           )}

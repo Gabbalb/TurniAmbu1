@@ -240,6 +240,27 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
     }
   }
 
+  const handleUnvalidateShift = async (shiftId) => {
+    if (!window.confirm('Sei sicuro di voler annullare la convalida di questo turno?')) return
+    
+    setEmpLoading(true)
+    try {
+      const { error } = await api.unvalidateShift(shiftId)
+      if (error) throw error
+      
+      setUserActionSuccess('Convalida annullata con successo!')
+      setTimeout(() => setUserActionSuccess(null), 5000)
+      
+      await refreshEmployeeData(selectedEmployee.id)
+    } catch (err) {
+      console.error(err)
+      setUserActionError("Errore durante l'annullamento della convalida: " + (err.message || ''))
+      setTimeout(() => setUserActionError(null), 5000)
+    } finally {
+      setEmpLoading(false)
+    }
+  }
+
   const handleCreateCrew = async (e) => {
     e.preventDefault()
     if (!newCrewName.trim()) return
@@ -1319,16 +1340,24 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                                    >
                                      <Pencil className="w-3 h-3" />
                                    </button>
-
                                    {isPagato ? (
-                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                       Convalidato
-                                     </span>
-                                   ) : (
-                                     <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                       Da convalidare
-                                     </span>
-                                   )}
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                          Convalidato
+                                        </span>
+                                        <button
+                                          onClick={() => handleUnvalidateShift(shift.id)}
+                                          className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 hover:border-rose-500/30 transition-all cursor-pointer flex items-center justify-center"
+                                          title="Annulla convalida"
+                                        >
+                                          Annulla
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[8px] px-2 py-0.5 rounded font-extrabold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        Da convalidare
+                                      </span>
+                                    )}
                                  </div>
                                </div>
 

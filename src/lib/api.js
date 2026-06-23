@@ -1322,6 +1322,30 @@ export const api = {
     }
   },
 
+  unvalidateShift: async (shiftId) => {
+    if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_clocked_shifts')) || []
+      const index = shifts.findIndex(s => s.id === Number(shiftId))
+      if (index !== -1) {
+        shifts[index].pagato = false
+      }
+      localStorage.setItem('ta_clocked_shifts', JSON.stringify(shifts))
+      return { error: null }
+    }
+
+    try {
+      const { error } = await supabase
+        .from('clocked_shifts')
+        .update({ pagato: false })
+        .eq('id', shiftId)
+      
+      return { error }
+    } catch (err) {
+      console.error("Errore durante l'annullamento della convalida:", err)
+      return { error: err }
+    }
+  },
+
   fetchEmployeesWithPayments: async () => {
     if (USE_MOCK) {
       const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []

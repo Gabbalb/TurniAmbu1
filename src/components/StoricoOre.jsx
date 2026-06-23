@@ -360,13 +360,15 @@ export default function StoricoOre() {
 
                     {/* Badge Stato & Edit Button */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => handleOpenEditModal(shift)}
-                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-450 hover:text-slate-200 transition-colors flex items-center justify-center border border-slate-800/40 hover:border-slate-700/60"
-                        title="Modifica data e ora"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
+                      {(!isPagato || profile?.ruolo === 'admin') && (
+                        <button
+                          onClick={() => handleOpenEditModal(shift)}
+                          className="p-1 hover:bg-slate-800 rounded-lg text-slate-450 hover:text-slate-200 transition-colors flex items-center justify-center border border-slate-800/40 hover:border-slate-700/60"
+                          title="Modifica data e ora"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {isPagato ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
