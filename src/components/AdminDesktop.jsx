@@ -164,8 +164,8 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
       const validTodayB = (todayB || []).filter(b => b.shifts && b.shifts.data === todayStr)
       setTodayBookings(validTodayB)
 
-      // 7. Fetch active transports
-      const { data: actTrans } = await api.fetchAllActiveTransports()
+      // 7. Fetch active and scheduled transports
+      const { data: actTrans } = await api.fetchAllActiveAndScheduledTransports()
       setActiveTransports(actTrans || [])
 
     } catch (err) {

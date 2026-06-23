@@ -187,7 +187,7 @@ export default function AdminNotificationsTab({
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[560px] pr-1">
+        <div className="overflow-auto max-h-[560px] pr-1">
           <table className="w-full text-left text-xs border-collapse font-sans">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">

@@ -1753,6 +1753,65 @@ export const api = {
     }
   },
 
+  fetchAllActiveAndScheduledTransports: async () => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const filtered = transports.filter(t => t.stato === 'attivo' || t.stato === 'programmato')
+      const crew = JSON.parse(localStorage.getItem('ta_transport_crew')) || []
+      
+      const mapped = filtered.map(t => {
+        const activeCrew = crew.filter(c => c.transport_id === t.id && c.attivo)
+        const mappedCrew = activeCrew.map(c => ({
+          ...c,
+          ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+        }))
+        return { ...t, crew: mappedCrew }
+      })
+      
+      mapped.sort((a, b) => {
+        if (a.data !== b.data) return new Date(a.data) - new Date(b.data)
+        return (a.ora_servizio || '').localeCompare(b.ora_servizio || '')
+      })
+      
+      return { data: mapped, error: null }
+    }
+    try {
+      const { data: transports, error: tError } = await supabase
+        .from('transports')
+        .select('*, vehicles(nome, targa), profiles:creato_da(nome, cognome, username)')
+        .in('stato', ['attivo', 'programmato'])
+        .order('data', { ascending: true })
+        .order('ora_servizio', { ascending: true })
+        
+      if (tError) throw tError
+      if (!transports || transports.length === 0) return { data: [], error: null }
+      
+      const transportIds = transports.map(t => t.id)
+      const { data: crew, error: cError } = await supabase
+        .from('transport_crew')
+        .select('*')
+        .in('transport_id', transportIds)
+        .eq('attivo', true)
+        
+      if (cError) throw cError
+      
+      const mapped = transports.map(t => {
+        const activeCrew = (crew || [])
+          .filter(c => c.transport_id === t.id)
+          .map(c => ({
+            ...c,
+            ruolo: c.ruolo === 'autista' ? 'AS' : c.ruolo
+          }))
+        return { ...t, crew: activeCrew }
+      })
+      
+      return { data: mapped, error: null }
+    } catch (err) {
+      console.error('Errore recupero trasporti attivi e programmati:', err)
+      return { error: err }
+    }
+  },
+
   fetchActiveTransport: async (userId) => {
     if (USE_MOCK) {
       const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
