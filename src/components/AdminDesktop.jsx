@@ -415,7 +415,9 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
             {/* TAB 3: TABELLONE STORICO */}
             {activeTab === 'storico' && (
               <AdminHistoryTab
-                pastBookings={pastBookings}
+                profiles={profiles}
+                crews={crews}
+                onRefresh={onRefresh}
                 formatItalianDateTime={formatItalianDateTime}
               />
             )}

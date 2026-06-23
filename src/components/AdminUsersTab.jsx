@@ -14,6 +14,7 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingProfile, setEditingProfile] = useState(null)
   const [userActionError, setUserActionError] = useState(null)
+  const [userToDelete, setUserToDelete] = useState(null)
 
   // Creazione Nuovo Utente Form States
   const [newUsername, setNewUsername] = useState('')
@@ -161,18 +162,25 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
     }
   }
 
-  // Elimina Utente
-  const handleDeleteUser = async (profile) => {
-    const confirmDelete = window.confirm(`Sei sicuro di voler eliminare definitivamente l'utente ${profile.username}? Questa azione cancellerà tutte le sue prenotazioni.`)
-    if (!confirmDelete) return
+  // Avvia conferma eliminazione (non bloccante)
+  const handleDeleteUser = (profile) => {
+    setUserToDelete(profile)
+  }
+
+  // Esegue l'eliminazione effettiva dopo la conferma
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return
+    const targetId = userToDelete.id
+    const targetUsername = userToDelete.username
+    setUserToDelete(null)
 
     try {
-      const { error } = await api.adminDeleteUser(profile.id)
+      const { error } = await api.adminDeleteUser(targetId)
       if (error) {
         alert(error.message || "Errore durante l'eliminazione dell'utente.")
       } else {
-        alert('Utente eliminato con successo!')
-        if (editingProfile?.id === profile.id) {
+        alert(`Utente "${targetUsername}" eliminato con successo!`)
+        if (editingProfile?.id === targetId) {
           setEditingProfile(null)
         }
         onRefresh()
@@ -702,6 +710,45 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
         )}
 
       </div>
+
+      {/* Modal di Conferma Eliminazione Utente */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full flex flex-col gap-4 text-left shadow-2xl animate-scale-up font-sans">
+            <div className="flex items-center gap-2.5 text-rose-650">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center border border-rose-100">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-800">Conferma Eliminazione</h3>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+              Sei sicuro di voler eliminare definitivamente l'utente <span className="text-slate-800 font-bold">@{userToDelete.username}</span> ({userToDelete.nome} {userToDelete.cognome})?
+            </p>
+            
+            <p className="text-[11px] text-rose-650 bg-rose-50 border border-rose-100 p-3 rounded-xl font-bold leading-normal">
+              ⚠️ Attenzione: Questa azione è permanente e IRREVERSIBILE. Verranno cancellate anche tutte le sue prenotazioni e associazioni correnti.
+            </p>
+
+            <div className="flex items-center gap-3 mt-1 font-sans">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-550 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-600/10 cursor-pointer"
+              >
+                Sì, Elimina
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
