@@ -324,16 +324,17 @@ export default function AdminDashboardTab({
             <div className="flex flex-col gap-3.5">
               {notifications.slice(0, 4).map(notif => {
                 const style = getNotificationBadgeStyle(notif.tipo)
+                const isAdminAccess = notif.tipo === 'accesso_admin'
                 return (
-                  <div key={notif.id} className="flex gap-3 text-left">
+                  <div key={notif.id} className={`flex gap-3 text-left p-1.5 rounded-2xl transition-all ${isAdminAccess ? 'bg-rose-50/30 border border-rose-500/10' : ''}`}>
                     <div className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center ${style.bg} ${style.color} border ${style.border}`}>
                       {style.icon}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <p className="text-xs font-semibold text-slate-800 leading-normal line-clamp-2">
+                      <p className={`text-xs font-semibold leading-normal line-clamp-2 ${isAdminAccess ? 'text-rose-600 font-extrabold' : 'text-slate-800'}`}>
                         {notif.messaggio}
                       </p>
-                      <span className="text-[9px] text-slate-400 font-medium mt-1">
+                      <span className={`text-[9px] font-medium mt-1 ${isAdminAccess ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
                         {formatItalianDateTime(notif.created_at)}
                       </span>
                     </div>
@@ -366,7 +367,8 @@ function getNotificationBadgeStyle(tipo) {
         border: 'border-indigo-150',
         icon: <Users className="w-4 h-4" />
       }
-    case 'prenotazione_effettuata':
+    case 'prenotazione_creata':
+    case 'prenotazione_creata_bulk':
       return {
         bg: 'bg-emerald-50',
         color: 'text-emerald-700',
@@ -374,11 +376,20 @@ function getNotificationBadgeStyle(tipo) {
         icon: <Check className="w-4 h-4" />
       }
     case 'prenotazione_cancellata':
+    case 'prenotazione_cancellata_bulk':
       return {
         bg: 'bg-rose-50',
         color: 'text-rose-650',
         border: 'border-rose-150',
         icon: <X className="w-4 h-4" />
+      }
+    case 'prenotazione_modificata':
+    case 'prenotazione_modificata_bulk':
+      return {
+        bg: 'bg-blue-50',
+        color: 'text-blue-700',
+        border: 'border-blue-150',
+        icon: <RefreshCw className="w-4 h-4" />
       }
     case 'timbratura_inizio':
     case 'timbratura_fine':
@@ -387,6 +398,35 @@ function getNotificationBadgeStyle(tipo) {
         color: 'text-amber-700',
         border: 'border-amber-150',
         icon: <Clock className="w-4 h-4" />
+      }
+    case 'trasporto_creato':
+      return {
+        bg: 'bg-sky-50',
+        color: 'text-sky-700',
+        border: 'border-sky-150',
+        icon: <Calendar className="w-4 h-4" />
+      }
+    case 'trasporto_attivato':
+    case 'trasporto_trasferito':
+      return {
+        bg: 'bg-cyan-50',
+        color: 'text-cyan-700',
+        border: 'border-cyan-150',
+        icon: <Truck className="w-4 h-4" />
+      }
+    case 'trasporto_concluso':
+      return {
+        bg: 'bg-emerald-50',
+        color: 'text-emerald-700',
+        border: 'border-emerald-150',
+        icon: <Check className="w-4 h-4" />
+      }
+    case 'trasporto_eliminato':
+      return {
+        bg: 'bg-rose-50',
+        color: 'text-rose-650',
+        border: 'border-rose-150',
+        icon: <X className="w-4 h-4" />
       }
     case 'annuncio':
       return {
@@ -397,10 +437,10 @@ function getNotificationBadgeStyle(tipo) {
       }
     case 'accesso_admin':
       return {
-        bg: 'bg-indigo-50',
-        color: 'text-indigo-700',
-        border: 'border-indigo-200',
-        icon: <ShieldAlert className="w-4 h-4" />
+        bg: 'bg-rose-500/10 shadow-[0_0_12px_rgba(239,68,68,0.15)] animate-pulse',
+        color: 'text-rose-600 font-extrabold',
+        border: 'border-rose-500/30 border-2',
+        icon: <ShieldAlert className="w-4 h-4 animate-bounce" />
       }
     default:
       return {

@@ -9,7 +9,9 @@ import {
   PlusCircle,
   Check,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Search,
+  Truck
 } from 'lucide-react'
 
 export default function AdminNotificationsTab({
@@ -20,6 +22,35 @@ export default function AdminNotificationsTab({
   const [announcementText, setAnnouncementText] = useState('')
   const [announcementLoading, setAnnouncementLoading] = useState(false)
   const [announcementSuccess, setAnnouncementSuccess] = useState(false)
+
+  // Filters State
+  const [filterType, setFilterType] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const filteredNotifications = notifications.filter(notif => {
+    const matchesSearch = notif.messaggio?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          notif.creato_da?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    if (!matchesSearch) return false
+
+    if (filterType === 'all') return true
+    if (filterType === 'timbrature') {
+      return notif.tipo === 'timbratura_inizio' || notif.tipo === 'timbratura_fine'
+    }
+    if (filterType === 'prenotazioni') {
+      return notif.tipo?.startsWith('prenotazione_')
+    }
+    if (filterType === 'trasporti') {
+      return notif.tipo?.startsWith('trasporto_')
+    }
+    if (filterType === 'admin') {
+      return notif.tipo === 'accesso_admin'
+    }
+    if (filterType === 'utenti') {
+      return notif.tipo === 'registrazione' || notif.tipo === 'profilo_modificato'
+    }
+    return true
+  })
 
   // Invio Annuncio Telegram
   const handleSendAnnouncement = async (e) => {
@@ -54,9 +85,48 @@ export default function AdminNotificationsTab({
       
       {/* Notifications Table (Left/Center Wide) */}
       <div className="xl:col-span-2 bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-4">
-        <div className="pb-2 border-b border-slate-200 font-sans">
-          <h3 className="text-lg font-bold text-slate-800 font-sans">Audit Log Completo delle Notifiche</h3>
-          <p className="text-xs text-slate-500 mt-0.5 font-sans">Registro storico degli accessi, prenotazioni, disdette e timbrature</p>
+        <div className="pb-2 border-b border-slate-200 font-sans flex flex-col gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 font-sans">Audit Log Completo delle Notifiche</h3>
+            <p className="text-xs text-slate-500 mt-0.5 font-sans">Registro storico degli accessi, prenotazioni, disdette e timbrature</p>
+          </div>
+          
+          {/* Sezione Filtri di ricerca */}
+          <div className="flex flex-col md:flex-row gap-3 items-center justify-between border-t border-slate-100 pt-3 mt-1">
+            <div className="relative w-full md:max-w-xs">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Cerca nei log..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-1 w-full md:w-auto">
+              {[
+                { id: 'all', label: 'Tutte' },
+                { id: 'timbrature', label: 'Timbrature' },
+                { id: 'prenotazioni', label: 'Prenotazioni' },
+                { id: 'trasporti', label: 'Trasporti' },
+                { id: 'admin', label: 'Accessi Admin' },
+                { id: 'utenti', label: 'Utenti' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterType(tab.id)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    filterType === tab.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto max-h-[560px] pr-1">
@@ -70,22 +140,23 @@ export default function AdminNotificationsTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
-              {notifications.map(notif => {
+              {filteredNotifications.map(notif => {
                 const style = getNotificationBadgeStyle(notif.tipo)
+                const isAdminAccess = notif.tipo === 'accesso_admin'
                 return (
-                  <tr key={notif.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={notif.id} className={`hover:bg-slate-50 transition-colors ${isAdminAccess ? 'bg-rose-50/20 hover:bg-rose-50/30' : ''}`}>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`inline-flex items-center justify-center p-1.5 rounded-lg ${style.bg} ${style.color} border ${style.border}`} title={notif.tipo}>
                         {style.icon}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-800 font-bold leading-normal max-w-sm">
+                    <td className={`py-3.5 px-4 font-bold leading-normal max-w-sm ${isAdminAccess ? 'text-rose-600 font-extrabold' : 'text-slate-800'}`}>
                       {notif.messaggio}
                     </td>
-                    <td className="py-3.5 px-5 text-slate-500 font-mono">
+                    <td className={`py-3.5 px-5 font-mono ${isAdminAccess ? 'text-rose-500 font-bold' : 'text-slate-500'}`}>
                       {notif.creato_da}
                     </td>
-                    <td className="py-3.5 px-4 text-right text-slate-455 font-mono">
+                    <td className={`py-3.5 px-4 text-right font-mono ${isAdminAccess ? 'text-rose-500 font-bold' : 'text-slate-455'}`}>
                       {formatItalianDateTime(notif.created_at)}
                     </td>
                   </tr>
@@ -93,9 +164,9 @@ export default function AdminNotificationsTab({
               })}
             </tbody>
           </table>
-          {notifications.length === 0 && (
+          {filteredNotifications.length === 0 && (
             <div className="text-center py-12 text-slate-400 font-bold">
-              Nessuna notifica presente a sistema.
+              Nessuna notifica corrisponde ai filtri selezionati.
             </div>
           )}
         </div>
@@ -213,7 +284,8 @@ function getNotificationBadgeStyle(tipo) {
         border: 'border-indigo-150',
         icon: <Users className="w-4 h-4" />
       }
-    case 'prenotazione_effettuata':
+    case 'prenotazione_creata':
+    case 'prenotazione_creata_bulk':
       return {
         bg: 'bg-emerald-50',
         color: 'text-emerald-700',
@@ -221,11 +293,20 @@ function getNotificationBadgeStyle(tipo) {
         icon: <Check className="w-4 h-4" />
       }
     case 'prenotazione_cancellata':
+    case 'prenotazione_cancellata_bulk':
       return {
         bg: 'bg-rose-50',
         color: 'text-rose-650',
         border: 'border-rose-150',
         icon: <X className="w-4 h-4" />
+      }
+    case 'prenotazione_modificata':
+    case 'prenotazione_modificata_bulk':
+      return {
+        bg: 'bg-blue-50',
+        color: 'text-blue-700',
+        border: 'border-blue-150',
+        icon: <RefreshCw className="w-4 h-4" />
       }
     case 'timbratura_inizio':
     case 'timbratura_fine':
@@ -234,6 +315,35 @@ function getNotificationBadgeStyle(tipo) {
         color: 'text-amber-700',
         border: 'border-amber-150',
         icon: <Clock className="w-4 h-4" />
+      }
+    case 'trasporto_creato':
+      return {
+        bg: 'bg-sky-50',
+        color: 'text-sky-700',
+        border: 'border-sky-150',
+        icon: <Calendar className="w-4 h-4" />
+      }
+    case 'trasporto_attivato':
+    case 'trasporto_trasferito':
+      return {
+        bg: 'bg-cyan-50',
+        color: 'text-cyan-700',
+        border: 'border-cyan-150',
+        icon: <Truck className="w-4 h-4" />
+      }
+    case 'trasporto_concluso':
+      return {
+        bg: 'bg-emerald-50',
+        color: 'text-emerald-700',
+        border: 'border-emerald-150',
+        icon: <Check className="w-4 h-4" />
+      }
+    case 'trasporto_eliminato':
+      return {
+        bg: 'bg-rose-50',
+        color: 'text-rose-650',
+        border: 'border-rose-150',
+        icon: <X className="w-4 h-4" />
       }
     case 'annuncio':
       return {
@@ -244,10 +354,10 @@ function getNotificationBadgeStyle(tipo) {
       }
     case 'accesso_admin':
       return {
-        bg: 'bg-indigo-50',
-        color: 'text-indigo-700',
-        border: 'border-indigo-200',
-        icon: <ShieldAlert className="w-4 h-4" />
+        bg: 'bg-rose-500/10 shadow-[0_0_12px_rgba(239,68,68,0.15)] animate-pulse',
+        color: 'text-rose-600 font-extrabold',
+        border: 'border-rose-500/30 border-2',
+        icon: <ShieldAlert className="w-4 h-4 animate-bounce" />
       }
     default:
       return {
