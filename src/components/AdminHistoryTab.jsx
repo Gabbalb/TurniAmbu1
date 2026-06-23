@@ -111,8 +111,17 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
     const p = booking.profiles
     const nome = p.nome || ''
     const cognome = p.cognome || ''
-    if (!nome && !cognome) return p.username ? p.username.slice(0, 3) : '-'
-    return `${nome.charAt(0) || ''}${cognome.charAt(0) || ''}`.toUpperCase()
+    const initials = (nome && cognome) 
+      ? `${nome.charAt(0)}${cognome.charAt(0)}`.toUpperCase()
+      : (p.username ? p.username.slice(0, 3).toUpperCase() : '-')
+    
+    // Se è parziale, appendiamo un asterisco * per indicarlo chiaramente
+    return booking.is_partial ? `${initials}*` : initials
+  }
+
+  const formatRoleInitials = (bookingsList) => {
+    if (!bookingsList || bookingsList.length === 0) return '-'
+    return bookingsList.map(formatInitials).join('+')
   }
 
   // Prepara l'editor per un determinato ruolo/shift
@@ -220,9 +229,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
     const shift = shiftsList.find(s => s.ora_inizio === oraInizio)
     if (!shift) return null
     const shiftBks = bookings.filter(b => b.shift_id === shift.id)
-    const autista = shiftBks.find(b => b.ruolo_turno === 'autista')
-    const ce = shiftBks.find(b => b.ruolo_turno === 'CE')
-    return { shift, autista, ce }
+    const autisti = shiftBks.filter(b => b.ruolo_turno === 'autista')
+    const ces = shiftBks.filter(b => b.ruolo_turno === 'CE')
+    return { shift, autisti, ces }
   }
 
   // Ordinamento dei profili per cognome e nome nel form di assegnazione
@@ -232,200 +241,209 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
     return nameA.localeCompare(nameB)
   })
 
-  // Rendering di una riga di riepilogo fasce nella cella del giorno
+  // Rendering di una riga di riepilogo fasce nella cella del giorno (con etichette e supporto parziali)
   const renderCellFascia = (label, shiftData) => {
-    if (!shiftData) return <div className="text-[9px] text-slate-350 font-mono">{label}: - / -</div>
-    const { autista, ce } = shiftData
-    const hasAutista = !!autista
-    const hasCe = !!ce
+    if (!shiftData) return <div className="text-[8px] text-slate-350 font-sans leading-none py-0.5"><span className="font-semibold text-slate-350">{label}:</span> -/-</div>
+    const { autisti, ces } = shiftData
+    const hasAutista = autisti.length > 0
+    const hasCe = ces.length > 0
 
     let colorClass = "text-slate-400"
     if (hasAutista && hasCe) {
       colorClass = "text-emerald-600 font-extrabold"
     } else if (hasAutista || hasCe) {
-      colorClass = "text-amber-600 font-bold"
+      colorClass = "text-amber-650 font-bold"
     }
 
     return (
-      <div className={`text-[9px] font-mono leading-none py-0.5 truncate ${colorClass}`}>
-        {label}: {formatInitials(autista)} / {formatInitials(ce)}
+      <div className={`text-[8.5px] font-sans leading-none py-0.5 truncate ${colorClass}`}>
+        <span className="font-bold text-slate-400 mr-0.5">{label}:</span> {formatRoleInitials(autisti)}/{formatRoleInitials(ces)}
       </div>
     )
   }
 
-  // Rendering di un ruolo nella scheda della giornata
-  const renderRosterSlotCard = (shift, role, booking, label, textClass, bgClass, borderClass) => {
-    const isEditingThis = editingSlot && editingSlot.shiftId === shift.id && editingSlot.role === role
-
-    if (isEditingThis) {
-      // Form di modifica / assegnazione inline
-      return (
-        <div className={`p-4 rounded-2xl border ${borderClass} bg-white shadow-sm flex flex-col gap-3 text-left font-sans animate-fade-in`}>
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${textClass}`}>
-              {editingSlot.booking ? 'Modifica' : 'Assegna'} {label}
-            </span>
-            <button
-              onClick={() => setEditingSlot(null)}
-              className="text-slate-400 hover:text-slate-650 p-1 rounded-md transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSaveBooking} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[9px] text-slate-400 font-bold uppercase">Soccorritore</label>
-              <select
-                value={formUserId}
-                onChange={(e) => setFormUserId(e.target.value)}
-                className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 outline-none"
-                required
-              >
-                <option value="">Seleziona soccorritore...</option>
-                {sortedProfilesForSelect.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.username} ({p.stato || 'volontario'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-150 px-3 py-2 rounded-xl">
-              <input
-                type="checkbox"
-                id="isPartialCheckbox"
-                checked={formIsPartial}
-                onChange={(e) => setFormIsPartial(e.target.checked)}
-                className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
-              />
-              <label htmlFor="isPartialCheckbox" className="text-[10px] font-bold text-slate-650 cursor-pointer">
-                Turno Parziale (Orario Personalizzato)
-              </label>
-            </div>
-
-            {formIsPartial && (
-              <div className="grid grid-cols-2 gap-2.5 animate-fade-in">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Inizio</label>
-                  <input
-                    type="time"
-                    value={formStartTime}
-                    onChange={(e) => setFormStartTime(e.target.value)}
-                    className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
-                    required={formIsPartial}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Fine</label>
-                  <input
-                    type="time"
-                    value={formEndTime}
-                    onChange={(e) => setFormEndTime(e.target.value)}
-                    className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
-                    required={formIsPartial}
-                  />
-                </div>
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Nota / Motivo</label>
-                  <input
-                    type="text"
-                    placeholder="es. dalle ore 9:00, solo per urgenze"
-                    value={formNote}
-                    onChange={(e) => setFormNote(e.target.value)}
-                    className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-855 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setEditingSlot(null)}
-                className="flex-1 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold transition-all"
-              >
-                Annulla
-              </button>
-              <button
-                type="submit"
-                disabled={formLoading}
-                className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-              >
-                {formLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                <span>Salva</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )
-    }
-
-    if (!booking) {
-      // Posto Libero (scheda con bordo tratteggiato)
-      return (
-        <div className="p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-between text-left font-sans transition-all">
-          <div className="flex flex-col gap-0.5">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${textClass}`}>
-              {label}
-            </span>
-            <span className="text-xs font-semibold text-slate-400 italic">Posto libero</span>
-          </div>
-          <button
-            onClick={() => startEditing(shift.id, role, null, shift.ora_inizio, shift.ora_fine)}
-            className="flex items-center gap-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] font-bold shadow-sm transition-all cursor-pointer"
+  // Rendering del form inline
+  const renderInlineForm = () => {
+    return (
+      <form onSubmit={handleSaveBooking} className="flex flex-col gap-3 text-left">
+        <div className="flex flex-col gap-1">
+          <label className="text-[9px] text-slate-400 font-bold uppercase">Soccorritore</label>
+          <select
+            value={formUserId}
+            onChange={(e) => setFormUserId(e.target.value)}
+            className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 outline-none font-sans"
+            required
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Assegna</span>
+            <option value="">Seleziona soccorritore...</option>
+            {sortedProfilesForSelect.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.username} ({p.stato || 'volontario'})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-150 px-3 py-2 rounded-xl">
+          <input
+            type="checkbox"
+            id="isPartialCheckbox"
+            checked={formIsPartial}
+            onChange={(e) => setFormIsPartial(e.target.checked)}
+            className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+          />
+          <label htmlFor="isPartialCheckbox" className="text-[10px] font-bold text-slate-650 cursor-pointer">
+            Turno Parziale (Orario Personalizzato)
+          </label>
+        </div>
+
+        {formIsPartial && (
+          <div className="grid grid-cols-2 gap-2.5 animate-fade-in">
+            <div className="flex flex-col gap-1">
+              <label className="text-[9px] text-slate-400 font-bold uppercase">Inizio</label>
+              <input
+                type="time"
+                value={formStartTime}
+                onChange={(e) => setFormStartTime(e.target.value)}
+                className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
+                required={formIsPartial}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[9px] text-slate-400 font-bold uppercase">Fine</label>
+              <input
+                type="time"
+                value={formEndTime}
+                onChange={(e) => setFormEndTime(e.target.value)}
+                className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
+                required={formIsPartial}
+              />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-[9px] text-slate-400 font-bold uppercase">Nota / Motivo</label>
+              <input
+                type="text"
+                placeholder="es. dalle ore 9:00, solo per urgenze"
+                value={formNote}
+                onChange={(e) => setFormNote(e.target.value)}
+                className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-855 outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => setEditingSlot(null)}
+            className="flex-1 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold transition-all"
+          >
+            Annulla
+          </button>
+          <button
+            type="submit"
+            disabled={formLoading}
+            className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+          >
+            {formLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+            <span>Salva</span>
           </button>
         </div>
-      )
-    }
+      </form>
+    )
+  }
 
-    // Posto Occupato (con il nome e cognome scritti in modo molto chiaro e visibile come da feedback)
-    const displayName = booking.profiles 
-      ? `${booking.profiles.nome || ''} ${booking.profiles.cognome || ''}`.trim() || booking.profiles.username 
-      : 'Utente N/D'
+  // Rendering di un ruolo nella scheda della giornata
+  const renderRosterSlotCard = (shift, role, bookingsList, label, textClass, bgClass, borderClass) => {
+    const isAddingNew = editingSlot && editingSlot.shiftId === shift.id && editingSlot.role === role && !editingSlot.booking
+    const editingBookingId = editingSlot?.booking?.id
 
     return (
-      <div className={`p-4 rounded-2xl border ${borderClass} ${bgClass} flex items-center justify-between text-left font-sans shadow-sm`}>
-        <div className="flex flex-col min-w-0 pr-3">
-          <span className={`text-[9px] font-black uppercase tracking-widest ${textClass}`}>
+      <div className={`flex flex-col gap-2.5 p-4 rounded-2xl border ${borderClass} bg-slate-50/20`}>
+        {/* Intestazione del Ruolo con eventuale pulsante di Aggiungi */}
+        <div className="flex justify-between items-center w-full">
+          <span className={`text-[10px] font-black uppercase tracking-widest ${textClass}`}>
             {label}
           </span>
-          <span className="text-sm font-extrabold text-slate-800 tracking-tight leading-tight mt-0.5 truncate">
-            {displayName}
-          </span>
-          {booking.is_partial && (
-            <div className="flex flex-col gap-0.5 mt-1.5 border-t border-slate-200/40 pt-1.5">
-              <span className="text-[10px] text-slate-600 font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-400" />
-                Dalle {booking.ora_inizio_effettiva ? booking.ora_inizio_effettiva.slice(0, 5) : ''} alle {booking.ora_fine_effettiva ? booking.ora_fine_effettiva.slice(0, 5) : ''}
-              </span>
-              {booking.nota_parziale && (
-                <span className="text-[9px] text-slate-450 italic font-semibold">
-                  "{booking.nota_parziale}"
-                </span>
-              )}
-            </div>
+          {/* Mostra "+ Aggiungi" per consentire ulteriori assegnazioni parziali */}
+          {!isAddingNew && !editingBookingId && (
+            <button
+              onClick={() => startEditing(shift.id, role, null, shift.ora_inizio, shift.ora_fine)}
+              className="px-2 py-0.5 border border-dashed border-slate-350 hover:border-indigo-500/50 rounded-lg text-[9px] font-bold text-slate-500 hover:text-indigo-600 bg-white hover:bg-indigo-50 transition-all cursor-pointer shadow-sm font-sans"
+            >
+              + Aggiungi
+            </button>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            onClick={() => startEditing(shift.id, role, booking, shift.ora_inizio, shift.ora_fine)}
-            className="p-2 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl transition-all cursor-pointer shadow-sm"
-            title={`Modifica Assegnazione ${label}`}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setBookingToDelete(booking)}
-            className="p-2 bg-white hover:bg-rose-50 text-rose-500 hover:text-rose-600 border border-slate-200 rounded-xl transition-all cursor-pointer shadow-sm"
-            title={`Rimuovi Assegnazione ${label}`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+        {/* Lista dei prenotati per questo ruolo */}
+        <div className="flex flex-col gap-2.5">
+          {bookingsList.map(booking => {
+            const isEditingThis = editingSlot && editingSlot.booking?.id === booking.id
+            const displayName = booking.profiles 
+              ? `${booking.profiles.nome || ''} ${booking.profiles.cognome || ''}`.trim() || booking.profiles.username 
+              : 'Utente N/D'
+
+            if (isEditingThis) {
+              return (
+                <div key={booking.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm animate-fade-in">
+                  {renderInlineForm()}
+                </div>
+              )
+            }
+
+            return (
+              <div key={booking.id} className={`p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-between text-left font-sans`}>
+                <div className="flex flex-col min-w-0 pr-3">
+                  <span className="text-sm font-extrabold text-slate-800 tracking-tight leading-tight truncate">
+                    {displayName}
+                  </span>
+                  {booking.is_partial && (
+                    <div className="flex flex-col gap-0.5 mt-1.5 border-t border-slate-100 pt-1.5">
+                      <span className="text-[10px] text-slate-550 font-bold flex items-center gap-1 font-sans">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        Dalle {booking.ora_inizio_effettiva ? booking.ora_inizio_effettiva.slice(0, 5) : ''} alle {booking.ora_fine_effettiva ? booking.ora_fine_effettiva.slice(0, 5) : ''}
+                      </span>
+                      {booking.nota_parziale && (
+                        <span className="text-[9px] text-slate-450 italic font-semibold">
+                          "{booking.nota_parziale}"
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => startEditing(shift.id, role, booking, shift.ora_inizio, shift.ora_fine)}
+                    className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg transition-all cursor-pointer shadow-sm"
+                    title="Modifica"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setBookingToDelete(booking)}
+                    className="p-1.5 bg-slate-50 hover:bg-rose-50 text-rose-500 hover:text-rose-600 border border-slate-200 rounded-lg transition-all cursor-pointer shadow-sm"
+                    title="Rimuovi"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Form di aggiunta nuovo inline */}
+          {isAddingNew && (
+            <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm animate-fade-in">
+              {renderInlineForm()}
+            </div>
+          )}
+
+          {bookingsList.length === 0 && !isAddingNew && (
+            <span className="text-[11px] font-semibold text-slate-400 italic text-center py-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              Nessun assegnato (Posto libero)
+            </span>
+          )}
         </div>
       </div>
     )
@@ -536,13 +554,13 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                   {isCurrentMonth && (
                     <div className="flex gap-0.5">
                       <span className={`w-1 h-1 rounded-full ${
-                        mattinaData ? (mattinaData.autista && mattinaData.ce ? 'bg-emerald-500' : (mattinaData.autista || mattinaData.ce ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
+                        mattinaData ? (mattinaData.autisti.length > 0 && mattinaData.ces.length > 0 ? 'bg-emerald-500' : (mattinaData.autisti.length > 0 || mattinaData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
                       }`} />
                       <span className={`w-1 h-1 rounded-full ${
-                        pomeriggioData ? (pomeriggioData.autista && pomeriggioData.ce ? 'bg-emerald-500' : (pomeriggioData.autista || pomeriggioData.ce ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
+                        pomeriggioData ? (pomeriggioData.autisti.length > 0 && pomeriggioData.ces.length > 0 ? 'bg-emerald-500' : (pomeriggioData.autisti.length > 0 || pomeriggioData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
                       }`} />
                       <span className={`w-1 h-1 rounded-full ${
-                        notteData ? (notteData.autista && notteData.ce ? 'bg-emerald-500' : (notteData.autista || notteData.ce ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
+                        notteData ? (notteData.autisti.length > 0 && notteData.ces.length > 0 ? 'bg-emerald-500' : (notteData.autisti.length > 0 || notteData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
                       }`} />
                     </div>
                   )}
@@ -550,9 +568,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
 
                 {/* Dettaglio compatto delle 3 fasce */}
                 <div className="flex flex-col gap-0.5 mt-2">
-                  {renderCellFascia('M', mattinaData)}
-                  {renderCellFascia('P', pomeriggioData)}
-                  {renderCellFascia('N', notteData)}
+                  {renderCellFascia('alba', mattinaData)}
+                  {renderCellFascia('sole', pomeriggioData)}
+                  {renderCellFascia('luna', notteData)}
                 </div>
               </div>
             )
@@ -568,7 +586,7 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
           
           {/* Header data selezionata */}
           <div className="flex items-center gap-3 pb-3 border-b border-slate-200 font-sans">
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-150 flex items-center justify-center text-slate-650 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-150 flex items-center justify-center text-slate-655 shadow-sm">
               <Calendar className="w-5 h-5 text-slate-500" />
             </div>
             <div>
@@ -592,9 +610,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-xs font-black text-slate-800 font-sans">Mattina (06:00 - 14:00)</span>
                   </div>
-                  <div className="flex flex-col gap-2 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ce, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autista, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                   </div>
                 </div>
               )
@@ -610,9 +628,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
                     <span className="text-xs font-black text-slate-800 font-sans">Pomeriggio (14:00 - 22:00)</span>
                   </div>
-                  <div className="flex flex-col gap-2 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ce, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autista, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                   </div>
                 </div>
               )
@@ -628,9 +646,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                     <span className="w-2 h-2 rounded-full bg-indigo-550" />
                     <span className="text-xs font-black text-slate-800 font-sans">Notte (22:00 - 06:00)</span>
                   </div>
-                  <div className="flex flex-col gap-2 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ce, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autista, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                   </div>
                 </div>
               )
