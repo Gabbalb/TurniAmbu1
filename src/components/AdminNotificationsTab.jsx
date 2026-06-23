@@ -306,7 +306,7 @@ export default function AdminNotificationsTab({
                   <button
                     onClick={() => handleToggleTelegramSetting(setting.tipo, setting.attivo)}
                     className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer ${
-                      setting.attivo ? 'bg-indigo-650 justify-end' : 'bg-slate-300 justify-start'
+                      setting.attivo ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
                     }`}
                   >
                     <div className="w-4 h-4 bg-white rounded-full shadow-md" />
