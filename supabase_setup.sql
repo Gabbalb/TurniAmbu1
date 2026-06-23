@@ -173,6 +173,12 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at timestamptz DEFAULT now() NOT NULL
 );
 
+-- Tabella Impostazioni Notifiche Telegram
+CREATE TABLE IF NOT EXISTS public.telegram_settings (
+  tipo text PRIMARY KEY,
+  attivo boolean DEFAULT true NOT NULL
+);
+
 -- =========================================================================
 -- 2. ABILITAZIONE ROW LEVEL SECURITY (RLS)
 -- =========================================================================
@@ -187,6 +193,7 @@ ALTER TABLE public.transports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transport_crew ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transport_handoffs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.telegram_settings ENABLE ROW LEVEL SECURITY;
 
 -- =========================================================================
 -- 3. FUNZIONI DI SUPPORTO E RPC
@@ -424,6 +431,11 @@ CREATE POLICY "Consenti lettura notifiche solo ad admin"
 DROP POLICY IF EXISTS "Consenti inserimento notifiche a tutti" ON public.notifications;
 CREATE POLICY "Consenti inserimento notifiche a tutti"
   ON public.notifications FOR INSERT TO authenticated WITH CHECK (true);
+
+-- POLICIES: TELEGRAM_SETTINGS
+DROP POLICY IF EXISTS "Consenti gestione impostazioni telegram solo ad admin" ON public.telegram_settings;
+CREATE POLICY "Consenti gestione impostazioni telegram solo ad admin"
+  ON public.telegram_settings FOR ALL TO authenticated USING (public.es_admin()) WITH CHECK (public.es_admin());
 
 -- =========================================================================
 -- 5. TRIGGER E LOGICA APPLICATIVA
@@ -985,6 +997,14 @@ DECLARE
   title_text text;
   formatted_msg text;
 BEGIN
+  -- Verifica se le notifiche per questo tipo di evento sono abilitate
+  IF EXISTS (
+    SELECT 1 FROM public.telegram_settings 
+    WHERE tipo = NEW.tipo AND attivo = false
+  ) THEN
+    RETURN NEW;
+  END IF;
+
   -- Recupera il token dal Supabase Vault
   BEGIN
     SELECT decrypted_secret INTO telegram_token 
@@ -1026,6 +1046,8 @@ BEGIN
     WHEN 'prenotazione_cancellata_bulk' THEN title_text := '❌ <b>Prenotazioni cancellate (Bulk)</b>';
     WHEN 'prenotazione_modificata' THEN title_text := '🔄 <b>Prenotazione modificata</b>';
     WHEN 'profilo_modificato' THEN title_text := '👤 <b>Profilo modificato</b>';
+    WHEN 'accesso_admin' THEN title_text := '🚨 <b>Accesso Amministratore</b>';
+    WHEN 'annuncio' THEN title_text := '📢 <b>Annuncio di Servizio</b>';
     ELSE title_text := '🔔 <b>GM Turni - Notifica</b>';
   END CASE;
 
@@ -1076,6 +1098,26 @@ VALUES
   ('Auto Medica', 'MD789MD', true, 45200),
   ('Mezzo Disabili', 'DS321DB', true, 15300)
 ON CONFLICT (nome) DO NOTHING;
+
+-- Inserisci impostazioni notifiche Telegram predefinite
+INSERT INTO public.telegram_settings (tipo, attivo)
+VALUES
+  ('timbratura_inizio', true),
+  ('timbratura_fine', true),
+  ('trasporto_creato', true),
+  ('trasporto_attivato', true),
+  ('trasporto_concluso', true),
+  ('trasporto_eliminato', true),
+  ('trasporto_trasferito', true),
+  ('registrazione', true),
+  ('prenotazione_creata', true),
+  ('prenotazione_creata_bulk', true),
+  ('prenotazione_cancellata', true),
+  ('prenotazione_cancellata_bulk', true),
+  ('prenotazione_modificata', true),
+  ('profilo_modificato', true),
+  ('accesso_admin', true)
+ON CONFLICT (tipo) DO NOTHING;
 
 -- Crea l'utente admin iniziale in auth.users
 DO $$

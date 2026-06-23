@@ -162,6 +162,26 @@ if (USE_MOCK) {
   if (!localStorage.getItem('ta_transport_handoffs')) {
     localStorage.setItem('ta_transport_handoffs', JSON.stringify([]))
   }
+  if (!localStorage.getItem('ta_telegram_settings')) {
+    const defaultSettings = [
+      { tipo: 'timbratura_inizio', attivo: true },
+      { tipo: 'timbratura_fine', attivo: true },
+      { tipo: 'trasporto_creato', attivo: true },
+      { tipo: 'trasporto_attivato', attivo: true },
+      { tipo: 'trasporto_concluso', attivo: true },
+      { tipo: 'trasporto_eliminato', attivo: true },
+      { tipo: 'trasporto_trasferito', attivo: true },
+      { tipo: 'registrazione', attivo: true },
+      { tipo: 'prenotazione_creata', attivo: true },
+      { tipo: 'prenotazione_creata_bulk', attivo: true },
+      { tipo: 'prenotazione_cancellata', attivo: true },
+      { tipo: 'prenotazione_cancellata_bulk', attivo: true },
+      { tipo: 'prenotazione_modificata', attivo: true },
+      { tipo: 'profilo_modificato', attivo: true },
+      { tipo: 'accesso_admin', attivo: true }
+    ];
+    localStorage.setItem('ta_telegram_settings', JSON.stringify(defaultSettings));
+  }
 }
 
 // Helper per generare ID numerico incrementale
@@ -1344,6 +1364,36 @@ export const api = {
       console.error("Errore durante l'annullamento della convalida:", err)
       return { error: err }
     }
+  },
+
+  fetchTelegramSettings: async () => {
+    if (USE_MOCK) {
+      const settings = JSON.parse(localStorage.getItem('ta_telegram_settings')) || []
+      return { data: settings, error: null }
+    }
+    const { data, error } = await supabase
+      .from('telegram_settings')
+      .select('*')
+      .order('tipo', { ascending: true })
+    return { data, error }
+  },
+
+  updateTelegramSetting: async (tipo, attivo) => {
+    if (USE_MOCK) {
+      const settings = JSON.parse(localStorage.getItem('ta_telegram_settings')) || []
+      const index = settings.findIndex(s => s.tipo === tipo)
+      if (index !== -1) {
+        settings[index].attivo = attivo
+      } else {
+        settings.push({ tipo, attivo })
+      }
+      localStorage.setItem('ta_telegram_settings', JSON.stringify(settings))
+      return { error: null }
+    }
+    const { error } = await supabase
+      .from('telegram_settings')
+      .upsert({ tipo, attivo })
+    return { error }
   },
 
   fetchEmployeesWithPayments: async () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import {
   Users,
@@ -22,6 +22,64 @@ export default function AdminNotificationsTab({
   const [announcementText, setAnnouncementText] = useState('')
   const [announcementLoading, setAnnouncementLoading] = useState(false)
   const [announcementSuccess, setAnnouncementSuccess] = useState(false)
+
+  // Telegram Settings State
+  const [telegramSettings, setTelegramSettings] = useState([])
+  const [settingsLoading, setSettingsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const { data, error } = await api.fetchTelegramSettings()
+        if (!error && data) {
+          setTelegramSettings(data)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setSettingsLoading(false)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  const handleToggleTelegramSetting = async (tipo, currentStatus) => {
+    setTelegramSettings(prev => 
+      prev.map(s => s.tipo === tipo ? { ...s, attivo: !currentStatus } : s)
+    )
+    try {
+      const { error } = await api.updateTelegramSetting(tipo, !currentStatus)
+      if (error) {
+        setTelegramSettings(prev => 
+          prev.map(s => s.tipo === tipo ? { ...s, attivo: currentStatus } : s)
+        )
+        alert("Errore nell'aggiornamento dell'impostazione: " + error.message)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const getEventLabel = (tipo) => {
+    switch (tipo) {
+      case 'timbratura_inizio': return 'Inizio Turno (Timbratura)';
+      case 'timbratura_fine': return 'Fine Turno (Timbratura)';
+      case 'trasporto_creato': return 'Creazione Trasporto';
+      case 'trasporto_attivato': return 'Avvio Trasporto';
+      case 'trasporto_concluso': return 'Conclusione Trasporto';
+      case 'trasporto_eliminato': return 'Cancellazione Trasporto';
+      case 'trasporto_trasferito': return 'Passaggio Consegna Trasporto';
+      case 'registrazione': return 'Registrazione Nuovo Utente';
+      case 'prenotazione_creata': return 'Prenotazione Turno (Singola)';
+      case 'prenotazione_creata_bulk': return 'Prenotazioni Turno (Multiple)';
+      case 'prenotazione_cancellata': return 'Cancellazione Turno (Singola)';
+      case 'prenotazione_cancellata_bulk': return 'Cancellazioni Turno (Multiple)';
+      case 'prenotazione_modificata': return 'Modifica Prenotazione';
+      case 'profilo_modificato': return 'Modifica Profilo Utente';
+      case 'accesso_admin': return 'Accesso Amministratore';
+      default: return tipo;
+    }
+  }
 
   // Filters State
   const [filterType, setFilterType] = useState('all')
@@ -224,6 +282,39 @@ export default function AdminNotificationsTab({
               )}
             </button>
           </form>
+        </div>
+
+        {/* Gestione Notifiche Telegram */}
+        <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col gap-4 font-sans">
+          <div className="pb-2 border-b border-slate-200 font-semibold font-sans">
+            <h3 className="text-base font-bold text-slate-800">Filtri Notifiche Telegram</h3>
+            <p className="text-[10px] text-slate-550 mt-0.5 font-sans">Attiva/disattiva quali eventi inoltrare sul canale Telegram</p>
+          </div>
+
+          {settingsLoading ? (
+            <div className="text-center py-6 text-xs text-slate-400 font-bold">
+              Caricamento impostazioni...
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 max-h-[260px] overflow-y-auto pr-1">
+              {telegramSettings.map(setting => (
+                <div key={setting.tipo} className="flex items-center justify-between gap-4 text-xs font-semibold py-1 border-b border-slate-50">
+                  <span className="text-slate-700 font-bold truncate max-w-[200px]" title={setting.tipo}>
+                    {getEventLabel(setting.tipo)}
+                  </span>
+                  
+                  <button
+                    onClick={() => handleToggleTelegramSetting(setting.tipo, setting.attivo)}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer ${
+                      setting.attivo ? 'bg-indigo-650 justify-end' : 'bg-slate-300 justify-start'
+                    }`}
+                  >
+                    <div className="w-4 h-4 bg-white rounded-full shadow-md" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Legend of Notification Types */}

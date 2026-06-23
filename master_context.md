@@ -87,6 +87,12 @@ TurniAmbu (nome interno: `gm-turni`) è un'applicazione web single-page (SPA) de
 | `creato_da` | `text` |  |
 | `created_at` | `timestamptz` |  |
 
+#### Table `telegram_settings`
+| Name | Type | Constraints |
+|------|------|-------------|
+| `tipo` | `text` | Primary |
+| `attivo` | `bool` |  |
+
 #### Table `clocked_shifts`
 | Name | Type | Constraints |
 |------|------|-------------|
@@ -177,7 +183,7 @@ TurniAmbu (nome interno: `gm-turni`) è un'applicazione web single-page (SPA) de
 - I moduli utente (visualizzazione propri turni, disponibilità, storico) sono strutturati e collegati.
 - **Risolto Bug Eliminazione Trasporti**: Aggiornate le policy RLS su `transports`, `transport_crew` e `transport_handoffs` per consentire al proprietario (creatore) del trasporto di eliminarlo e pulire a cascata i record figli (evitando il blocco di PostgreSQL su RLS cascade).
 - **Consolidamento Database**: Unificato lo schema di configurazione in un unico file `supabase_setup.sql` eliminando il vecchio `supabase_update.sql`.
-- **Notifiche Telegram Avanzate (via Vault)**: Configurato un sistema di notifiche automatiche tramite trigger su `clocked_shifts` e `transports` che invia a Telegram un report formattato (Titolo, Utente, Azione, Ora). Per motivi di sicurezza, token e chat ID sono memorizzati in modo crittografato su Supabase Vault. La Console Telegram è stata rimossa dall'interfaccia amministratore, lasciando attivo solo l'invio delle notifiche.
+- **Notifiche Telegram Avanzate con Gestione Configurazione (via Vault e RLS)**: Configurato un sistema di notifiche automatiche tramite trigger su `public.notifications` che invia a Telegram un report formattato. Per motivi di sicurezza, token e chat ID sono memorizzati in modo crittografato su Supabase Vault. Introdotto un pannello di gestione dei filtri Telegram ("Filtri Notifiche Telegram" in `AdminNotificationsTab.jsx`) associato alla nuova tabella `telegram_settings` del database, che consente di abilitare/disabilitare l'inoltro di specifiche tipologie di eventi.
 - **Protezione Turni Convalidati**: Implementato il blocco di modifica/cancellazione sui turni convalidati (`pagato = true`) sia a livello di policy RLS sul database che a livello di interfaccia utente (Pencil button nascosto per i non-admin).
 - **Annullamento della Convalida dei Turni**: Aggiunta la possibilità per gli amministratori, sia dall'interfaccia responsive (`AdminPanel.jsx`) che da quella desktop (`AdminHoursTab.jsx`), di annullare la convalida di un turno timbrato (`pagato = false`) in caso di errore, chiamando la nuova funzione API `unvalidateShift`.
 
