@@ -950,6 +950,12 @@ export const api = {
 
     // Per Supabase Auth reale:
     const tempClient = createTempClient()
+    const cleanField = (val) => {
+      if (val === undefined || val === null) return null
+      const trimmed = String(val).trim()
+      return trimmed === '' ? null : trimmed
+    }
+
     try {
       const { data, error: signUpError } = await tempClient.auth.signUp({
         email: authEmail,
@@ -958,12 +964,12 @@ export const api = {
           data: {
             username: generatedUsername,
             ruolo: stato === 'admin' ? 'admin' : 'dipendente', // compatibilità legacy
-            nome,
-            cognome,
-            codice_fiscale,
-            email, // email di contatto
-            telefono,
-            data_nascita,
+            nome: cleanField(nome),
+            cognome: cleanField(cognome),
+            codice_fiscale: cleanField(codice_fiscale),
+            email: cleanField(email), // email di contatto
+            telefono: cleanField(telefono),
+            data_nascita: cleanField(data_nascita),
             stato,
             qualifica,
             paga_oraria: paga_oraria ? Number(paga_oraria) : null

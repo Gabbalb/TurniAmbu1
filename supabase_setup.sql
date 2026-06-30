@@ -496,17 +496,17 @@ DECLARE
   qual_val text;
   paga_val numeric;
 BEGIN
-  username_val := COALESCE(NEW.raw_user_meta_data ->> 'username', split_part(NEW.email, '@', 1));
-  ruolo_val := COALESCE(NEW.raw_user_meta_data ->> 'ruolo', 'dipendente');
-  nome_val := NEW.raw_user_meta_data ->> 'nome';
-  cognome_val := NEW.raw_user_meta_data ->> 'cognome';
-  cf_val := NEW.raw_user_meta_data ->> 'codice_fiscale';
-  email_val := COALESCE(NEW.raw_user_meta_data ->> 'email', NEW.email);
-  tel_val := NEW.raw_user_meta_data ->> 'telefono';
-  dob_val := (NEW.raw_user_meta_data ->> 'data_nascita')::date;
-  stato_val := COALESCE(NEW.raw_user_meta_data ->> 'stato', ruolo_val);
-  qual_val := COALESCE(NEW.raw_user_meta_data ->> 'qualifica', 'CE');
-  paga_val := (NEW.raw_user_meta_data ->> 'paga_oraria')::numeric;
+  username_val := COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'username', ''), split_part(NEW.email, '@', 1));
+  ruolo_val := COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'ruolo', ''), 'dipendente');
+  nome_val := NULLIF(NEW.raw_user_meta_data ->> 'nome', '');
+  cognome_val := NULLIF(NEW.raw_user_meta_data ->> 'cognome', '');
+  cf_val := NULLIF(NEW.raw_user_meta_data ->> 'codice_fiscale', '');
+  email_val := COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'email', ''), NEW.email);
+  tel_val := NULLIF(NEW.raw_user_meta_data ->> 'telefono', '');
+  dob_val := NULLIF(NEW.raw_user_meta_data ->> 'data_nascita', '')::date;
+  stato_val := COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'stato', ''), ruolo_val);
+  qual_val := COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'qualifica', ''), 'CE');
+  paga_val := NULLIF(NEW.raw_user_meta_data ->> 'paga_oraria', '')::numeric;
 
   IF stato_val = 'admin' THEN
     ruolo_val := 'admin';
