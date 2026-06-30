@@ -697,15 +697,26 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs font-semibold flex flex-col gap-2 mb-2">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                      <span>Questo trasporto è attualmente in corso (attivo) ed è mostrato in sola visualizzazione per evitare conflitti con l'operatore sul campo.</span>
+                      <span>Questo trasporto è attualmente in corso (attivo). Puoi terminarlo inserendo i dati mancanti, oppure sbloccarlo per modifiche generiche.</span>
                     </div>
                     {!isForceUnlocked && (
-                      <div className="pl-7">
+                      <div className="pl-7 flex gap-4">
                         <button
-                          onClick={() => setIsForceUnlocked(true)}
+                          onClick={() => {
+                            setIsForceUnlocked(true)
+                            setIsEditing(true)
+                            setEditForm(prev => ({ ...prev, stato: 'terminato' }))
+                          }}
                           className="text-xs text-indigo-700 hover:text-indigo-900 font-bold underline cursor-pointer"
                         >
-                          Se necessario, clicca qui per sbloccare la modifica e forzare la chiusura (terminazione) della scheda.
+                          Termina trasporto (inserisci dati di chiusura)
+                        </button>
+                        <span className="text-slate-350">|</span>
+                        <button
+                          onClick={() => setIsForceUnlocked(true)}
+                          className="text-xs text-slate-500 hover:text-slate-700 font-bold underline cursor-pointer"
+                        >
+                          Sblocca modifica generica
                         </button>
                       </div>
                     )}
@@ -1087,6 +1098,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                               onChange={e => setEditForm(prev => ({ ...prev, stato: e.target.value }))}
                               className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
                             >
+                              <option value="programmato">Programmato</option>
                               <option value="attivo">Attivo</option>
                               <option value="terminato">Terminato</option>
                             </select>
@@ -1423,13 +1435,28 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                       </button>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => setDeleteConfirm(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Elimina Trasporto
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setDeleteConfirm(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Elimina Trasporto
+                      </button>
+                      {selectedTransport.stato === 'attivo' && (
+                        <button 
+                          onClick={() => {
+                            setIsForceUnlocked(true)
+                            setIsEditing(true)
+                            setEditForm(prev => ({ ...prev, stato: 'terminato' }))
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-250 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Termina Trasporto
+                        </button>
+                      )}
+                    </div>
                   )
                 )}
               </div>
