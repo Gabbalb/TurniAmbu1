@@ -170,7 +170,7 @@ export default function TransportDrawer({
       const activeCe = activeTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
       const activeAs = activeTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
       const serviceTime = activeTransport.ora_servizio
-      if (!activeCe && !activeAs && serviceTime && activeTransport.stato !== 'programmato') {
+      if (!activeCe && !activeAs && serviceTime && activeTransport.stato === 'attivo') {
         const autocompile = async () => {
           try {
             const { data: shifts } = await api.fetchActiveShiftsAndBookingsForDate(activeTransport.data)
@@ -594,15 +594,13 @@ export default function TransportDrawer({
     }
 
     try {
-      if (profile?.ruolo === 'admin') {
-        const currentNotes = localNotes || ''
-        const appendedNote = currentNotes.trim() 
-          ? `${currentNotes}\n\nscheda chiusa da [admin]` 
-          : 'scheda chiusa da [admin]'
-        setLocalNotes(appendedNote)
-        const fullNotesText = buildNotesWithExternalCrew(appendedNote, ceEsterno, asEsterno)
-        await api.updateTransportField(activeTransport.id, 'note', fullNotesText)
-      }
+      const currentNotes = localNotes || ''
+      const appendedNote = (profile?.ruolo === 'admin')
+        ? (currentNotes.trim() ? `${currentNotes}\n\nscheda chiusa da [admin]` : 'scheda chiusa da [admin]')
+        : currentNotes
+      setLocalNotes(appendedNote)
+      const fullNotesText = buildNotesWithExternalCrew(appendedNote, ceEsterno, asEsterno)
+      await api.updateTransportField(activeTransport.id, 'note', fullNotesText)
 
       const { error } = await api.terminateTransport(activeTransport.id, finalVal, activeTransport.vehicle_id)
       if (error) throw error

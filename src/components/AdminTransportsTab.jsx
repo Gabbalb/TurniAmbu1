@@ -376,50 +376,47 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
     setTimeout(() => { document.title = originalTitle }, 1000)
   }
 
-  const handlePrintPDFForTransport = (t) => {
+  const handlePrintPDFForTransport = async (t) => {
     if (!t) return
 
-    setDownloadedTransports(prev => {
-      const next = new Set(prev)
-      next.add(t.id)
-      return next
-    })
+    setLoading(true)
+    try {
+      const { data, error } = await api.fetchTransportDetail(t.id)
+      if (error) throw error
 
-    const vehicle = vehicles.find(v => v.id === t.vehicle_id)
-    const vehicleName = vehicle ? `${vehicle.nome}${vehicle.targa ? ` (${vehicle.targa})` : ''}` : 'N/D'
+      setSelectedTransport(data)
 
-    const activeCe = t.crew?.find(c => c.ruolo === 'CE' && c.attivo)
-    const activeAs = t.crew?.find(c => c.ruolo === 'AS' && c.attivo)
+      setDownloadedTransports(prev => {
+        const next = new Set(prev)
+        next.add(t.id)
+        return next
+      })
 
-    const { notes: cleanNotes, ce_esterno, as_esterno } = parseExternalCrewFromNotes(t.note)
+      const dayStr = data.data
+        ? format(parseISO(data.data), 'dd-MM-yyyy')
+        : 'N-D'
+      const timeStr = data.ora_servizio
+        ? data.ora_servizio.slice(0, 5).replace(':', '-')
+        : 'N-D'
+      const patientNameClean = (data.paziente_cognome_nome || 'N-D')
+        .trim()
+        .replace(/[\s\W]+/g, '_')
 
-    const ceUser = activeCe?.user_id ? users.find(usr => usr.id === activeCe.user_id) : null
-    const ceName = ceUser ? `${ceUser.nome} ${ceUser.cognome}` : (ce_esterno ? `${ce_esterno} (Esterno)` : 'N/D')
+      const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
 
-    const asUser = activeAs?.user_id ? users.find(usr => usr.id === activeAs.user_id) : null
-    const asName = asUser ? `${asUser.nome} ${asUser.cognome}` : (as_esterno ? `${as_esterno} (Esterno)` : 'N/D')
+      const originalTitle = document.title
+      document.title = pdfFilename
 
-    const dayStr = t.data
-      ? format(parseISO(t.data), 'dd-MM-yyyy')
-      : 'N-D'
-    const timeStr = t.ora_servizio
-      ? t.ora_servizio.slice(0, 5).replace(':', '-')
-      : 'N-D'
-    const patientNameClean = (t.paziente_cognome_nome || 'N-D')
-      .trim()
-      .replace(/[\s\W]+/g, '_')
-
-    const pdfFilename = `GM_${dayStr}_${timeStr}_${patientNameClean}`
-
-    const originalTitle = document.title
-    document.title = pdfFilename
-
-    setSelectedTransport(t)
-
-    setTimeout(() => {
-      window.print()
-      setTimeout(() => { document.title = originalTitle }, 1000)
-    }, 120)
+      setTimeout(() => {
+        window.print()
+        setTimeout(() => { document.title = originalTitle }, 1000)
+      }, 150)
+    } catch (err) {
+      console.error(err)
+      alert("Impossibile generare il PDF per questo trasporto.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Filtered transports memo
