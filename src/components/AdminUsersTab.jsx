@@ -218,10 +218,10 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
               onChange={(e) => setFilterUserRole(e.target.value)}
               className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none"
             >
-              <option value="all font-sans">Tutti i Ruoli</option>
-              <option value="admin font-sans">Amministratori</option>
-              <option value="dipendente font-sans">Dipendenti</option>
-              <option value="volontario font-sans">Volontari</option>
+              <option value="all">Tutti i Ruoli</option>
+              <option value="admin">Amministratori</option>
+              <option value="dipendente">Dipendenti</option>
+              <option value="volontario">Volontari</option>
             </select>
 
             <button
@@ -410,9 +410,9 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setNewStato(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="volontario font-sans">Volontario</option>
-                    <option value="dipendente font-sans">Dipendente</option>
-                    <option value="admin font-sans">Amministratore</option>
+                    <option value="volontario">Volontario</option>
+                    <option value="dipendente">Dipendente</option>
+                    <option value="admin">Amministratore</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -422,8 +422,8 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setNewQualifica(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="CE font-sans">Capo Equipaggio (CE)</option>
-                    <option value="autista font-sans">Autista Ambulanza</option>
+                    <option value="CE">Capo Equipaggio (CE)</option>
+                    <option value="autista">Autista Ambulanza</option>
                   </select>
                 </div>
               </div>
@@ -573,9 +573,9 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setEditStato(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="volontario font-sans">Volontario</option>
-                    <option value="dipendente font-sans">Dipendente</option>
-                    <option value="admin font-sans">Amministratore</option>
+                    <option value="volontario">Volontario</option>
+                    <option value="dipendente">Dipendente</option>
+                    <option value="admin">Amministratore</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -585,8 +585,8 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setEditQualifica(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="CE font-sans">Capo Equipaggio (CE)</option>
-                    <option value="autista font-sans">Autista Ambulanza</option>
+                    <option value="CE">Capo Equipaggio (CE)</option>
+                    <option value="autista">Autista Ambulanza</option>
                   </select>
                 </div>
               </div>
