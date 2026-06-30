@@ -64,15 +64,15 @@ function AppContent() {
         const hasActiveTransport = !!activeTransport
 
         if ((hasActiveShift || hasActiveTransport) && Notification.permission === 'granted') {
-          let title = "⚠️ GM Turni: Sessione Attiva"
-          let body = "Ricordati di chiudere il turno e il trasporto prima di andare via!"
+          let title = ""
+          let body = ""
 
-          if (hasActiveShift && !hasActiveTransport) {
-            title = "⚠️ Turno Attivo in corso"
-            body = "Hai ancora il turno attivo registrato. Ricordati di timbrare l'uscita!"
-          } else if (!hasActiveShift && hasActiveTransport) {
-            title = "⚠️ Trasporto Attivo in corso"
-            body = "Hai un trasporto attivo non concluso. Ricordati di chiudere la scheda!"
+          if (hasActiveTransport) {
+            title = "🔵 Trasporto in Corso"
+            body = "Hai una scheda attiva. Ricordati di completarla e chiuderla!"
+          } else if (hasActiveShift) {
+            title = "🟢 Turno Attivo"
+            body = "Ricordati di terminarlo prima di andare via!"
           }
 
           if (navigator.serviceWorker && navigator.serviceWorker.controller) {
