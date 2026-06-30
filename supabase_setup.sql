@@ -119,7 +119,6 @@ CREATE TABLE IF NOT EXISTS public.transports (
   created_at timestamptz DEFAULT now() NOT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL,
   CONSTRAINT transports_stato_check CHECK (stato IN ('attivo', 'terminato', 'programmato')),
-  CONSTRAINT transports_tipo_pagamento_check CHECK (tipo_pagamento IN ('contante', 'pos', 'bonifico', 'buono', 'convenzione', 'altro', '')),
   CONSTRAINT transports_tipo_trasporto_check CHECK (tipo_trasporto IN ('dimissione', 'visita', 'trasferimento', 'altro')),
   CONSTRAINT transports_variante_ar_check CHECK (variante_ar IN ('andata_ritorno', 'andata', 'ritorno')),
   CONSTRAINT transports_da_tipo_luogo_check CHECK (da_tipo_luogo IN ('ospedale', 'rsa', 'abitazione')),

@@ -886,26 +886,33 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-slate-400 uppercase">Metodo</label>
-                            <select
-                              value={editForm.tipo_pagamento}
-                              onChange={e => {
-                                const val = e.target.value
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  tipo_pagamento: val,
-                                  importo: val === 'convenzione' ? '' : prev.importo
-                                }))
-                              }}
-                              className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
-                            >
-                              <option value="">Nessuno</option>
-                              <option value="contante">Contante</option>
-                              <option value="pos">POS</option>
-                              <option value="bonifico">Bonifico</option>
-                              <option value="buono">Buono</option>
-                              <option value="convenzione">Convenzione</option>
-                              <option value="altro">Altro</option>
-                            </select>
+                            {(() => {
+                              const selectValue = ['contante', 'pos', 'bonifico', 'buono', 'convenzione', ''].includes(editForm.tipo_pagamento)
+                                ? editForm.tipo_pagamento
+                                : (editForm.tipo_pagamento ? 'altro' : '')
+                              return (
+                                <select
+                                  value={selectValue}
+                                  onChange={e => {
+                                    const val = e.target.value
+                                    setEditForm(prev => ({
+                                      ...prev,
+                                      tipo_pagamento: val,
+                                      importo: val === 'convenzione' ? '' : prev.importo
+                                    }))
+                                  }}
+                                  className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer"
+                                >
+                                  <option value="">Nessuno</option>
+                                  <option value="contante">Contante</option>
+                                  <option value="pos">POS</option>
+                                  <option value="bonifico">Bonifico</option>
+                                  <option value="buono">Buono</option>
+                                  <option value="convenzione">Convenzione</option>
+                                  <option value="altro">Altro</option>
+                                </select>
+                              )
+                            })()}
                           </div>
                           {editForm.tipo_pagamento !== 'convenzione' && (
                             <div className="space-y-1.5">
@@ -916,6 +923,20 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                                 value={editForm.importo}
                                 onChange={e => setEditForm(prev => ({ ...prev, importo: e.target.value }))}
                                 placeholder="0.00"
+                                className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
+                              />
+                            </div>
+                          )}
+
+                          {/* Custom payment specification for admin */}
+                          {!['contante', 'pos', 'bonifico', 'buono', 'convenzione', ''].includes(editForm.tipo_pagamento) && (
+                            <div className="space-y-1.5 mt-2 col-span-2">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Specifica Pagamento *</label>
+                              <input 
+                                type="text"
+                                value={editForm.tipo_pagamento === 'altro' ? '' : editForm.tipo_pagamento}
+                                onChange={e => setEditForm(prev => ({ ...prev, tipo_pagamento: e.target.value || 'altro' }))}
+                                placeholder="Es. Bonifico bancario"
                                 className="w-full bg-white border border-slate-250 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                               />
                             </div>

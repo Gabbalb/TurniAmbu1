@@ -283,7 +283,9 @@ export default function TransportDrawer({
       const payVal = activeTransport.tipo_pagamento || ''
       const payValLower = payVal.toLowerCase()
       const isCustomPay = payValLower && !['contante', 'pos', 'buono', 'convenzione'].includes(payValLower)
-      if (activeField !== 'tipo_pagamento') setLocalAltroPagamento(isCustomPay ? payVal : '')
+      if (activeField !== 'tipo_pagamento') {
+        setLocalAltroPagamento(isCustomPay ? (payValLower === 'altro' ? '' : payVal) : '')
+      }
     }
   }, [activeTransport])
 
@@ -1384,7 +1386,7 @@ export default function TransportDrawer({
                     onClick={() => {
                       setLocalAltroPagamento('')
                       if (p === 'Altro...') {
-                        handleSaveFields({ tipo_pagamento: '' })
+                        handleSaveFields({ tipo_pagamento: 'altro' })
                       } else {
                         const updates = { tipo_pagamento: p.toLowerCase() }
                         if (p.toLowerCase() === 'convenzione') {
@@ -1416,7 +1418,7 @@ export default function TransportDrawer({
                     data-field="tipo_pagamento"
                     value={localAltroPagamento}
                     onChange={(e) => setLocalAltroPagamento(e.target.value)}
-                    onBlur={() => handleSaveField('tipo_pagamento', localAltroPagamento)}
+                    onBlur={() => handleSaveField('tipo_pagamento', localAltroPagamento.trim() || 'altro')}
                     placeholder="Es. Bonifico bancario"
                     className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-205 outline-none transition-all placeholder:text-slate-700"
                   />
