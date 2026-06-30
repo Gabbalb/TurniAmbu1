@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Truck, RefreshCw } from 'lucide-react'
+import { Truck, RefreshCw, ChevronRight, Clock, User, MapPin } from 'lucide-react'
 import { api } from '../lib/api'
 
 export default function TransportTab({
@@ -21,12 +21,12 @@ export default function TransportTab({
   const [vehicles, setVehicles] = useState([])
 
   const [assignedScheduled, setAssignedScheduled] = useState([])
-  const [scheduledLoading, setScheduledLoading] = useState(false)
   const [isStartingProgrammed, setIsStartingProgrammed] = useState(false)
+
+  const [shiftTransports, setShiftTransports] = useState([])
 
   const loadAssignedScheduled = async () => {
     if (!profile?.id) return
-    setScheduledLoading(true)
     try {
       const { data, error } = await api.fetchAssignedScheduledTransports(profile.id)
       if (!error && data) {
@@ -42,8 +42,6 @@ export default function TransportTab({
       }
     } catch (e) {
       console.error(e)
-    } finally {
-      setScheduledLoading(false)
     }
   }
 
@@ -122,6 +120,27 @@ export default function TransportTab({
       loadAssignedScheduled()
     }
   }, [profile?.id, refreshKey])
+
+  const loadShiftTransports = async () => {
+    if (!profile?.id || !activeShift?.start_time) {
+      setShiftTransports([])
+      return
+    }
+    try {
+      const { data, error } = await api.fetchShiftTransports(profile.id, activeShift.start_time)
+      if (!error && data) {
+        setShiftTransports(data)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadShiftTransports()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, activeShift?.start_time, refreshKey, activeTransport])
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-6 text-left">
@@ -223,6 +242,81 @@ export default function TransportTab({
             </button>
           )}
         </div>
+      )}
+
+      {/* Altri trasporti eseguiti nel turno attivo */}
+      {activeShift && (
+        (() => {
+          const otherTransports = shiftTransports.filter(t => t.id !== activeTransport?.id)
+          if (otherTransports.length === 0) return null
+          
+          return (
+            <div className="space-y-4 mt-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 font-sans">
+                <Truck className="w-4 h-4 text-emerald-400" />
+                Altri trasporti in questo turno ({otherTransports.length})
+              </h3>
+              <div className="space-y-3">
+                {otherTransports.map(t => (
+                  <div
+                    key={t.id}
+                    onClick={async () => {
+                      try {
+                        const { data: detail, error } = await api.fetchTransportDetail(t.id)
+                        if (!error && detail) {
+                          onViewOnlyOpen(detail)
+                        } else {
+                          onViewOnlyOpen(t)
+                        }
+                      } catch {
+                        onViewOnlyOpen(t)
+                      }
+                    }}
+                    className="bg-slate-900/60 border border-slate-800/85 hover:border-indigo-500/30 p-4 rounded-2xl flex flex-col gap-2.5 shadow hover:shadow-md cursor-pointer transition-all hover:bg-slate-900/80 active:scale-[0.98] group relative overflow-hidden text-left"
+                  >
+                    <div className="flex items-center justify-between pr-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-350 font-mono">Scheda #{t.id}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-sans ${
+                          t.stato === 'terminato' 
+                            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                            : 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400'
+                        }`}>
+                          {t.stato === 'terminato' ? 'Concluso' : t.stato}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium font-sans">
+                        <Clock className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{t.ora_servizio ? t.ora_servizio.slice(0, 5) : 'N/D'}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-355 space-y-1.5 font-sans pr-6">
+                      <div className="flex items-start gap-1.5">
+                        <User className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                        <span className="font-semibold text-slate-200">
+                          {t.paziente_cognome_nome || 'Nessun paziente indicato'}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                        <div className="text-slate-300">
+                          <span className="font-medium">{t.da_nome || t.da_via || 'N/D'}</span>
+                          <span className="text-slate-500 mx-1.5">➜</span>
+                          <span className="font-medium">{t.a_nome || t.a_via || 'N/D'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-indigo-400 transition-colors">
+                      <ChevronRight className="w-5 h-5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()
       )}
 
       {/* Admin view for all active transports in the system */}
@@ -387,7 +481,7 @@ export default function TransportTab({
                       } else {
                         onViewOnlyOpen(t)
                       }
-                    } catch (e) {
+                    } catch {
                       onViewOnlyOpen(t)
                     }
                   }}

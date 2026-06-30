@@ -1864,6 +1864,29 @@ export const api = {
     }
   },
 
+  fetchShiftTransports: async (userId, startTime) => {
+    if (USE_MOCK) {
+      const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
+      const shiftTransports = transports.filter(t => 
+        t.creato_da === userId && 
+        new Date(t.created_at || t.ora_inizio) >= new Date(startTime)
+      )
+      return { data: shiftTransports, error: null }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .select('*')
+        .eq('creato_da', userId)
+        .gte('created_at', startTime)
+        .order('created_at', { ascending: false })
+      return { data, error }
+    } catch (err) {
+      console.error('Errore recupero trasporti del turno:', err)
+      return { error: err }
+    }
+  },
+
   createTransport: async (userId) => {
     const d = new Date()
     const year = d.getFullYear()
