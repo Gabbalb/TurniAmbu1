@@ -85,6 +85,12 @@ export default function TimbraTurno() {
 
   const handleStartShift = async () => {
     if (!profile?.id) return
+    
+    // Richiedi permessi notifiche
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(err => console.error(err));
+    }
+
     setActionLoading(true)
     setError(null)
     setSuccessInfo(null)

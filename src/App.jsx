@@ -54,6 +54,55 @@ function AppContent() {
     }
   }
 
+  // Gestione Notifica Lockscreen / Promemoria quando lo schermo si spegne o la tab si nasconde
+  useEffect(() => {
+    if (!('Notification' in window)) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const hasActiveShift = !!activeShift
+        const hasActiveTransport = !!activeTransport
+
+        if ((hasActiveShift || hasActiveTransport) && Notification.permission === 'granted') {
+          let title = "⚠️ GM Turni: Sessione Attiva"
+          let body = "Ricordati di chiudere il turno e il trasporto prima di andare via!"
+
+          if (hasActiveShift && !hasActiveTransport) {
+            title = "⚠️ Turno Attivo in corso"
+            body = "Hai ancora il turno attivo registrato. Ricordati di timbrare l'uscita!"
+          } else if (!hasActiveShift && hasActiveTransport) {
+            title = "⚠️ Trasporto Attivo in corso"
+            body = "Hai un trasporto attivo non concluso. Ricordati di chiudere la scheda!"
+          }
+
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification(title, {
+                body: body,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                tag: 'active-session-reminder',
+                requireInteraction: true
+              });
+            });
+          } else {
+            new Notification(title, {
+              body: body,
+              icon: '/logo.png',
+              tag: 'active-session-reminder',
+              requireInteraction: true
+            });
+          }
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [activeShift, activeTransport])
+
   useEffect(() => {
     if (profile?.id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -88,6 +137,12 @@ function AppContent() {
 
   const handleStartNewTransport = async () => {
     if (!profile?.id) return
+    
+    // Richiedi permessi notifiche
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(err => console.error(err));
+    }
+
     setStartLoading(true)
     try {
       const { data, error } = await api.createTransport(profile.id)
@@ -194,6 +249,7 @@ function AppContent() {
       activeTransport={userActiveTransport}
       isDrawerOpen={isTransportDrawerOpen}
       onExpandDrawer={() => setIsTransportDrawerOpen(true)}
+      activeShift={activeShift}
     >
       {view === 'board' && (
         <TurniBoard
