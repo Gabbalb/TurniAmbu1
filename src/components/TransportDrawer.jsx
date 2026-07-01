@@ -739,7 +739,7 @@ export default function TransportDrawer({
               <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest font-sans">Seleziona Stato</span>
               {[
                 'Diretti dal paziente',
-                'Diretti alla destinazione',
+                'Paziente in Carico',
                 'In rientro'
               ].map(st => {
                 const isSelected = (activeTransport.stato_trasporto || 'Diretti dal paziente') === st;
@@ -864,7 +864,7 @@ export default function TransportDrawer({
               } ${
                 (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti dal paziente'
                   ? 'bg-blue-950/40 border-blue-500/25 text-blue-300'
-                  : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti alla destinazione'
+                  : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Paziente in Carico'
                   ? 'bg-amber-955/40 border-amber-500/25 text-amber-300'
                   : 'bg-purple-955/40 border-purple-500/25 text-purple-300'
               }`}
@@ -873,7 +873,7 @@ export default function TransportDrawer({
                 <span className={`w-3 h-3 rounded-full animate-pulse shrink-0 ${
                   (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti dal paziente'
                     ? 'bg-blue-400'
-                    : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti alla destinazione'
+                    : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Paziente in Carico'
                     ? 'bg-amber-400'
                     : 'bg-purple-400'
                 }`} />
@@ -897,7 +897,7 @@ export default function TransportDrawer({
               <div className="bg-slate-800/20 border border-slate-800/85 p-3 rounded-2xl grid grid-cols-1 gap-2 animate-fade-in text-left">
                 {[
                   'Diretti dal paziente',
-                  'Diretti alla destinazione',
+                  'Paziente in Carico',
                   'In rientro'
                 ].map(st => {
                   const isSelected = (activeTransport.stato_trasporto || 'Diretti dal paziente') === st;

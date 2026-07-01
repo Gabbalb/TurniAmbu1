@@ -1994,10 +1994,25 @@ export const api = {
           const creator = profiles.find(p => p.id === transports[index].creato_da)
           const username = creator ? creator.username : 'Sistema'
           
+          const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+          const veh = vehicles.find(v => String(v.id) === String(transports[index].vehicle_id))
+          const vehName = veh ? veh.nome : 'N/D'
+          
+          let msgText = ''
+          if (value === 'Diretti dal paziente') {
+            msgText = `🚑 Mezzo ${vehName} in viaggio verso il paziente (Trasporto #${transportId})`
+          } else if (value === 'Paziente in Carico') {
+            msgText = `🏥 Paziente a bordo del mezzo ${vehName}, diretti a destinazione (Trasporto #${transportId})`
+          } else if (value === 'In rientro') {
+            msgText = `🔄 Mezzo ${vehName} in rientro in sede (Trasporto #${transportId})`
+          } else {
+            msgText = `🔄 Stato del trasporto #${transportId} cambiato in: ${value} (Mezzo: ${vehName})`
+          }
+          
           notifications.push({
             id: getNextId(notifications),
             tipo: 'trasporto_stato_modificato',
-            messaggio: `Stato del trasporto #${transportId} cambiato in: ${value}`,
+            messaggio: msgText,
             creato_da: username,
             created_at: nowIso
           })
@@ -2040,10 +2055,25 @@ export const api = {
           const creator = profiles.find(p => p.id === transports[index].creato_da)
           const username = creator ? creator.username : 'Sistema'
           
+          const vehicles = JSON.parse(localStorage.getItem('ta_vehicles')) || []
+          const veh = vehicles.find(v => String(v.id) === String(transports[index].vehicle_id))
+          const vehName = veh ? veh.nome : 'N/D'
+          
+          let msgText = ''
+          if (newVal === 'Diretti dal paziente') {
+            msgText = `🚑 Mezzo ${vehName} in viaggio verso il paziente (Trasporto #${transportId})`
+          } else if (newVal === 'Paziente in Carico') {
+            msgText = `🏥 Paziente a bordo del mezzo ${vehName}, diretti a destinazione (Trasporto #${transportId})`
+          } else if (newVal === 'In rientro') {
+            msgText = `🔄 Mezzo ${vehName} in rientro in sede (Trasporto #${transportId})`
+          } else {
+            msgText = `🔄 Stato del trasporto #${transportId} cambiato in: ${newVal} (Mezzo: ${vehName})`
+          }
+          
           notifications.push({
             id: getNextId(notifications),
             tipo: 'trasporto_stato_modificato',
-            messaggio: `Stato del trasporto #${transportId} cambiato in: ${newVal}`,
+            messaggio: msgText,
             creato_da: username,
             created_at: nowIso
           })
