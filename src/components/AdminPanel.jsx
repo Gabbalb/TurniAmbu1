@@ -180,10 +180,9 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
     try {
       const { data: profs } = await api.fetchProfiles()
       setProfiles(profs || [])
-
       const { data: crws } = await api.fetchCrews()
       setCrews(crws || [])
-      const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+      const reinforcementCrews = (crws || []).filter(c => c.id !== 1 && !c.nome.startsWith('Extra'))
       if (reinforcementCrews.length > 0) {
         setCrewSelectedId(String(reinforcementCrews[0].id))
       } else {
@@ -273,7 +272,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
         setNewCrewName('')
         const { data: crws } = await api.fetchCrews()
         setCrews(crws || [])
-        const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+        const reinforcementCrews = (crws || []).filter(c => c.id !== 1 && !c.nome.startsWith('Extra'))
         if (reinforcementCrews.length > 0) {
           setCrewSelectedId(String(reinforcementCrews[reinforcementCrews.length - 1].id))
         } else {
@@ -296,7 +295,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
       } else {
         const { data: crws } = await api.fetchCrews()
         setCrews(crws || [])
-        const reinforcementCrews = (crws || []).filter(c => c.id !== 1)
+        const reinforcementCrews = (crws || []).filter(c => c.id !== 1 && !c.nome.startsWith('Extra'))
         if (reinforcementCrews.length > 0) {
           setCrewSelectedId(String(reinforcementCrews[0].id))
         } else {
@@ -994,18 +993,18 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                       id="crewSelect"
                       value={crewSelectedId}
                       onChange={(e) => setCrewSelectedId(e.target.value)}
-                      disabled={crews.filter(c => c.id !== 1).length === 0}
+                      disabled={crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).length === 0}
                       className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold disabled:opacity-50"
                     >
-                      {crews.filter(c => c.id !== 1).length === 0 ? (
+                      {crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).length === 0 ? (
                         <option value="">Nessun altro equipaggio registrato</option>
                       ) : (
-                        crews.filter(c => c.id !== 1).map(c => (
+                        crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).map(c => (
                           <option key={c.id} value={c.id}>{c.nome}</option>
                         ))
                       )}
                     </select>
-                    {crews.filter(c => c.id !== 1).length === 0 && (
+                    {crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).length === 0 && (
                       <span className="text-[9px] text-amber-500 font-semibold leading-normal">
                         ⚠️ Registra prima un secondo equipaggio (es. Equipaggio 2) nella sezione sottostante.
                       </span>
@@ -1015,7 +1014,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
 
                 <button
                   type="submit"
-                  disabled={crews.filter(c => c.id !== 1).length === 0}
+                  disabled={crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).length === 0}
                   className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   Aggiungi Equipaggio a Fascia
@@ -1050,11 +1049,11 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                 {/* Lista Equipaggi Registrati */}
                 <div className="flex flex-col gap-2 mt-1">
                   <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider px-0.5">Elenco Equipaggi</span>
-                  {crews.length === 0 ? (
+                  {crews.filter(c => !c.nome.startsWith('Extra')).length === 0 ? (
                     <span className="text-[10px] text-slate-500 italic">Nessun equipaggio presente.</span>
                   ) : (
                     <div className="flex flex-col gap-1.5">
-                      {crews.map(c => (
+                      {crews.filter(c => !c.nome.startsWith('Extra')).map(c => (
                         <div key={c.id} className="flex items-center justify-between bg-slate-950/40 border border-slate-850 p-2.5 rounded-xl text-xs">
                           <span className="font-bold text-slate-200">{c.nome}</span>
                           {c.id !== 1 && ( // Impedisci di eliminare l'equipaggio principale (default)

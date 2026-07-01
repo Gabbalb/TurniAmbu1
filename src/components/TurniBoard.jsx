@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X } from 'lucide-react'
+import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X, Plus } from 'lucide-react'
 
 const getUserDisplayName = (prof) => {
   if (!prof) return ''
@@ -715,6 +715,33 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     }
   }
 
+  // Aggiunge un equipaggio occasionale per una certa data e fascia (solo admin)
+  const handleAddOccasionalCrew = async (dateStr, startTime, slotId) => {
+    const slots = {
+      '06:00:00': '14:00:00',
+      '14:00:00': '22:00:00',
+      '22:00:00': '06:00:00'
+    }
+    const endTime = slots[startTime]
+    
+    const confirmAdd = window.confirm(
+      `Vuoi aggiungere un equipaggio extra per la fascia ${startTime.slice(0, 5)}–${endTime.slice(0, 5)} del ${dateStr}?`
+    )
+    if (!confirmAdd) return
+
+    try {
+      const { error } = await api.adminAddOccasionalCrewToShift(dateStr, startTime, endTime)
+      if (error) {
+        alert(error.message || "Errore durante l'aggiunta dell'equipaggio extra.")
+      } else {
+        await loadBoardData(true)
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Si è verificato un errore imprevisto.")
+    }
+  }
+
   // Trova le fasce orarie e le colorazioni corrispondenti
   const getShiftStyle = (ora_inizio) => {
     if (ora_inizio.startsWith('06:')) {
@@ -924,6 +951,10 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               return normA - normB
             })
           
+          const displayCrewName = crewObj
+            ? (crewObj.nome.startsWith('Extra') ? 'Equipaggio Extra' : crewObj.nome)
+            : `Equipaggio ${shift.crew_id}`
+
           const containerClasses = isHistory 
             ? "w-full text-left bg-slate-900/40 border border-slate-800/80 p-3.5 rounded-2xl shadow-inner-soft flex flex-col gap-2"
             : "w-full text-left bg-slate-900/40 border border-slate-800/80 hover:border-indigo-500/40 hover:bg-slate-900/60 p-3.5 rounded-2xl shadow-inner-soft transition-all duration-200 flex flex-col gap-2 cursor-pointer"
@@ -933,9 +964,9 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               {/* Nome Equipaggio */}
               <div className="flex items-center justify-between w-full pb-1 border-b border-slate-800/40">
                 <span className="text-xs font-extrabold text-indigo-400 uppercase tracking-widest">
-                  {crewObj ? crewObj.nome : `Equipaggio ${shift.crew_id}`}
+                  {displayCrewName}
                 </span>
-                {idx > 0 && (
+                {(idx > 0 || (crewObj && crewObj.nome.startsWith('Extra'))) && (
                   <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-semibold">
                     Rinforzo
                   </span>
@@ -1045,6 +1076,17 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
               {/* Contenuto Equipaggi */}
               {renderCrewsForShift(dateStr, slot.start)}
+
+              {/* Bottone Aggiungi Equipaggio (Solo Admin) */}
+              {profile?.ruolo === 'admin' && !isHistory && (
+                <button
+                  onClick={() => handleAddOccasionalCrew(dateStr, slot.start, slot.id)}
+                  className="mt-2.5 w-full py-2.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 hover:border-indigo-500/40 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 duration-150"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Aggiungi equipaggio</span>
+                </button>
+              )}
             </div>
           )
         })}
@@ -1346,7 +1388,11 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
               {/* Nome Equipaggio */}
               <span className="text-xs font-black text-slate-500 uppercase tracking-widest mt-3">
-                {crews.find(c => String(c.id) === String(selectedCrewShift.shift.crew_id))?.nome || `Equipaggio ${selectedCrewShift.shift.crew_id}`}
+                {(() => {
+                  const c = crews.find(cr => String(cr.id) === String(selectedCrewShift.shift.crew_id))
+                  if (!c) return `Equipaggio ${selectedCrewShift.shift.crew_id}`
+                  return c.nome.startsWith('Extra') ? 'Equipaggio Extra' : c.nome
+                })()}
               </span>
             </div>
 

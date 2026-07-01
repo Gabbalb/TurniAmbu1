@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 
 export default function AdminCrewsTab({ crews, onRefresh }) {
   const [newCrewName, setNewCrewName] = useState('')
+  const fixedCrews = (crews || []).filter(c => !c.nome.startsWith('Extra'))
 
   // Creazione Equipaggio
   const handleCreateCrew = async (e) => {
@@ -49,7 +50,7 @@ export default function AdminCrewsTab({ crews, onRefresh }) {
         <h3 className="text-lg font-bold text-slate-800 pb-2 border-b border-slate-200 font-sans">Equipaggi Attivi</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {crews.map(c => (
+          {fixedCrews.map(c => (
             <div key={c.id} className="bg-slate-55 border border-slate-200/60 p-5 rounded-2xl flex items-center justify-between shadow-sm group font-sans">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
@@ -73,7 +74,7 @@ export default function AdminCrewsTab({ crews, onRefresh }) {
             </div>
           ))}
 
-          {crews.length === 0 && (
+          {fixedCrews.length === 0 && (
             <div className="col-span-2 text-center py-8 text-slate-400 font-bold">
               Nessun equipaggio caricato nel roster
             </div>

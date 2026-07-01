@@ -36,7 +36,7 @@ export default function AdminDashboardTab({
 
   useEffect(() => {
     setCrewDate(new Date().toISOString().split('T')[0])
-    const reinforcementCrews = (crews || []).filter(c => c.id !== 1)
+    const reinforcementCrews = (crews || []).filter(c => c.id !== 1 && !c.nome.startsWith('Extra'))
     if (reinforcementCrews.length > 0) {
       setCrewSelectedId(String(reinforcementCrews[0].id))
     }
@@ -273,7 +273,7 @@ export default function AdminDashboardTab({
                     <div key={shift.id} className="bg-slate-55 border border-slate-200/60 p-3 rounded-xl flex flex-col gap-2">
                       <div className="flex items-center justify-between text-[10px] font-bold">
                         <span className="text-indigo-650 uppercase tracking-wider">
-                          {crewObj?.nome || `Equipaggio ${shift.crew_id}`}
+                          {crewObj?.nome?.startsWith('Extra') ? 'Equipaggio Extra' : (crewObj?.nome || `Equipaggio ${shift.crew_id}`)}
                         </span>
                         <span className="text-slate-800">
                           {shift.ora_inizio.slice(0, 5)} - {shift.ora_fine.slice(0, 5)}
@@ -342,7 +342,7 @@ export default function AdminDashboardTab({
                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                     required
                   >
-                    {crews.filter(c => c.id !== 1).map(c => (
+                    {crews.filter(c => c.id !== 1 && !c.nome.startsWith('Extra')).map(c => (
                       <option key={c.id} value={c.id}>{c.nome}</option>
                     ))}
                   </select>

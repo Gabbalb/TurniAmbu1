@@ -279,7 +279,8 @@ export const api = {
 
   // Crea i turni di default per una determinata data se non esistono
   ensureShiftsExistForDates: async (dates, crews) => {
-    if (dates.length === 0 || crews.length === 0) return { error: null }
+    const fixedCrews = (crews || []).filter(c => !c.nome.startsWith('Extra'))
+    if (dates.length === 0 || fixedCrews.length === 0) return { error: null }
 
     const standardTimeSlots = [
       { ora_inizio: '06:00:00', ora_fine: '14:00:00' },
@@ -293,7 +294,7 @@ export const api = {
       let added = false
 
       dates.forEach(date => {
-        crews.slice(0, 1).forEach(crew => {
+        fixedCrews.slice(0, 1).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = shifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && s.crew_id === crew.id
@@ -333,7 +334,7 @@ export const api = {
 
       const insertRows = []
       dates.forEach(date => {
-        crews.slice(0, 1).forEach(crew => {
+        fixedCrews.slice(0, 1).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = existingShifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && String(s.crew_id) === String(crew.id)
@@ -788,6 +789,100 @@ export const api = {
       })
       .select()
       .single()
+  },
+
+  // Aggiunge un equipaggio occasionale per una certa data e fascia
+  adminAddOccasionalCrewToShift: async (date, ora_inizio, ora_fine) => {
+    const timeShort = ora_inizio.slice(0, 5)
+    const crewName = `Extra - ${date} ${timeShort}`
+
+    if (USE_MOCK) {
+      const crews = JSON.parse(localStorage.getItem('ta_crews')) || []
+      let crew = crews.find(c => c.nome === crewName)
+      if (!crew) {
+        crew = {
+          id: getNextId(crews),
+          nome: crewName,
+          attivo: true
+        }
+        crews.push(crew)
+        localStorage.setItem('ta_crews', JSON.stringify(crews))
+      }
+
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      const exists = shifts.some(
+        s => s.data === date && s.ora_inizio === ora_inizio && String(s.crew_id) === String(crew.id)
+      )
+
+      if (exists) {
+        return { error: { message: 'Questo equipaggio extra è già presente per questa fascia.' } }
+      }
+
+      const newShift = {
+        id: getNextId(shifts),
+        data: date,
+        ora_inizio: ora_inizio,
+        ora_fine: ora_fine,
+        crew_id: crew.id
+      }
+      shifts.push(newShift)
+      localStorage.setItem('ta_shifts', JSON.stringify(shifts))
+      return { data: { shift: newShift, crew }, error: null }
+    }
+
+    try {
+      let { data: existingCrew, error: selectErr } = await supabase
+        .from('crews')
+        .select('*')
+        .eq('nome', crewName)
+        .maybeSingle()
+
+      if (selectErr) throw selectErr
+
+      let crew = existingCrew
+      if (!crew) {
+        const { data: newCrew, error: insertCrewErr } = await supabase
+          .from('crews')
+          .insert({ nome: crewName, attivo: true })
+          .select()
+          .single()
+
+        if (insertCrewErr) throw insertCrewErr
+        crew = newCrew
+      }
+
+      const { data: existingShift, error: shiftSelectErr } = await supabase
+        .from('shifts')
+        .select('*')
+        .eq('data', date)
+        .eq('ora_inizio', ora_inizio)
+        .eq('crew_id', crew.id)
+        .maybeSingle()
+
+      if (shiftSelectErr) throw shiftSelectErr
+
+      if (existingShift) {
+        return { error: { message: 'Questo equipaggio extra è già presente per questa fascia.' } }
+      }
+
+      const { data: newShift, error: insertShiftErr } = await supabase
+        .from('shifts')
+        .insert({
+          data: date,
+          ora_inizio: ora_inizio,
+          ora_fine: ora_fine,
+          crew_id: crew.id
+        })
+        .select()
+        .single()
+
+      if (insertShiftErr) throw insertShiftErr
+
+      return { data: { shift: newShift, crew }, error: null }
+    } catch (err) {
+      console.error('Errore in adminAddOccasionalCrewToShift:', err)
+      return { error: err }
+    }
   },
 
   createCrew: async (nome) => {
