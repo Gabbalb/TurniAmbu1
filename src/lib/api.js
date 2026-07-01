@@ -168,6 +168,7 @@ if (USE_MOCK) {
       { tipo: 'timbratura_fine', attivo: true },
       { tipo: 'trasporto_creato', attivo: true },
       { tipo: 'trasporto_attivato', attivo: true },
+      { tipo: 'trasporto_stato_modificato', attivo: true },
       { tipo: 'trasporto_concluso', attivo: true },
       { tipo: 'trasporto_eliminato', attivo: true },
       { tipo: 'trasporto_trasferito', attivo: true },
@@ -1910,7 +1911,8 @@ export const api = {
       da_tipo_luogo: 'ospedale',
       a_tipo_luogo: 'abitazione',
       creato_da: userId,
-      precompilato_da_admin: false
+      precompilato_da_admin: false,
+      stato_trasporto: 'Diretti dal paziente'
     }
 
     if (USE_MOCK) {
@@ -1981,9 +1983,27 @@ export const api = {
       const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
       const index = transports.findIndex(t => String(t.id) === String(transportId))
       if (index !== -1) {
+        const oldVal = transports[index][field]
         transports[index][field] = value
         transports[index].updated_at = nowIso
         localStorage.setItem('ta_transports', JSON.stringify(transports))
+
+        if (field === 'stato_trasporto' && oldVal !== value && oldVal) {
+          const notifications = JSON.parse(localStorage.getItem('ta_notifications')) || []
+          const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+          const creator = profiles.find(p => p.id === transports[index].creato_da)
+          const username = creator ? creator.username : 'Sistema'
+          
+          notifications.push({
+            id: getNextId(notifications),
+            tipo: 'trasporto_stato_modificato',
+            messaggio: `Stato del trasporto #${transportId} cambiato in: ${value}`,
+            creato_da: username,
+            created_at: nowIso
+          })
+          localStorage.setItem('ta_notifications', JSON.stringify(notifications))
+        }
+
         return { data: transports[index], error: null }
       }
       return { error: new Error('Trasporto non trovato') }
@@ -2008,9 +2028,28 @@ export const api = {
       const transports = JSON.parse(localStorage.getItem('ta_transports')) || []
       const index = transports.findIndex(t => String(t.id) === String(transportId))
       if (index !== -1) {
+        const oldVal = transports[index].stato_trasporto
+        const newVal = fields.stato_trasporto
         Object.assign(transports[index], fields)
         transports[index].updated_at = nowIso
         localStorage.setItem('ta_transports', JSON.stringify(transports))
+
+        if (newVal !== undefined && oldVal !== newVal && oldVal) {
+          const notifications = JSON.parse(localStorage.getItem('ta_notifications')) || []
+          const profiles = JSON.parse(localStorage.getItem('ta_profiles')) || []
+          const creator = profiles.find(p => p.id === transports[index].creato_da)
+          const username = creator ? creator.username : 'Sistema'
+          
+          notifications.push({
+            id: getNextId(notifications),
+            tipo: 'trasporto_stato_modificato',
+            messaggio: `Stato del trasporto #${transportId} cambiato in: ${newVal}`,
+            creato_da: username,
+            created_at: nowIso
+          })
+          localStorage.setItem('ta_notifications', JSON.stringify(notifications))
+        }
+
         return { data: transports[index], error: null }
       }
       return { error: new Error('Trasporto non trovato') }
@@ -2553,6 +2592,7 @@ export const api = {
         transports[idx].stato = 'attivo'
         transports[idx].creato_da = userId
         transports[idx].ora_inizio = nowIso
+        transports[idx].stato_trasporto = 'Diretti dal paziente'
         transports[idx].updated_at = nowIso
         localStorage.setItem('ta_transports', JSON.stringify(transports))
         return { data: transports[idx], error: null }
@@ -2566,6 +2606,7 @@ export const api = {
           stato: 'attivo',
           creato_da: userId,
           ora_inizio: nowIso,
+          stato_trasporto: 'Diretti dal paziente',
           updated_at: nowIso
         })
         .eq('id', transportId)

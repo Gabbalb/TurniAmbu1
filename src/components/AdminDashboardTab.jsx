@@ -464,6 +464,13 @@ function getNotificationBadgeStyle(tipo) {
         border: 'border-cyan-150',
         icon: <Truck className="w-4 h-4" />
       }
+    case 'trasporto_stato_modificato':
+      return {
+        bg: 'bg-indigo-50',
+        color: 'text-indigo-705',
+        border: 'border-indigo-150',
+        icon: <Truck className="w-4 h-4" />
+      }
     case 'trasporto_concluso':
       return {
         bg: 'bg-emerald-50',

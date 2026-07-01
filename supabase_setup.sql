@@ -116,9 +116,11 @@ CREATE TABLE IF NOT EXISTS public.transports (
   importo numeric,
   creato_da uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   precompilato_da_admin boolean DEFAULT false NOT NULL,
+  stato_trasporto text DEFAULT 'Diretti dal paziente'::text,
   created_at timestamptz DEFAULT now() NOT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL,
   CONSTRAINT transports_stato_check CHECK (stato IN ('attivo', 'terminato', 'programmato')),
+  CONSTRAINT transports_stato_trasporto_check CHECK (stato_trasporto IN ('Diretti dal paziente', 'Diretti alla destinazione', 'In rientro')),
   CONSTRAINT transports_tipo_trasporto_check CHECK (tipo_trasporto IN ('dimissione', 'visita', 'trasferimento', 'altro')),
   CONSTRAINT transports_variante_ar_check CHECK (variante_ar IN ('andata_ritorno', 'andata', 'ritorno')),
   CONSTRAINT transports_da_tipo_luogo_check CHECK (da_tipo_luogo IN ('ospedale', 'rsa', 'abitazione')),
@@ -963,6 +965,16 @@ BEGIN
         actor_name
       );
     END IF;
+
+    -- Caso D: Cambio dello stato del percorso (stato_trasporto)
+    IF OLD.stato_trasporto IS DISTINCT FROM NEW.stato_trasporto AND OLD.stato_trasporto IS NOT NULL AND NEW.stato_trasporto IS NOT NULL THEN
+      INSERT INTO public.notifications (tipo, messaggio, creato_da)
+      VALUES (
+        'trasporto_stato_modificato',
+        concat('Stato del trasporto #', NEW.id, ' cambiato in: ', NEW.stato_trasporto),
+        actor_name
+      );
+    END IF;
     
   ELSIF TG_OP = 'DELETE' THEN
     SELECT COALESCE(username, 'Utente') INTO creator_name FROM public.profiles WHERE id = OLD.creato_da;
@@ -1035,6 +1047,7 @@ BEGIN
     WHEN 'timbratura_fine' THEN title_text := '🔴 <b>Turno concluso</b>';
     WHEN 'trasporto_creato' THEN title_text := '📅 <b>Trasporto creato</b>';
     WHEN 'trasporto_attivato' THEN title_text := '🚑 <b>Trasporto iniziato</b>';
+    WHEN 'trasporto_stato_modificato' THEN title_text := '🚑 <b>Stato Trasporto</b>';
     WHEN 'trasporto_concluso' THEN title_text := '🏁 <b>Trasporto concluso</b>';
     WHEN 'trasporto_eliminato' THEN title_text := '🗑️ <b>Trasporto eliminato</b>';
     WHEN 'trasporto_trasferito' THEN title_text := '🔄 <b>Trasporto trasferito</b>';
@@ -1105,6 +1118,7 @@ VALUES
   ('timbratura_fine', true),
   ('trasporto_creato', true),
   ('trasporto_attivato', true),
+  ('trasporto_stato_modificato', true),
   ('trasporto_concluso', true),
   ('trasporto_eliminato', true),
   ('trasporto_trasferito', true),

@@ -66,6 +66,7 @@ export default function AdminNotificationsTab({
       case 'timbratura_fine': return 'Fine Turno (Timbratura)';
       case 'trasporto_creato': return 'Creazione Trasporto';
       case 'trasporto_attivato': return 'Avvio Trasporto';
+      case 'trasporto_stato_modificato': return 'Cambio Stato Trasporto';
       case 'trasporto_concluso': return 'Conclusione Trasporto';
       case 'trasporto_eliminato': return 'Cancellazione Trasporto';
       case 'trasporto_trasferito': return 'Passaggio Consegna Trasporto';
@@ -420,6 +421,13 @@ function getNotificationBadgeStyle(tipo) {
         bg: 'bg-cyan-50',
         color: 'text-cyan-700',
         border: 'border-cyan-150',
+        icon: <Truck className="w-4 h-4" />
+      }
+    case 'trasporto_stato_modificato':
+      return {
+        bg: 'bg-indigo-50',
+        color: 'text-indigo-705',
+        border: 'border-indigo-150',
         icon: <Truck className="w-4 h-4" />
       }
     case 'trasporto_concluso':

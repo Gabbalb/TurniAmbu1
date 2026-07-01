@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import {
   Menu,
   ChevronDown,
+  ChevronRight,
   User,
   Truck,
   MapPin,
@@ -67,6 +68,7 @@ export default function TransportDrawer({
   const [vehicles, setVehicles] = useState([])
   const [users, setUsers] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showStatoSelector, setShowStatoSelector] = useState(false)
   const [isEditCrewOpen, setIsEditCrewOpen] = useState(false)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [cancelChoice, setCancelChoice] = useState(null) // null | 'delete' | 'transfer'
@@ -727,49 +729,58 @@ export default function TransportDrawer({
         <div className="absolute inset-x-0 top-[52px] bottom-0 bg-slate-950/90 backdrop-blur-md z-30 animate-fade-in flex flex-col">
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-left">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-2">
-              <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">Sezioni della Scheda</span>
+              <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">Stato del Trasporto</span>
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-500 hover:text-slate-305 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {[
-              { id: 'equipaggio', label: '1. Equipaggio' },
-              { id: 'mezzo', label: '2. Mezzo e Orario' },
-              { id: 'tipo', label: '3. Tipo Trasporto' },
-              { id: 'percorsoDa', label: '4. Percorso Da' },
-              { id: 'percorsoA', label: '5. Percorso A' },
-              { id: 'paziente', label: '6. Dati Paziente' },
-              { id: 'pagamento', label: '7. Pagamento' }
-            ].map(sec => (
-              <button
-                key={sec.id}
-                onClick={() => scrollToSection(sec.id)}
-                className="w-full flex items-center justify-between p-3.5 bg-slate-900 hover:bg-slate-800/80 border border-slate-880 hover:border-slate-700 rounded-2xl text-sm font-semibold transition-all cursor-pointer"
-              >
-                <span>{sec.label}</span>
-                {isSectionIncomplete(sec.id) ? (
-                  <span className="w-2.5 h-2.5 bg-blue-500 rounded-full" title="Dato obbligatorio mancante"></span>
-                ) : (
-                  <Check className="w-4.5 h-4.5 text-emerald-500" />
-                )}
-              </button>
-            ))}
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest font-sans">Seleziona Stato</span>
+              {[
+                'Diretti dal paziente',
+                'Diretti alla destinazione',
+                'In rientro'
+              ].map(st => {
+                const isSelected = (activeTransport.stato_trasporto || 'Diretti dal paziente') === st;
+                const isEditable = activeTransport.stato === 'attivo' && !isEffectiveReadOnly;
+                return (
+                  <button
+                    key={st}
+                    disabled={!isEditable}
+                    onClick={() => {
+                      handleSaveField('stato_trasporto', st)
+                      setIsMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 border rounded-2xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      isSelected
+                        ? 'bg-indigo-650/20 border-indigo-500 text-indigo-400 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:bg-slate-800/80 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>{st}</span>
+                    {isSelected && <Check className="w-4 h-4 text-indigo-400" />}
+                  </button>
+                )
+              })}
+            </div>
 
             {/* Action buttons inside menu */}
             {activeTransport && (!isEffectiveReadOnly || (activeTransport.stato === 'programmato' && (profile?.ruolo === 'admin' || profile?.id === activeCe?.user_id || profile?.id === activeAs?.user_id))) && (
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false)
-                  setIsCancelModalOpen(true)
-                  setCancelChoice(null)
-                  setSelectedNewAuthorId('')
-                }}
-                className="w-full flex items-center justify-between p-3.5 bg-rose-950/30 hover:bg-rose-950/40 border border-rose-900/40 hover:border-rose-800 rounded-2xl text-sm font-bold text-rose-400 transition-all cursor-pointer mt-4"
-              >
-                <span>{activeTransport.stato === 'programmato' ? 'Elimina / Annulla Trasporto' : 'Annulla / Trasferisci Trasporto'}</span>
-                <Trash2 className="w-4 h-4 text-rose-400" />
-              </button>
+              <div className="border-t border-slate-800/80 pt-4 mt-2">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false)
+                    setIsCancelModalOpen(true)
+                    setCancelChoice(null)
+                    setSelectedNewAuthorId('')
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 bg-rose-950/30 hover:bg-rose-950/40 border border-rose-900/40 hover:border-rose-800 rounded-2xl text-sm font-bold text-rose-400 transition-all cursor-pointer"
+                >
+                  <span>{activeTransport.stato === 'programmato' ? 'Elimina / Annulla Trasporto' : 'Annulla / Trasferisci Trasporto'}</span>
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -837,6 +848,80 @@ export default function TransportDrawer({
               )}
             </div>
           )
+        )}
+
+        {activeTransport.stato === 'attivo' && (
+          <div className="space-y-2 mb-2">
+            {/* Banner dello stato attivo */}
+            <button
+              onClick={() => {
+                if (!isEffectiveReadOnly) {
+                  setShowStatoSelector(!showStatoSelector);
+                }
+              }}
+              className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all ${
+                isEffectiveReadOnly ? 'cursor-default' : 'cursor-pointer hover:brightness-110 active:scale-[0.99]'
+              } ${
+                (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti dal paziente'
+                  ? 'bg-blue-950/40 border-blue-500/25 text-blue-300'
+                  : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti alla destinazione'
+                  ? 'bg-amber-955/40 border-amber-500/25 text-amber-300'
+                  : 'bg-purple-955/40 border-purple-500/25 text-purple-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className={`w-3 h-3 rounded-full animate-pulse shrink-0 ${
+                  (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti dal paziente'
+                    ? 'bg-blue-400'
+                    : (activeTransport.stato_trasporto || 'Diretti dal paziente') === 'Diretti alla destinazione'
+                    ? 'bg-amber-400'
+                    : 'bg-purple-400'
+                }`} />
+                <div className="text-left">
+                  <div className="text-[10px] uppercase font-bold tracking-widest opacity-85 font-sans leading-none">Stato Attivo Trasporto</div>
+                  <div className="text-sm font-extrabold mt-1 font-sans">
+                    {activeTransport.stato_trasporto || 'Diretti dal paziente'}
+                  </div>
+                </div>
+              </div>
+              {!isEffectiveReadOnly && (
+                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-450 hover:text-slate-200 shrink-0">
+                  <span>Modifica</span>
+                  <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${showStatoSelector ? 'rotate-90' : ''}`} />
+                </div>
+              )}
+            </button>
+
+            {/* Selettore Stati Inline (mostrato al click) */}
+            {showStatoSelector && !isEffectiveReadOnly && (
+              <div className="bg-slate-800/20 border border-slate-800/85 p-3 rounded-2xl grid grid-cols-1 gap-2 animate-fade-in text-left">
+                {[
+                  'Diretti dal paziente',
+                  'Diretti alla destinazione',
+                  'In rientro'
+                ].map(st => {
+                  const isSelected = (activeTransport.stato_trasporto || 'Diretti dal paziente') === st;
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => {
+                        handleSaveField('stato_trasporto', st);
+                        setShowStatoSelector(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-650/20 border-indigo-500 text-indigo-400 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-805'
+                      }`}
+                    >
+                      <span>{st}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         <div className={isCrewEditable ? '' : 'pointer-events-none select-none'}>
