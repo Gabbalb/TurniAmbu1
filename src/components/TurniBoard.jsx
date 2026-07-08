@@ -703,7 +703,11 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
         for (const inter of intersections) {
           const stdHours = getStandardHours(inter.shift_id_placeholder)
-          const targetShift = matchedShifts.find(s => s.ora_inizio === stdHours.start)
+          const targetShift = shifts.find(s => 
+            s.data === shift.data && 
+            String(s.crew_id) === String(shift.crew_id) && 
+            s.ora_inizio === stdHours.start
+          )
           if (targetShift) {
             const { error: bkErr } = await api.bookSlot({
               shiftId: targetShift.id,
