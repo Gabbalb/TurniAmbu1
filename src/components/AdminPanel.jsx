@@ -456,9 +456,10 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
     if (!crewDate || !crewSelectedId) return
 
     const slots = {
-      1: { start: '06:00:00', end: '14:00:00' },
-      2: { start: '14:00:00', end: '22:00:00' },
-      3: { start: '22:00:00', end: '06:00:00' }
+      1: { start: '06:00:00', end: '13:00:00' },
+      2: { start: '13:00:00', end: '18:00:00' },
+      3: { start: '18:00:00', end: '00:00:00' },
+      4: { start: '00:00:00', end: '06:00:00' }
     }
 
     const slot = slots[crewShiftId]
@@ -980,9 +981,10 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                       onChange={(e) => setCrewShiftId(e.target.value)}
                       className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
                     >
-                      <option value="1">Mattina (06:00–14:00)</option>
-                      <option value="2">Pomeriggio (14:00–22:00)</option>
-                      <option value="3">Notte (22:00–06:00)</option>
+                      <option value="1">Mattina (06:00–13:00)</option>
+                      <option value="2">Pomeriggio (13:00–18:00)</option>
+                      <option value="3">Sera (18:00–00:00)</option>
+                      <option value="4">Notte (00:00–06:00)</option>
                     </select>
                   </div>
 

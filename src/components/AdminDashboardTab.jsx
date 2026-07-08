@@ -48,9 +48,10 @@ export default function AdminDashboardTab({
     if (!crewDate || !crewSelectedId) return
 
     const slots = {
-      1: { start: '06:00:00', end: '14:00:00' },
-      2: { start: '14:00:00', end: '22:00:00' },
-      3: { start: '22:00:00', end: '06:00:00' }
+      1: { start: '06:00:00', end: '13:00:00' },
+      2: { start: '13:00:00', end: '18:00:00' },
+      3: { start: '18:00:00', end: '00:00:00' },
+      4: { start: '00:00:00', end: '06:00:00' }
     }
 
     const slot = slots[crewShiftId]
@@ -328,9 +329,10 @@ export default function AdminDashboardTab({
                     onChange={(e) => setCrewShiftId(e.target.value)}
                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none transition-all"
                   >
-                    <option value="1">Mattina (06:00 - 14:00)</option>
-                    <option value="2">Pomeriggio (14:00 - 22:00)</option>
-                    <option value="3">Notte (22:00 - 06:00)</option>
+                    <option value="1">Mattina (06:00 - 13:00)</option>
+                    <option value="2">Pomeriggio (13:00 - 18:00)</option>
+                    <option value="3">Sera (18:00 - 00:00)</option>
+                    <option value="4">Notte (00:00 - 06:00)</option>
                   </select>
                 </div>
 

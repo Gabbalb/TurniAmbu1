@@ -209,8 +209,8 @@ const getBookingMinutesInterval = (booking, standardStart, standardEnd) => {
   let startMin = timeStringToMinutes(startStr)
   let endMin = timeStringToMinutes(endStr)
 
-  // Se è una fascia notturna (inizia alle 22:00)
-  if (standardStart.startsWith('22')) {
+  // Se è una fascia notturna o serale
+  if (standardStart.startsWith('18') || standardStart.startsWith('00')) {
     if (startMin < 720) startMin += 1440 // prima mattina del giorno dopo (es. 02:00)
     if (endMin < 720) endMin += 1440     // prima mattina del giorno dopo (es. 06:00)
     if (endMin <= startMin) endMin += 1440 // a cavallo della mezzanotte
@@ -222,11 +222,20 @@ const getBookingMinutesInterval = (booking, standardStart, standardEnd) => {
   return [startMin, endMin]
 }
 
+const getStandardHourStart = (placeholder) => {
+  const p = Number(placeholder)
+  if (p === 1) return '06:00:00'
+  if (p === 2) return '13:00:00'
+  if (p === 3) return '18:00:00'
+  return '00:00:00'
+}
+
 const getStandardHours = (placeholder) => {
   const p = Number(placeholder)
-  if (p === 1) return { start: '06:00:00', end: '14:00:00' }
-  if (p === 2) return { start: '14:00:00', end: '22:00:00' }
-  return { start: '22:00:00', end: '06:00:00' }
+  if (p === 1) return { start: '06:00:00', end: '13:00:00' }
+  if (p === 2) return { start: '13:00:00', end: '18:00:00' }
+  if (p === 3) return { start: '18:00:00', end: '00:00:00' }
+  return { start: '00:00:00', end: '06:00:00' }
 }
 
 const checkIntervalsOverlap = (intA, intB) => {
@@ -283,9 +292,10 @@ export const api = {
     if (dates.length === 0 || fixedCrews.length === 0) return { error: null }
 
     const standardTimeSlots = [
-      { ora_inizio: '06:00:00', ora_fine: '14:00:00' },
-      { ora_inizio: '14:00:00', ora_fine: '22:00:00' },
-      { ora_inizio: '22:00:00', ora_fine: '06:00:00' }
+      { ora_inizio: '06:00:00', ora_fine: '13:00:00' },
+      { ora_inizio: '13:00:00', ora_fine: '18:00:00' },
+      { ora_inizio: '18:00:00', ora_fine: '00:00:00' },
+      { ora_inizio: '00:00:00', ora_fine: '06:00:00' }
     ]
 
     if (USE_MOCK) {
@@ -524,7 +534,7 @@ export const api = {
       const conflicts = []
 
       for (const target of targetShifts) {
-        const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
+        const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         const stdHours = getStandardHours(target.shift_id_placeholder)
         const dayShifts = shifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
 
@@ -587,7 +597,7 @@ export const api = {
       const conflicts = []
 
       for (const target of targetShifts) {
-        const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
+        const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         const stdHours = getStandardHours(target.shift_id_placeholder)
         const matchingShifts = dbShifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
 
@@ -660,7 +670,7 @@ export const api = {
       const newBookings = []
 
       for (const target of targetShifts) {
-        const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
+        const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         
         // Trova il turno corrispondente (per default equipaggio 1)
         const shiftObj = shifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && String(s.crew_id) === "1")
@@ -718,7 +728,7 @@ export const api = {
       const insertRows = []
 
       for (const target of targetShifts) {
-        const standardHourStart = target.shift_id_placeholder === 1 ? '06:00:00' : target.shift_id_placeholder === 2 ? '14:00:00' : '22:00:00'
+        const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         
         // Tenta di prenotare per l'equipaggio 1 (il default)
         const shiftObj = dbShifts.find(s => s.data === target.date && s.ora_inizio === standardHourStart && String(s.crew_id) === "1")

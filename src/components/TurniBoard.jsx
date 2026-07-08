@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Sun, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X, Plus } from 'lucide-react'
+import { Sunrise, Sun, Sunset, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X, Plus } from 'lucide-react'
 
 const getUserDisplayName = (prof) => {
   if (!prof) return ''
@@ -183,23 +183,34 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
   const getStandardHours = (placeholder) => {
     const p = Number(placeholder)
-    if (p === 1) return { start: '06:00:00', end: '14:00:00' }
-    if (p === 2) return { start: '14:00:00', end: '22:00:00' }
-    return { start: '22:00:00', end: '06:00:00' }
+    if (p === 1) return { start: '06:00:00', end: '13:00:00' }
+    if (p === 2) return { start: '13:00:00', end: '18:00:00' }
+    if (p === 3) return { start: '18:00:00', end: '00:00:00' }
+    return { start: '00:00:00', end: '06:00:00' }
   }
 
   const getUncoveredGaps = (shift, slotBookings) => {
-    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const p = Number(
+      shift.ora_inizio.startsWith('06:') ? 1 :
+      shift.ora_inizio.startsWith('13:') ? 2 :
+      shift.ora_inizio.startsWith('18:') ? 3 : 4
+    )
     const std = getStandardHours(p)
-    const sStart = timeToMinutes(std.start.slice(0, 5))
+    let sStart = timeToMinutes(std.start.slice(0, 5))
     let sEnd = timeToMinutes(std.end.slice(0, 5))
-    if (p === 3) sEnd += 1440 // night shift goes until 1800 minutes
+    if (p === 3 || p === 4) {
+      if (sStart < 720) sStart += 1440
+      if (sEnd < 720) sEnd += 1440
+      if (sEnd <= sStart) sEnd += 1440
+    } else {
+      if (sEnd <= sStart) sEnd += 1440
+    }
 
     // Convert standard bookings to intervals
     const bookedIntervals = slotBookings.map(bk => {
       let startM = timeToMinutes(bk.ora_inizio_effettiva || std.start)
       let endM = timeToMinutes(bk.ora_fine_effettiva || std.end)
-      if (p === 3) {
+      if (p === 3 || p === 4) {
         if (startM < 720) startM += 1440
         if (endM < 720) endM += 1440
         if (endM <= startM) endM += 1440
@@ -248,8 +259,9 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     const dateStr = format(day, 'yyyy-MM-dd')
     const startTimes = {
       1: '06:00:00',
-      2: '14:00:00',
-      3: '22:00:00'
+      2: '13:00:00',
+      3: '18:00:00',
+      4: '00:00:00'
     }
     const startTime = startTimes[slotId]
 
@@ -296,7 +308,11 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     const slotBookings = bookings.filter(b => b.shift_id === shift.id && b.ruolo_turno === role)
     const gaps = getUncoveredGaps(shift, slotBookings)
 
-    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const p = Number(
+      shift.ora_inizio.startsWith('06:') ? 1 :
+      shift.ora_inizio.startsWith('13:') ? 2 :
+      shift.ora_inizio.startsWith('18:') ? 3 : 4
+    )
     const std = getStandardHours(p)
 
     if (slotBookings.length > 0 && gaps.length > 0) {
@@ -587,24 +603,35 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     const userId = profile?.ruolo === 'admin' ? assigneeId : user.id
     
     // Calcola se è parziale
-    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
+    const p = Number(
+      shift.ora_inizio.startsWith('06:') ? 1 :
+      shift.ora_inizio.startsWith('13:') ? 2 :
+      shift.ora_inizio.startsWith('18:') ? 3 : 4
+    )
     const std = getStandardHours(p)
     
     let isPartialBooking = isPartial
     let note = null
     
     if (isPartialBooking) {
-      const startMin = timeToMinutes(startTime)
-      const endMin = timeToMinutes(endTime)
-      const sStart = timeToMinutes(std.start.slice(0, 5))
-      const sEnd = timeToMinutes(std.end.slice(0, 5))
+      let startMin = timeToMinutes(startTime)
+      let endMin = timeToMinutes(endTime)
+      let sStart = timeToMinutes(std.start.slice(0, 5))
+      let sEnd = timeToMinutes(std.end.slice(0, 5))
+      
+      if (p === 3 || p === 4) {
+        if (startMin < 720) startMin += 1440
+        if (endMin < 720) endMin += 1440
+        if (sStart < 720) sStart += 1440
+        if (sEnd < 720) sEnd += 1440
+      }
       
       if (startTime === std.start.slice(0, 5) && endTime === std.end.slice(0, 5)) {
         isPartialBooking = false
       } else {
         let finalEndMin = endMin
         if (finalEndMin <= startMin) finalEndMin += 1440
-        const finalSEnd = p === 3 ? sEnd + 1440 : sEnd
+        const finalSEnd = (p === 3 || p === 4) && sEnd <= sStart ? sEnd + 1440 : sEnd
 
         if (startMin > sStart && finalEndMin < finalSEnd) {
           note = `Dalle ${startTime} alle ${endTime}`
@@ -718,9 +745,10 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
   // Aggiunge un equipaggio occasionale per una certa data e fascia (solo admin)
   const handleAddOccasionalCrew = async (dateStr, startTime, slotId) => {
     const slots = {
-      '06:00:00': '14:00:00',
-      '14:00:00': '22:00:00',
-      '22:00:00': '06:00:00'
+      '06:00:00': '13:00:00',
+      '13:00:00': '18:00:00',
+      '18:00:00': '00:00:00',
+      '00:00:00': '06:00:00'
     }
     const endTime = slots[startTime]
     
@@ -749,18 +777,25 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
         bg: 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/30',
         badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
         text: 'text-blue-300',
-        icon: <Sun className="w-5 h-5 text-cyan-400" />
+        icon: <Sunrise className="w-5 h-5 text-cyan-400" />
       }
-    } else if (ora_inizio.startsWith('14:')) {
+    } else if (ora_inizio.startsWith('13:')) {
       return {
-        bg: 'bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-500/30',
-        badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-        text: 'text-orange-300',
-        icon: <SunMoon className="w-5 h-5 text-amber-400" />
+        bg: 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30',
+        badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        text: 'text-amber-300',
+        icon: <Sun className="w-5 h-5 text-amber-400" />
+      }
+    } else if (ora_inizio.startsWith('18:')) {
+      return {
+        bg: 'bg-gradient-to-r from-rose-500/10 to-pink-500/10 border-rose-500/30',
+        badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+        text: 'text-rose-300',
+        icon: <Sunset className="w-5 h-5 text-rose-400" />
       }
     } else {
       return {
-        bg: 'bg-gradient-to-r from-violet-500/10 to-pink-500/10 border-violet-500/30',
+        bg: 'bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-500/30',
         badge: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
         text: 'text-violet-300',
         icon: <Moon className="w-5 h-5 text-pink-400" />
@@ -780,7 +815,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
         
         let normA = startA
         let normB = startB
-        if (shiftStartMin === 1320) {
+        if (shiftStartMin === 1080 || shiftStartMin === 0) {
           if (normA < 720) normA += 1440
           if (normB < 720) normB += 1440
         }
@@ -929,7 +964,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               
               let normA = startA
               let normB = startB
-              if (shiftStartMin === 1320) {
+              if (shiftStartMin === 1080 || shiftStartMin === 0) {
                 if (normA < 720) normA += 1440
                 if (normB < 720) normB += 1440
               }
@@ -944,7 +979,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               
               let normA = startA
               let normB = startB
-              if (shiftStartMin === 1320) {
+              if (shiftStartMin === 1080 || shiftStartMin === 0) {
                 if (normA < 720) normA += 1440
                 if (normB < 720) normB += 1440
               }
@@ -1048,9 +1083,10 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
   const renderDailyShifts = (targetDate) => {
     const dateStr = format(targetDate, 'yyyy-MM-dd')
     const timeSlots = [
-      { id: 1, label: '06:00–14:00', start: '06:00:00' },
-      { id: 2, label: '14:00–22:00', start: '14:00:00' },
-      { id: 3, label: '22:00–06:00', start: '22:00:00' }
+      { id: 1, label: '06:00–13:00', start: '06:00:00' },
+      { id: 2, label: '13:00–18:00', start: '13:00:00' },
+      { id: 3, label: '18:00–00:00', start: '18:00:00' },
+      { id: 4, label: '00:00–06:00', start: '00:00:00' }
     ]
 
     return (
@@ -1266,11 +1302,12 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     <span className={`text-base mt-0.5 ${isToday && !isSelected ? 'text-indigo-400 font-bold border-b border-indigo-400' : ''}`}>
                       {format(day, 'd')}
                     </span>
-                    {/* I 3 pallini di copertura dei turni */}
+                    {/* I 4 pallini di copertura dei turni */}
                     <div className="flex gap-1 mt-1 justify-center">
                       <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 1)}`} title="Mattina"></span>
                       <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 2)}`} title="Pomeriggio"></span>
-                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 3)}`} title="Notte"></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 3)}`} title="Sera"></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getShiftCoverageStatus(day, 4)}`} title="Notte"></span>
                     </div>
                   </button>
                 </React.Fragment>

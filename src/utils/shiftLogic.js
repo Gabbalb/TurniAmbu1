@@ -3,9 +3,10 @@
  * Fascia 3 (22:00-06:00) si estende fino a 1800 minuti (06:00 del giorno dopo).
  */
 export const STANDARD_SHIFTS = [
-  { id: 1, label: '06:00–14:00', startMin: 360, endMin: 840, type: 'morning' },
-  { id: 2, label: '14:00–22:00', startMin: 840, endMin: 1320, type: 'afternoon' },
-  { id: 3, label: '22:00–06:00', startMin: 1320, endMin: 1800, type: 'night' }
+  { id: 1, label: '06:00–13:00', startMin: 360, endMin: 780, type: 'morning' },
+  { id: 2, label: '13:00–18:00', startMin: 780, endMin: 1080, type: 'afternoon' },
+  { id: 3, label: '18:00–00:00', startMin: 1080, endMin: 1440, type: 'evening' },
+  { id: 4, label: '00:00–06:00', startMin: 1440, endMin: 1800, type: 'night' }
 ]
 
 /**

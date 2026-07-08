@@ -25,6 +25,7 @@ import {
   Loader2,
   Sunrise,
   Sun,
+  Sunset,
   Moon
 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -250,6 +251,8 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
         return <Sunrise className="w-3 h-3 text-orange-400 flex-shrink-0" />
       case 'sole':
         return <Sun className="w-3 h-3 text-amber-500 flex-shrink-0" />
+      case 'tramonto':
+        return <Sunset className="w-3 h-3 text-rose-400 flex-shrink-0" />
       case 'luna':
         return <Moon className="w-3 h-3 text-indigo-400 flex-shrink-0" />
       default:
@@ -544,8 +547,9 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
             // Raggruppa i dati per questo giorno
             const dayShifts = shifts.filter(s => s.data === dateStr)
             const mattinaData = getSlotData(dayShifts, '06:00:00')
-            const pomeriggioData = getSlotData(dayShifts, '14:00:00')
-            const notteData = getSlotData(dayShifts, '22:00:00')
+            const pomeriggioData = getSlotData(dayShifts, '13:00:00')
+            const seraData = getSlotData(dayShifts, '18:00:00')
+            const notteData = getSlotData(dayShifts, '00:00:00')
 
             return (
               <div
@@ -586,16 +590,20 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                         pomeriggioData ? (pomeriggioData.autisti.length > 0 && pomeriggioData.ces.length > 0 ? 'bg-emerald-500' : (pomeriggioData.autisti.length > 0 || pomeriggioData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
                       }`} />
                       <span className={`w-1 h-1 rounded-full ${
+                        seraData ? (seraData.autisti.length > 0 && seraData.ces.length > 0 ? 'bg-emerald-500' : (seraData.autisti.length > 0 || seraData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
+                      }`} />
+                      <span className={`w-1 h-1 rounded-full ${
                         notteData ? (notteData.autisti.length > 0 && notteData.ces.length > 0 ? 'bg-emerald-500' : (notteData.autisti.length > 0 || notteData.ces.length > 0 ? 'bg-amber-400' : 'bg-slate-300')) : 'bg-slate-200'
                       }`} />
                     </div>
                   )}
                 </div>
 
-                {/* Dettaglio compatto delle 3 fasce */}
+                {/* Dettaglio compatto delle 4 fasce */}
                 <div className="flex flex-col gap-0.5 mt-2">
                   {renderCellFascia('alba', mattinaData)}
                   {renderCellFascia('sole', pomeriggioData)}
+                  {renderCellFascia('tramonto', seraData)}
                   {renderCellFascia('luna', notteData)}
                 </div>
               </div>
@@ -623,62 +631,80 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
             </div>
           </div>
 
-          {/* Lista delle 3 Fasce del Giorno */}
+          {/* Lista delle 4 Fasce del Giorno */}
           <div className="flex flex-col gap-5 text-left">
             
             {/* 1. FASCIA MATTINA */}
             {(() => {
-              const data = getSlotData(selectedDayShifts, '06:00:00')
-              if (!data) return null
-              return (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-black text-slate-800 font-sans">Mattina (06:00 - 14:00)</span>
-                  </div>
-                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
-                  </div>
-                </div>
-              )
-            })()}
+               const data = getSlotData(selectedDayShifts, '06:00:00')
+               if (!data) return null
+               return (
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                     <span className="w-2 h-2 rounded-full bg-blue-500" />
+                     <span className="text-xs font-black text-slate-800 font-sans">Mattina (06:00 - 13:00)</span>
+                   </div>
+                   <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                   </div>
+                 </div>
+               )
+             })()}
 
             {/* 2. FASCIA POMERIGGIO */}
             {(() => {
-              const data = getSlotData(selectedDayShifts, '14:00:00')
-              if (!data) return null
-              return (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    <span className="text-xs font-black text-slate-800 font-sans">Pomeriggio (14:00 - 22:00)</span>
-                  </div>
-                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
-                  </div>
-                </div>
-              )
-            })()}
+               const data = getSlotData(selectedDayShifts, '13:00:00')
+               if (!data) return null
+               return (
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                     <span className="w-2 h-2 rounded-full bg-amber-400" />
+                     <span className="text-xs font-black text-slate-800 font-sans">Pomeriggio (13:00 - 18:00)</span>
+                   </div>
+                   <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                   </div>
+                 </div>
+               )
+             })()}
 
-            {/* 3. FASCIA NOTTE */}
+            {/* 3. FASCIA SERA */}
             {(() => {
-              const data = getSlotData(selectedDayShifts, '22:00:00')
-              if (!data) return null
-              return (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                    <span className="w-2 h-2 rounded-full bg-indigo-550" />
-                    <span className="text-xs font-black text-slate-800 font-sans">Notte (22:00 - 06:00)</span>
-                  </div>
-                  <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                    {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                    {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
-                  </div>
-                </div>
-              )
-            })()}
+               const data = getSlotData(selectedDayShifts, '18:00:00')
+               if (!data) return null
+               return (
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                     <span className="w-2 h-2 rounded-full bg-rose-450" style={{ backgroundColor: '#fb7185' }} />
+                     <span className="text-xs font-black text-slate-800 font-sans">Sera (18:00 - 00:00)</span>
+                   </div>
+                   <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                   </div>
+                 </div>
+               )
+             })()}
+
+            {/* 4. FASCIA NOTTE */}
+            {(() => {
+               const data = getSlotData(selectedDayShifts, '00:00:00')
+               if (!data) return null
+               return (
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                     <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                     <span className="text-xs font-black text-slate-800 font-sans">Notte (00:00 - 06:00)</span>
+                   </div>
+                   <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                   </div>
+                 </div>
+               )
+             })()}
 
           </div>
 

@@ -81,7 +81,12 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
         
         if (timeMode === 'standard') {
           const shiftIdNum = Number(selectedShift)
-          const labels = { 1: '06:00–14:00', 2: '14:00–22:00', 3: '22:00–06:00' }
+          const labels = { 
+            1: '06:00–13:00', 
+            2: '13:00–18:00', 
+            3: '18:00–00:00', 
+            4: '00:00–06:00' 
+          }
           targetShifts.push({
             date: dateStr,
             shift_id_placeholder: shiftIdNum,
@@ -302,9 +307,10 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
                 onChange={(e) => setSelectedShift(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-200 outline-none transition-colors"
               >
-                <option value="1">Fascia 1: Mattina (06:00–14:00)</option>
-                <option value="2">Fascia 2: Pomeriggio (14:00–22:00)</option>
-                <option value="3">Fascia 3: Notte (22:00–06:00)</option>
+                <option value="1">Fascia 1: Mattina (06:00–13:00)</option>
+                <option value="2">Fascia 2: Pomeriggio (13:00–18:00)</option>
+                <option value="3">Fascia 3: Sera (18:00–00:00)</option>
+                <option value="4">Fascia 4: Notte (00:00–06:00)</option>
               </select>
             </div>
           ) : (
