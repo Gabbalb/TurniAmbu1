@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration
-const DRY_RUN = true; // Set to false to perform the actual DB updates
-const START_DATE = '2026-07-08'; // Migrate shifts from this date onwards
+const DRY_RUN = false; // Set to false to perform the actual DB updates
+const START_DATE = '1970-01-01'; // Migrate shifts from this date onwards
 
 const supabaseUrl = 'https://fborarxgtmqikgxcnnvt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZib3JhcnhndG1xaWtneGNubnZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MzY1NzMsImV4cCI6MjA5NjMxMjU3M30.qmYI8rBlCVdOpK2WRXynokDi6PVMkeWKsi3fbmm69H0';

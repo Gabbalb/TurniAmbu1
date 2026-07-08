@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { calculateShiftIntersections } from '../utils/shiftLogic'
 import { Sunrise, Sun, Sunset, SunMoon, Moon, Lock, Trash2, CalendarRange, ListFilter, RefreshCw, X, Plus } from 'lucide-react'
 
 const getUserDisplayName = (prof) => {
@@ -665,35 +666,99 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     }
 
     try {
-      const { conflicts, error: conflictErr } = await api.checkBulkConflicts(userId, [target], role)
-      
-      if (conflictErr) {
-        setConfirmError(conflictErr.message || 'Errore durante la verifica dei conflitti.')
-        setActionLoading(null)
-        return
-      }
+      const matchedShifts = selectedCrewShift ? selectedCrewShift.matchedShifts : [shift]
 
-      if (conflicts && conflicts.length > 0) {
-        setConfirmError(conflicts[0].message)
-        setActionLoading(null)
-        return
-      }
+      if (isPartialBooking) {
+        // Calculate intersections for the custom range
+        const intersections = calculateShiftIntersections(startTime, endTime)
+        
+        // Build targets for bulk checking
+        const targets = intersections.map(inter => {
+          return {
+            date: shift.data,
+            shift_id_placeholder: inter.shift_id_placeholder,
+            ora_inizio_effettiva: inter.is_partial ? inter.ora_inizio_effettiva : null,
+            ora_fine_effettiva: inter.is_partial ? inter.ora_fine_effettiva : null,
+            is_partial: inter.is_partial,
+            nota_parziale: inter.nota_parziale,
+            label: inter.label
+          }
+        })
 
-      const { error } = await api.bookSlot({
-        shiftId: shift.id,
-        role,
-        userId,
-        startTime: isPartialBooking ? startTime + ':00' : null,
-        endTime: isPartialBooking ? endTime + ':00' : null,
-        isPartial: isPartialBooking,
-        note
-      })
+        const { conflicts, error: conflictErr } = await api.checkBulkConflicts(userId, targets, role)
+        if (conflictErr) {
+          setConfirmError(conflictErr.message || 'Errore durante la verifica dei conflitti.')
+          setActionLoading(null)
+          return
+        }
+        if (conflicts && conflicts.length > 0) {
+          setConfirmError(conflicts[0].message)
+          setActionLoading(null)
+          return
+        }
 
-      if (error) {
-        setConfirmError(error.message)
+        // Perform bookings sequentially
+        let bookingSucceeded = false
+        let lastError = null
+
+        for (const inter of intersections) {
+          const stdHours = getStandardHours(inter.shift_id_placeholder)
+          const targetShift = matchedShifts.find(s => s.ora_inizio === stdHours.start)
+          if (targetShift) {
+            const { error: bkErr } = await api.bookSlot({
+              shiftId: targetShift.id,
+              role,
+              userId,
+              startTime: inter.is_partial ? inter.ora_inizio_effettiva : null,
+              endTime: inter.is_partial ? inter.ora_fine_effettiva : null,
+              isPartial: inter.is_partial,
+              note: inter.nota_parziale
+            })
+            if (bkErr) {
+              lastError = bkErr.message
+            } else {
+              bookingSucceeded = true
+            }
+          }
+        }
+
+        if (lastError && !bookingSucceeded) {
+          setConfirmError(lastError)
+        } else {
+          setBookingConfirm(null)
+          await loadBoardData()
+        }
       } else {
-        setBookingConfirm(null)
-        await loadBoardData()
+        const { conflicts, error: conflictErr } = await api.checkBulkConflicts(userId, [target], role)
+        
+        if (conflictErr) {
+          setConfirmError(conflictErr.message || 'Errore durante la verifica dei conflitti.')
+          setActionLoading(null)
+          return
+        }
+
+        if (conflicts && conflicts.length > 0) {
+          setConfirmError(conflicts[0].message)
+          setActionLoading(null)
+          return
+        }
+
+        const { error } = await api.bookSlot({
+          shiftId: shift.id,
+          role,
+          userId,
+          startTime: null,
+          endTime: null,
+          isPartial: false,
+          note: null
+        })
+
+        if (error) {
+          setConfirmError(error.message)
+        } else {
+          setBookingConfirm(null)
+          await loadBoardData()
+        }
       }
     } catch (err) {
       console.error(err)
