@@ -775,7 +775,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                         {/* Capo Equipaggio */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Capo Equipaggio (CE)</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">ATS</label>
                             <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
                               <input 
                                 type="checkbox"
@@ -811,7 +811,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                         {/* Autista Soccorritore */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Autista / Soccorritore (AS)</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Autista (AS)</label>
                             <label className="flex items-center gap-1 text-[10px] font-bold text-slate-400 cursor-pointer select-none">
                               <input 
                                 type="checkbox"
@@ -1198,7 +1198,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                         </h4>
                         <div className="space-y-3">
                           <div>
-                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Capo Equipaggio (CE)</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">ATS</span>
                             <span className="text-xs font-semibold text-slate-800">
                               {(() => {
                                 const activeCe = selectedTransport.crew?.find(c => c.ruolo === 'CE' && c.attivo)
@@ -1212,7 +1212,7 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Autista / Soccorritore (AS)</span>
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Autista (AS)</span>
                             <span className="text-xs font-semibold text-slate-800">
                               {(() => {
                                 const activeAs = selectedTransport.crew?.find(c => c.ruolo === 'AS' && c.attivo)
@@ -1578,8 +1578,8 @@ export default function AdminTransportsTab({ initialSelectedId, onClearInitialId
 
            <PSection title="Equipaggio">
             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-yellow-200">
-              <PRow label="Capo Equipaggio (CE)" value={ceName} />
-              <PRow label="Autista / Soccorritore (AS)" value={asName} />
+              <PRow label="ATS" value={ceName} />
+              <PRow label="Autista (AS)" value={asName} />
             </div>
           </PSection>
 

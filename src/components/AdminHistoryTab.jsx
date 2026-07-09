@@ -129,7 +129,7 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
   }
 
   // Prepara l'editor per un determinato ruolo/shift
-  const startEditing = (shiftId, role, booking = null, shiftStartTime = '06:00', shiftEndTime = '14:00') => {
+  const startEditing = (shiftId, role, booking = null, shiftStartTime = '06:00', shiftEndTime = '13:00') => {
     setEditingSlot({ shiftId, role, booking })
     if (booking) {
       setFormUserId(booking.user_id || '')
@@ -645,8 +645,8 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                      <span className="text-xs font-black text-slate-800 font-sans">Mattina (06:00 - 13:00)</span>
                    </div>
                    <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'ATS', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista (AS)', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                    </div>
                  </div>
                )
@@ -663,8 +663,8 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                      <span className="text-xs font-black text-slate-800 font-sans">Pomeriggio (13:00 - 18:00)</span>
                    </div>
                    <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'ATS', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista (AS)', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                    </div>
                  </div>
                )
@@ -681,8 +681,8 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                      <span className="text-xs font-black text-slate-800 font-sans">Sera (18:00 - 00:00)</span>
                    </div>
                    <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'ATS', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista (AS)', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                    </div>
                  </div>
                )
@@ -699,8 +699,8 @@ export default function AdminHistoryTab({ profiles, crews, onRefresh, formatItal
                      <span className="text-xs font-black text-slate-800 font-sans">Notte (00:00 - 06:00)</span>
                    </div>
                    <div className="flex flex-col gap-2.5 pl-3 border-l border-slate-150">
-                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'Capo Equipaggio (CE)', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
-                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista Soccorritore', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
+                     {renderRosterSlotCard(data.shift, 'CE', data.ces, 'ATS', 'text-emerald-700', 'bg-emerald-50/40', 'border-emerald-200/85')}
+                     {renderRosterSlotCard(data.shift, 'autista', data.autisti, 'Autista (AS)', 'text-amber-700', 'bg-amber-50/40', 'border-amber-200/85')}
                    </div>
                  </div>
                )

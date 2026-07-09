@@ -377,7 +377,7 @@ export default function TransportTab({
                         <strong className="text-slate-355">Mezzo:</strong> {veh ? `${veh.nome} (${veh.targa})` : 'Da assegnare'}
                       </p>
                       <p>
-                        <strong className="text-slate-355">Equipaggio:</strong> CE: {ceUser ? `${ceUser.nome} ${ceUser.cognome}` : 'Da assegnare'} | AS: {asUser ? `${asUser.nome} ${asUser.cognome}` : 'Da assegnare'}
+                        <strong className="text-slate-355">Equipaggio:</strong> ATS: {ceUser ? `${ceUser.nome} ${ceUser.cognome}` : 'Da assegnare'} | AS: {asUser ? `${asUser.nome} ${asUser.cognome}` : 'Da assegnare'}
                       </p>
                       <p>
                         <strong className="text-slate-355">Avviato da:</strong> {creator ? `${creator.nome} ${creator.cognome}` : 'Sconosciuto'}

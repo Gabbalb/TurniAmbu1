@@ -277,7 +277,7 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                   </td>
                   <td className="py-3 px-4">
                     <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] uppercase text-slate-600">
-                      {p.qualifica || 'N/D'}
+                      {p.qualifica === 'autista' ? 'Autista (AS)' : (p.qualifica === 'CE' ? 'ATS' : (p.qualifica || 'N/D'))}
                     </span>
                   </td>
                   <td className="py-3 px-4 flex flex-col gap-0.5">
@@ -422,8 +422,8 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setNewQualifica(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="CE">Capo Equipaggio (CE)</option>
-                    <option value="autista">Autista Ambulanza</option>
+                    <option value="CE">ATS</option>
+                    <option value="autista">Autista (AS)</option>
                   </select>
                 </div>
               </div>
@@ -530,7 +530,7 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                 {editStato}
               </span>
               <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase text-slate-600">
-                {editQualifica === 'autista' ? 'Autista' : 'Capo Equipaggio'}
+                {editQualifica === 'autista' ? 'Autista (AS)' : 'ATS'}
               </span>
               <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase border ${
                 editAttivo 
@@ -585,8 +585,8 @@ export default function AdminUsersTab({ profiles, onRefresh }) {
                     onChange={(e) => setEditQualifica(e.target.value)}
                     className="bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                   >
-                    <option value="CE">Capo Equipaggio (CE)</option>
-                    <option value="autista">Autista Ambulanza</option>
+                    <option value="CE">ATS</option>
+                    <option value="autista">Autista (AS)</option>
                   </select>
                 </div>
               </div>

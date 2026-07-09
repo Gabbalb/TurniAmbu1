@@ -49,7 +49,7 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
 
     // Verifica qualifica autista
     if (role === 'autista' && profile?.qualifica !== 'autista') {
-      setFormErrors(["Operazione non consentita: non hai la qualifica di Autista."])
+      setFormErrors(["Operazione non consentita: non hai la qualifica di Autista (AS)."])
       setLoading(false)
       return
     }
@@ -252,7 +252,7 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <UserCheck className="w-3.5 h-3.5" /> CE
+                <UserCheck className="w-3.5 h-3.5" /> ATS
               </button>
               <button
                 type="button"
@@ -263,7 +263,7 @@ export default function DisponibilitaModal({ isOpen, onClose, onSuccess }) {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <UserCheck className="w-3.5 h-3.5" /> Autista
+                <UserCheck className="w-3.5 h-3.5" /> Autista (AS)
               </button>
             </div>
           </div>

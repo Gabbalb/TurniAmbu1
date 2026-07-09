@@ -83,7 +83,7 @@ export default function DatiPersonali() {
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                 : 'bg-slate-800 text-slate-400 border-slate-700/60'
             }`}>
-              {profile?.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
+              {profile?.qualifica === 'autista' ? 'Autista (AS)' : 'ATS'}
             </span>
           </div>
         </div>

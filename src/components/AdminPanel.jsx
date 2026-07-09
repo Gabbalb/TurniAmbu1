@@ -590,8 +590,8 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                 onChange={(e) => setEditQualifica(e.target.value)}
                 className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
               >
-                <option value="CE">Capo Equipaggio (CE)</option>
-                <option value="autista">Autista</option>
+                <option value="CE">ATS</option>
+                <option value="autista">Autista (AS)</option>
               </select>
             </div>
 
@@ -814,8 +814,8 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                         onChange={(e) => setNewQualifica(e.target.value)}
                         className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-semibold"
                       >
-                        <option value="CE">Capo Equipaggio (CE)</option>
-                        <option value="autista">Autista</option>
+                        <option value="CE">ATS</option>
+                        <option value="autista">Autista (AS)</option>
                       </select>
                     </div>
 
@@ -918,7 +918,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
                             ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                             : 'bg-slate-800 text-slate-400 border-slate-700/60'
                         }`}>
-                          {prof.qualifica === 'autista' ? 'Autista' : 'Capo Equipaggio (CE)'}
+                          {prof.qualifica === 'autista' ? 'Autista (AS)' : 'ATS'}
                         </span>
 
                       </div>
@@ -955,7 +955,7 @@ export default function AdminPanel({ activeTab = 'utenti' }) {
               <form onSubmit={handleAddCrewToShift} className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col gap-4">
                 <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Assegna Secondo Equipaggio (Rinforzo)</h3>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Consente di creare un secondo crew nello stesso giorno ed orario. Questo genererà una nuova coppia CE + Autista nel tabellone turni.
+                  Consente di creare un secondo crew nello stesso giorno ed orario. Questo genererà una nuova coppia ATS + Autista (AS) nel tabellone turni.
                 </p>
 
                 <div className="flex flex-col gap-3">

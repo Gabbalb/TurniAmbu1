@@ -659,7 +659,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     if (role === 'autista') {
       const hasAutistaQual = targetProfile?.qualifica === 'autista';
       if (!hasAutistaQual) {
-        setConfirmError(`Operazione non consentita: l'utente selezionato (${getUserDisplayName(targetProfile) || 'selezionato'}) non ha la qualifica di Autista.`);
+        setConfirmError(`Operazione non consentita: l'utente selezionato (${getUserDisplayName(targetProfile) || 'selezionato'}) non ha la qualifica di Autista (AS).`);
         setActionLoading(null);
         return;
       }
@@ -895,7 +895,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
     // Configura i dettagli grafici in base al ruolo
     const isCE = role === 'CE'
-    const roleLabel = isCE ? 'CE' : 'Autista'
+    const roleLabel = isCE ? 'ATS' : 'Autista (AS)'
     const containerStyle = isCE 
       ? 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-500/50' 
       : 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50'
@@ -1082,13 +1082,13 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                 {/* CE Role(s) */}
                 {ceBookings.length === 0 ? (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
+                    <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">ATS:</span>
                     <span className="text-sm sm:text-base font-bold text-slate-500 italic">Libero</span>
                   </div>
                 ) : (
                   ceBookings.map(b => (
                     <div key={b.id} className="flex items-baseline gap-2">
-                      <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">CE:</span>
+                      <span className="text-sm font-black text-emerald-400 w-8 flex-shrink-0">ATS:</span>
                       <span className="text-sm sm:text-base font-bold text-slate-100">
                         {getUserDisplayName(b.profiles) || 'Collega'}
                         {b.is_partial && b.nota_parziale && (
@@ -1263,7 +1263,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                       >
                         {getUserDisplayName(b.profiles) || 'Dipendente'}{' '}
                         <span className={b.ruolo_turno === 'CE' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                          ({b.ruolo_turno === 'CE' ? 'CE' : 'Aut.'})
+                          ({b.ruolo_turno === 'CE' ? 'ATS' : 'AS'})
                         </span>
                       </span>
                     )
@@ -1550,7 +1550,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             )}
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Vuoi prenotare lo slot come <strong className={`uppercase ${bookingConfirm.role === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{bookingConfirm.role === 'autista' ? 'Autista' : bookingConfirm.role}</strong>?
+              Vuoi prenotare lo slot come <strong className={`uppercase ${bookingConfirm.role === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{bookingConfirm.role === 'autista' ? 'Autista (AS)' : (bookingConfirm.role === 'CE' ? 'ATS' : bookingConfirm.role)}</strong>?
             </p>
 
             {/* Assegnazione Utente (Solo per Admin) */}

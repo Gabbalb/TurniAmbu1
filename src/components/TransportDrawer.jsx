@@ -950,7 +950,7 @@ export default function TransportDrawer({
             <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400/90 leading-none">Riepilogo Equipaggio</span>
             <div className="space-y-1 mt-1 text-left">
               <p className="text-xs font-semibold text-slate-300">
-                Capo Equipaggio (CE):{' '}
+                ATS:{' '}
                 <strong className="text-slate-100 font-bold">
                   {isCeEsterno ? ceEsterno + ' (Esterno)' : users.find(u => u.id === activeCe?.user_id)
                     ? `${users.find(u => u.id === activeCe.user_id).nome} ${users.find(u => u.id === activeCe.user_id).cognome}`
@@ -958,7 +958,7 @@ export default function TransportDrawer({
                 </strong>
               </p>
               <p className="text-xs font-semibold text-slate-300">
-                Autista/Soccorritore (AS):{' '}
+                Autista (AS):{' '}
                 <strong className="text-slate-100 font-bold">
                   {isAsEsterno ? asEsterno + ' (Esterno)' : users.find(u => u.id === activeAs?.user_id)
                     ? `${users.find(u => u.id === activeAs.user_id).nome} ${users.find(u => u.id === activeAs.user_id).cognome}`
@@ -985,7 +985,7 @@ export default function TransportDrawer({
               {/* CE Selector */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-400">Capo Equipaggio (CE)</label>
+                  <label className="text-xs font-bold text-slate-400">ATS</label>
                   <label className="flex items-center gap-1.5 text-[10px] text-slate-450 font-semibold cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -1036,7 +1036,7 @@ export default function TransportDrawer({
               {/* AS Selector */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-400">Autista/Soccorritore (AS)</label>
+                  <label className="text-xs font-bold text-slate-400">Autista (AS)</label>
                   <label className="flex items-center gap-1.5 text-[10px] text-slate-455 font-semibold cursor-pointer select-none">
                     <input
                       type="checkbox"

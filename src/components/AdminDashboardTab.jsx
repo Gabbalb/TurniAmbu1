@@ -284,7 +284,7 @@ export default function AdminDashboardTab({
                       <div className="flex flex-col gap-1.5 text-xs">
                         {/* Autista */}
                         <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-100 rounded-lg">
-                          <span className="text-[9px] font-extrabold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">AUTISTA</span>
+                          <span className="text-[9px] font-extrabold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">AUTISTA (AS)</span>
                           <span className={`font-semibold truncate max-w-[150px] ${autistaBooking ? 'text-slate-800' : 'text-rose-505 font-bold italic text-[10px]'}`}>
                             {autistaBooking ? getFullName(autistaBooking) : 'Da coprire'}
                           </span>
@@ -292,7 +292,7 @@ export default function AdminDashboardTab({
 
                         {/* CE */}
                         <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-100 rounded-lg">
-                          <span className="text-[9px] font-extrabold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">CE</span>
+                          <span className="text-[9px] font-extrabold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">ATS</span>
                           <span className={`font-semibold truncate max-w-[150px] ${ceBooking ? 'text-slate-800' : 'text-rose-505 font-bold italic text-[10px]'}`}>
                             {ceBooking ? getFullName(ceBooking) : 'Da coprire'}
                           </span>

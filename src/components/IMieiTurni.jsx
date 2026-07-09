@@ -24,9 +24,13 @@ const mergeBookings = (bookingsList) => {
     const shift = b.shifts
     if (!shift) return null
 
-    const p = Number(shift.ora_inizio.startsWith('06:') ? 1 : shift.ora_inizio.startsWith('14:') ? 2 : 3)
-    const stdStart = p === 1 ? '06:00' : p === 2 ? '14:00' : '22:00'
-    const stdEnd = p === 1 ? '14:00' : p === 2 ? '22:00' : '06:00'
+    const p = Number(
+      shift.ora_inizio.startsWith('06:') ? 1 :
+      (shift.ora_inizio.startsWith('13:') || shift.ora_inizio.startsWith('14:')) ? 2 :
+      (shift.ora_inizio.startsWith('18:') || shift.ora_inizio.startsWith('22:')) ? 3 : 4
+    )
+    const stdStart = shift.ora_inizio.slice(0, 5)
+    const stdEnd = shift.ora_fine.slice(0, 5)
 
     const startStr = b.ora_inizio_effettiva ? b.ora_inizio_effettiva.slice(0, 5) : stdStart
     const endStr = b.ora_fine_effettiva ? b.ora_fine_effettiva.slice(0, 5) : stdEnd
@@ -34,7 +38,7 @@ const mergeBookings = (bookingsList) => {
     let startMin = timeToMinutes(startStr)
     let endMin = timeToMinutes(endStr)
 
-    if (p === 3) {
+    if (p === 3 || p === 4) {
       if (startMin < 720) startMin += 1440
       if (endMin < 720) endMin += 1440
       if (endMin <= startMin) endMin += 1440
@@ -181,7 +185,8 @@ export default function IMieiTurni({ onJumpToShift, setView }) {
 
   const getShiftBadgeStyle = (ora_inizio) => {
     if (ora_inizio.startsWith('06:')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-    if (ora_inizio.startsWith('14:')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+    if (ora_inizio.startsWith('13:') || ora_inizio.startsWith('14:')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+    if (ora_inizio.startsWith('18:')) return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
     return 'bg-violet-500/20 text-violet-300 border-violet-500/30'
   }
 
@@ -262,7 +267,7 @@ export default function IMieiTurni({ onJumpToShift, setView }) {
                       {booking.ora_inizio}–{booking.ora_fine}
                     </span>
                     <span className="text-xs sm:text-sm font-bold px-3 py-1 bg-slate-800/80 border border-slate-700/60 rounded-xl text-slate-300">
-                      Ruolo: <strong className={`uppercase ${booking.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{booking.ruolo_turno === 'autista' ? 'Autista' : booking.ruolo_turno}</strong>
+                      Ruolo: <strong className={`uppercase ${booking.ruolo_turno === 'CE' ? 'text-emerald-400' : 'text-amber-400'}`}>{booking.ruolo_turno === 'autista' ? 'Autista (AS)' : (booking.ruolo_turno === 'CE' ? 'ATS' : booking.ruolo_turno)}</strong>
                     </span>
                   </div>
 
