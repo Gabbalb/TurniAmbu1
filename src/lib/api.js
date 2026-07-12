@@ -509,7 +509,7 @@ export const api = {
   // =========================================================================
 
   checkBulkConflicts: async (userId, targetShifts, targetRole) => {
-    // targetShifts è un array di oggetti: { date, shift_id_placeholder (1, 2, 3) }
+    // targetShifts è un array di oggetti: { date, shift_id_placeholder (1, 2, 3), crew_id }
     // Vogliamo verificare:
     // 1. Se l'utente ha già una sua prenotazione in quel giorno e in quella fascia sovrapposta all'orario richiesto (conflitto utente).
     // 2. Se lo slot in quel giorno, fascia, crew_id è già occupato da qualcun altro in orario sovrapposto.
@@ -537,13 +537,13 @@ export const api = {
         const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         const stdHours = getStandardHours(target.shift_id_placeholder)
         const dayShifts = shifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
+        const targetCrewId = target.crew_id !== undefined ? String(target.crew_id) : "1"
 
+        // 1. Controlla se l'utente stesso è già prenotato in un qualunque ruolo in un qualsiasi shift di questa fascia
+        let userConflict = false
         for (const shiftObj of dayShifts) {
-          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
-
-          // 1. Controlla se l'utente stesso è già prenotato in un qualunque ruolo in questo shift in orario sovrapposto
           const userBookings = bookings.filter(b => b.shift_id === shiftObj.id && b.user_id === userId)
-          let userConflict = false
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
           for (const uBk of userBookings) {
             const uInterval = getBookingMinutesInterval(uBk, stdHours.start, stdHours.end)
             if (checkIntervalsOverlap(targetInterval, uInterval)) {
@@ -558,10 +558,15 @@ export const api = {
               break
             }
           }
-          if (userConflict) continue
+          if (userConflict) break
+        }
+        if (userConflict) continue
 
-          // 2. Controlla se il ruolo scelto è già occupato da un altro utente in orario sovrapposto
-          const roleBookings = bookings.filter(b => b.shift_id === shiftObj.id && b.ruolo_turno === targetRole)
+        // 2. Controlla se il ruolo scelto è già occupato da un altro utente SOLO nell'equipaggio target
+        const targetShift = dayShifts.find(s => String(s.crew_id) === targetCrewId)
+        if (targetShift) {
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
+          const roleBookings = bookings.filter(b => b.shift_id === targetShift.id && b.ruolo_turno === targetRole)
           for (const rBk of roleBookings) {
             const rInterval = getBookingMinutesInterval(rBk, stdHours.start, stdHours.end)
             if (checkIntervalsOverlap(targetInterval, rInterval)) {
@@ -600,13 +605,13 @@ export const api = {
         const standardHourStart = getStandardHourStart(target.shift_id_placeholder)
         const stdHours = getStandardHours(target.shift_id_placeholder)
         const matchingShifts = dbShifts.filter(s => s.data === target.date && s.ora_inizio === standardHourStart)
+        const targetCrewId = target.crew_id !== undefined ? String(target.crew_id) : "1"
 
+        // 1. Controlla se l'utente loggato ha già una prenotazione in qualunque shift di questa fascia
+        let userConflict = false
         for (const shiftObj of matchingShifts) {
-          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
-
-          // Controlla se l'utente loggato ha già una prenotazione sovrapposta
           const myBks = shiftObj.bookings.filter(b => b.user_id === userId)
-          let userConflict = false
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
           for (const myBk of myBks) {
             const myInterval = getBookingMinutesInterval(myBk, stdHours.start, stdHours.end)
             if (checkIntervalsOverlap(targetInterval, myInterval)) {
@@ -621,10 +626,15 @@ export const api = {
               break
             }
           }
-          if (userConflict) continue
+          if (userConflict) break
+        }
+        if (userConflict) continue
 
-          // Controlla se il ruolo nello shift è già occupato in orario sovrapposto
-          const roleBks = shiftObj.bookings.filter(b => b.ruolo_turno === targetRole)
+        // 2. Controlla se il ruolo nello shift è già occupato SOLO nell'equipaggio target
+        const targetShift = matchingShifts.find(s => String(s.crew_id) === targetCrewId)
+        if (targetShift) {
+          const targetInterval = getBookingMinutesInterval(target, stdHours.start, stdHours.end)
+          const roleBks = targetShift.bookings.filter(b => b.ruolo_turno === targetRole)
           for (const roleBk of roleBks) {
             const roleInterval = getBookingMinutesInterval(roleBk, stdHours.start, stdHours.end)
             if (checkIntervalsOverlap(targetInterval, roleInterval)) {

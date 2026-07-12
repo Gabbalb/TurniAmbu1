@@ -651,7 +651,8 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
       ora_fine_effettiva: isPartialBooking ? endTime + ':00' : null,
       is_partial: isPartialBooking,
       nota_parziale: note,
-      label: shift.ora_inizio.slice(0, 5) + '–' + shift.ora_fine.slice(0, 5)
+      label: shift.ora_inizio.slice(0, 5) + '–' + shift.ora_fine.slice(0, 5),
+      crew_id: shift.crew_id
     }
 
     // Verifica qualifica dell'utente prima della prenotazione
@@ -681,7 +682,8 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             ora_fine_effettiva: inter.is_partial ? inter.ora_fine_effettiva : null,
             is_partial: inter.is_partial,
             nota_parziale: inter.nota_parziale,
-            label: inter.label
+            label: inter.label,
+            crew_id: shift.crew_id
           }
         })
 
