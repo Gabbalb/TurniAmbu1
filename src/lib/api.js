@@ -304,7 +304,7 @@ export const api = {
       let added = false
 
       dates.forEach(date => {
-        fixedCrews.slice(0, 1).forEach(crew => {
+        fixedCrews.slice(0, 2).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = shifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && s.crew_id === crew.id
@@ -344,7 +344,7 @@ export const api = {
 
       const insertRows = []
       dates.forEach(date => {
-        fixedCrews.slice(0, 1).forEach(crew => {
+        fixedCrews.slice(0, 2).forEach(crew => {
           standardTimeSlots.forEach(slot => {
             const exists = existingShifts.some(
               s => s.data === date && s.ora_inizio === slot.ora_inizio && String(s.crew_id) === String(crew.id)
