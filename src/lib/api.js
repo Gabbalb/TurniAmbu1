@@ -1,9 +1,9 @@
-import { supabase, createTempClient } from './supabaseClient'
+import { supabase, createTempClient } from './supabaseClient.js'
 
 // Controlla se Supabase è configurato con chiavi reali
 const isSupabaseConfigured = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const url = typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL
+  const key = typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY
   return url && key && !url.includes('your-project-id') && !key.includes('your-supabase-anon-key')
 }
 
@@ -109,6 +109,12 @@ if (USE_MOCK) {
   }
   if (!localStorage.getItem('ta_bookings')) {
     localStorage.setItem('ta_bookings', JSON.stringify([]))
+  }
+  if (!localStorage.getItem('ta_user_availabilities')) {
+    localStorage.setItem('ta_user_availabilities', JSON.stringify([]))
+  }
+  if (!localStorage.getItem('ta_shift_locks')) {
+    localStorage.setItem('ta_shift_locks', JSON.stringify([]))
   }
   if (!localStorage.getItem('ta_clocked_shifts')) {
     localStorage.setItem('ta_clocked_shifts', JSON.stringify([]))
@@ -413,8 +419,18 @@ export const api = {
   },
 
   // Effettua una prenotazione singola
-  bookSlot: async ({ shiftId, role, userId, startTime = null, endTime = null, isPartial = false, note = null }) => {
+  bookSlot: async ({ shiftId, role, userId, startTime = null, endTime = null, isPartial = false, note = null, userRole = null }) => {
     if (USE_MOCK) {
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      const currentShift = shifts.find(s => s.id === shiftId)
+      if (currentShift) {
+        const locks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+        const isLocked = locks.some(l => l.data === currentShift.data && l.is_locked)
+        if (isLocked && userRole !== 'admin') {
+          return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
+        }
+      }
+
       const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
       
       // Controlla se il ruolo nello shift è già occupato
@@ -440,6 +456,21 @@ export const api = {
       return { data: newBooking, error: null }
     }
 
+    // Verifica lock con Supabase se non admin
+    if (userRole !== 'admin') {
+      try {
+        const { data: shiftObj } = await supabase.from('shifts').select('data').eq('id', shiftId).single()
+        if (shiftObj) {
+          const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', shiftObj.data).single()
+          if (lockObj && lockObj.is_locked) {
+            return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
+          }
+        }
+      } catch (e) {
+        console.warn('Errore verifica lock:', e)
+      }
+    }
+
     return supabase
       .from('bookings')
       .insert({
@@ -456,15 +487,41 @@ export const api = {
   },
 
   // Cancella una prenotazione
-  cancelBooking: async (bookingId) => {
+  cancelBooking: async (bookingId, userRole = null) => {
     if (USE_MOCK) {
       const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
       const index = bookings.findIndex(b => b.id === bookingId)
       if (index === -1) return { error: { message: 'Prenotazione non trovata.' } }
       
+      const targetBk = bookings[index]
+      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+      const currentShift = shifts.find(s => s.id === targetBk.shift_id)
+      if (currentShift) {
+        const locks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+        const isLocked = locks.some(l => l.data === currentShift.data && l.is_locked)
+        if (isLocked && userRole !== 'admin') {
+          return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
+        }
+      }
+
       bookings.splice(index, 1)
       localStorage.setItem('ta_bookings', JSON.stringify(bookings))
       return { error: null }
+    }
+
+    if (userRole !== 'admin') {
+      try {
+        const { data: bkObj } = await supabase.from('bookings').select('shift_id, shifts(data)').eq('id', bookingId).single()
+        const shiftDate = bkObj?.shifts?.data
+        if (shiftDate) {
+          const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', shiftDate).single()
+          if (lockObj && lockObj.is_locked) {
+            return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
+          }
+        }
+      } catch (e) {
+        console.warn('Errore verifica lock in cancelBooking:', e)
+      }
     }
 
     return supabase.from('bookings').delete().eq('id', bookingId)
@@ -764,6 +821,284 @@ export const api = {
       return { error: null }
     } catch (err) {
       console.error('Errore durante la prenotazione bulk:', err)
+      return { error: err }
+    }
+  },
+
+  // =========================================================================
+  // GESTIONE DISPONIBILITÀ, GENERATORE TURNI E BLOCCO TABELLONE UFFICIALE
+  // =========================================================================
+
+  fetchUserAvailabilities: async (startDate, endDate) => {
+    if (USE_MOCK) {
+      const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
+      const filtered = allAvails.filter(a => a.data >= startDate && a.data <= endDate)
+      return { data: filtered, error: null }
+    }
+
+    return supabase
+      .from('user_availabilities')
+      .select('*')
+      .gte('data', startDate)
+      .lte('data', endDate)
+  },
+
+  saveUserAvailabilities: async (availabilitiesList) => {
+    if (!availabilitiesList || availabilitiesList.length === 0) return { error: null }
+
+    if (USE_MOCK) {
+      const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
+      availabilitiesList.forEach(item => {
+        const idx = allAvails.findIndex(
+          a => a.user_id === item.user_id && a.data === item.data && Number(a.slot_id) === Number(item.slot_id)
+        )
+        if (idx !== -1) {
+          allAvails[idx].disponibile = item.disponibile !== false
+        } else {
+          allAvails.push({
+            id: getNextId(allAvails),
+            user_id: item.user_id,
+            data: item.data,
+            slot_id: Number(item.slot_id),
+            disponibile: item.disponibile !== false,
+            created_at: new Date().toISOString()
+          })
+        }
+      })
+      localStorage.setItem('ta_user_availabilities', JSON.stringify(allAvails))
+      return { error: null }
+    }
+
+    return supabase
+      .from('user_availabilities')
+      .upsert(
+        availabilitiesList.map(a => ({
+          user_id: a.user_id,
+          data: a.data,
+          slot_id: Number(a.slot_id),
+          disponibile: a.disponibile !== false
+        })),
+        { onConflict: 'user_id,data,slot_id' }
+      )
+  },
+
+  fetchShiftLocks: async (startDate, endDate) => {
+    if (USE_MOCK) {
+      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+      const filtered = allLocks.filter(l => l.data >= startDate && l.data <= endDate && l.is_locked)
+      return { data: filtered, error: null }
+    }
+
+    return supabase
+      .from('shift_locks')
+      .select('*')
+      .gte('data', startDate)
+      .lte('data', endDate)
+      .eq('is_locked', true)
+  },
+
+  setShiftLock: async (date, isLocked, userId = null) => {
+    if (USE_MOCK) {
+      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+      const idx = allLocks.findIndex(l => l.data === date)
+      if (idx !== -1) {
+        allLocks[idx].is_locked = isLocked
+        allLocks[idx].locked_by = userId
+        allLocks[idx].locked_at = new Date().toISOString()
+      } else {
+        allLocks.push({
+          id: getNextId(allLocks),
+          data: date,
+          is_locked: isLocked,
+          locked_by: userId,
+          locked_at: new Date().toISOString()
+        })
+      }
+      localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
+      return { error: null }
+    }
+
+    return supabase
+      .from('shift_locks')
+      .upsert(
+        {
+          data: date,
+          is_locked: isLocked,
+          locked_by: userId,
+          locked_at: new Date().toISOString()
+        },
+        { onConflict: 'data' }
+      )
+  },
+
+  setPeriodLocks: async (dates, isLocked, userId = null) => {
+    if (!dates || dates.length === 0) return { error: null }
+
+    if (USE_MOCK) {
+      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+      const nowIso = new Date().toISOString()
+      dates.forEach(d => {
+        const idx = allLocks.findIndex(l => l.data === d)
+        if (idx !== -1) {
+          allLocks[idx].is_locked = isLocked
+          allLocks[idx].locked_by = userId
+          allLocks[idx].locked_at = nowIso
+        } else {
+          allLocks.push({
+            id: getNextId(allLocks),
+            data: d,
+            is_locked: isLocked,
+            locked_by: userId,
+            locked_at: nowIso
+          })
+        }
+      })
+      localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
+      return { error: null }
+    }
+
+    const rows = dates.map(d => ({
+      data: d,
+      is_locked: isLocked,
+      locked_by: userId,
+      locked_at: new Date().toISOString()
+    }))
+
+    return supabase
+      .from('shift_locks')
+      .upsert(rows, { onConflict: 'data' })
+  },
+
+  publishGeneratedShifts: async ({
+    dates,
+    assignments,
+    crews,
+    lockDates = true,
+    adminId = null,
+    clearExistingInPeriod = true
+  }) => {
+    if (!dates || dates.length === 0) return { error: { message: 'Nessuna data specificata per la pubblicazione.' } }
+
+    const slotHoursMap = {
+      1: { ora_inizio: '06:00:00', ora_fine: '13:00:00' },
+      2: { ora_inizio: '13:00:00', ora_fine: '18:00:00' },
+      3: { ora_inizio: '18:00:00', ora_fine: '00:00:00' },
+      4: { ora_inizio: '00:00:00', ora_fine: '06:00:00' }
+    }
+
+    try {
+      // 1. Assicurati che i turni esistano per tutte le date
+      await api.ensureShiftsExistForDates(dates, crews)
+
+      if (USE_MOCK) {
+        const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+        let bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+
+        const periodShiftIds = shifts
+          .filter(s => dates.includes(s.data))
+          .map(s => s.id)
+
+        // Rimuove le prenotazioni esistenti per questi shift se richiesto
+        if (clearExistingInPeriod) {
+          bookings = bookings.filter(b => !periodShiftIds.includes(b.shift_id))
+        }
+
+        // Inserisce i nuovi booking generati
+        assignments.forEach(asgn => {
+          const hours = slotHoursMap[asgn.slot_id]
+          if (!hours) return
+
+          const shiftObj = shifts.find(
+            s => s.data === asgn.date && s.ora_inizio === hours.ora_inizio && String(s.crew_id) === String(asgn.crew_id)
+          )
+
+          if (shiftObj) {
+            // Evita duplicati dello stesso ruolo
+            const exists = bookings.some(
+              b => b.shift_id === shiftObj.id && b.ruolo_turno === asgn.ruolo_turno
+            )
+            if (!exists) {
+              bookings.push({
+                id: getNextId(bookings),
+                shift_id: shiftObj.id,
+                user_id: asgn.user_id,
+                ruolo_turno: asgn.ruolo_turno,
+                ora_inizio_effettiva: null,
+                ora_fine_effettiva: null,
+                is_partial: false,
+                nota_parziale: null,
+                created_at: new Date().toISOString()
+              })
+            }
+          }
+        })
+
+        localStorage.setItem('ta_bookings', JSON.stringify(bookings))
+
+        // Se lockDates è attivo, imposta il blocco per tutte le date
+        if (lockDates) {
+          await api.setPeriodLocks(dates, true, adminId)
+        }
+
+        return { error: null }
+      }
+
+      // Connessione Supabase
+      const minDate = dates[0]
+      const maxDate = dates[dates.length - 1]
+
+      const { data: dbShifts, error: shErr } = await supabase
+        .from('shifts')
+        .select('id, data, ora_inizio, crew_id')
+        .gte('data', minDate)
+        .lte('data', maxDate)
+
+      if (shErr) throw shErr
+
+      const periodShiftIds = (dbShifts || [])
+        .filter(s => dates.includes(s.data))
+        .map(s => s.id)
+
+      if (clearExistingInPeriod && periodShiftIds.length > 0) {
+        const { error: delErr } = await supabase
+          .from('bookings')
+          .delete()
+          .in('shift_id', periodShiftIds)
+
+        if (delErr) throw delErr
+      }
+
+      const insertRows = []
+      assignments.forEach(asgn => {
+        const hours = slotHoursMap[asgn.slot_id]
+        if (!hours) return
+
+        const shiftObj = dbShifts.find(
+          s => s.data === asgn.date && s.ora_inizio === hours.ora_inizio && String(s.crew_id) === String(asgn.crew_id)
+        )
+
+        if (shiftObj) {
+          insertRows.push({
+            shift_id: shiftObj.id,
+            user_id: asgn.user_id,
+            ruolo_turno: asgn.ruolo_turno,
+            is_partial: false
+          })
+        }
+      })
+
+      if (insertRows.length > 0) {
+        const { error: insErr } = await supabase.from('bookings').insert(insertRows)
+        if (insErr) throw insErr
+      }
+
+      if (lockDates) {
+        await api.setPeriodLocks(dates, true, adminId)
+      }
+
+      return { error: null }
+    } catch (err) {
+      console.error('Errore in publishGeneratedShifts:', err)
       return { error: err }
     }
   },

@@ -11,7 +11,8 @@ import {
   Clock,
   Home,
   ShieldCheck,
-  Truck
+  Truck,
+  Wand2
 } from 'lucide-react'
 
 // Import Split Components
@@ -23,6 +24,7 @@ import AdminHoursTab from './AdminHoursTab'
 import AdminNotificationsTab from './AdminNotificationsTab'
 import AdminTransportsTab from './AdminTransportsTab'
 import AdminVehiclesTab from './AdminVehiclesTab'
+import AdminGenerateShiftsTab from './AdminGenerateShiftsTab'
 
 export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile }) {
   const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'utenti' | 'storico' | 'equipaggi' | 'ore' | 'notifiche' | 'trasporti' | 'mezzi'
@@ -272,6 +274,14 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
               </button>
 
               <button
+                onClick={() => setActiveTab('crea-turni')}
+                className={getTabClass('crea-turni')}
+              >
+                <Wand2 className="w-5 h-5" />
+                <span>Crea Turni</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('equipaggi')}
                 className={getTabClass('equipaggi')}
               >
@@ -339,7 +349,7 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
           <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10 font-sans">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-extrabold capitalize text-slate-800 font-sans">
-                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Registro Eventi' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
+                {activeTab === 'ore' ? 'Convalida Ore' : activeTab === 'notifiche' ? 'Registro Eventi' : activeTab === 'storico' ? 'Tabellone Storico' : activeTab === 'crea-turni' ? 'Crea Turni' : activeTab === 'equipaggi' ? 'Gestione Equipaggi' : activeTab === 'trasporti' ? 'Registro Trasporti' : activeTab === 'mezzi' ? 'Gestione Parco Mezzi' : activeTab}
               </h1>
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
             </div>
@@ -419,6 +429,15 @@ export default function AdminDesktop({ onBackToMobile, onLogout, adminProfile })
                 crews={crews}
                 onRefresh={onRefresh}
                 formatItalianDateTime={formatItalianDateTime}
+              />
+            )}
+
+            {/* TAB: CREA TURNI (GENERATORE AUTOMATICO & DISPONIBILITÀ) */}
+            {activeTab === 'crea-turni' && (
+              <AdminGenerateShiftsTab
+                profiles={profiles}
+                crews={crews}
+                onRefresh={onRefresh}
               />
             )}
 

@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { format, parseISO } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Calendar, Clock, Trash2, ArrowRight, RefreshCw, ClipboardList, Key, X } from 'lucide-react'
+import { Calendar, Clock, Trash2, ArrowRight, RefreshCw, ClipboardList, Key, X, Lock } from 'lucide-react'
 
 const timeToMinutes = (timeStr) => {
   if (!timeStr) return 0
@@ -138,6 +138,7 @@ const mergeBookings = (bookingsList) => {
 export default function IMieiTurni({ onJumpToShift, setView }) {
   const { user } = useAuth()
   const [myBookings, setMyBookings] = useState([])
+  const [lockedDates, setLockedDates] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [cancelingId, setCancelingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null) // ID della prenotazione da confermare
@@ -145,8 +146,18 @@ export default function IMieiTurni({ onJumpToShift, setView }) {
   const loadMyBookings = async () => {
     setLoading(true)
     try {
-      const { data } = await api.fetchMyFutureBookings(user.id)
-      setMyBookings(mergeBookings(data || []))
+      const todayStr = new Date().toISOString().split('T')[0]
+      const futureDate = new Date()
+      futureDate.setDate(futureDate.getDate() + 90)
+      const futureStr = futureDate.toISOString().split('T')[0]
+
+      const [myRes, locksRes] = await Promise.all([
+        api.fetchMyFutureBookings(user.id),
+        api.fetchShiftLocks(todayStr, futureStr)
+      ])
+
+      setMyBookings(mergeBookings(myRes.data || []))
+      setLockedDates(new Set((locksRes.data || []).map(l => l.data)))
     } catch (err) {
       console.error(err)
     } finally {
@@ -165,7 +176,7 @@ export default function IMieiTurni({ onJumpToShift, setView }) {
     setCancelingId(confirmDelete.id)
 
     try {
-      const deletePromises = bookingIds.map(id => api.cancelBooking(id))
+      const deletePromises = bookingIds.map(id => api.cancelBooking(id, profile?.ruolo))
       const results = await Promise.all(deletePromises)
       
       const firstError = results.find(r => r.error)?.error
@@ -280,18 +291,28 @@ export default function IMieiTurni({ onJumpToShift, setView }) {
                   )}
                 </div>
 
-                {/* Pulsante Cancella */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation() // Evita il jump click
-                    setConfirmDelete(booking)
-                  }}
-                  disabled={isCanceling}
-                  className="p-3.5 bg-slate-950 border border-slate-800 hover:border-rose-500/40 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-2xl transition-all duration-200 flex-shrink-0 z-10"
-                  title="Elimina prenotazione"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {/* Pulsante Cancella o Badge Bloccato */}
+                {lockedDates.has(booking.data) && profile?.ruolo !== 'admin' ? (
+                  <div
+                    className="p-3 bg-slate-950/80 border border-amber-500/30 text-amber-400 rounded-2xl flex items-center gap-1.5 flex-shrink-0 z-10"
+                    title="Turno confermato dall'amministrazione nel tabellone ufficiale (non modificabile)"
+                  >
+                    <Lock className="w-4 h-4 text-amber-500" />
+                    <span className="text-[10px] font-bold hidden sm:inline">Ufficiale</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation() // Evita il jump click
+                      setConfirmDelete(booking)
+                    }}
+                    disabled={isCanceling}
+                    className="p-3.5 bg-slate-950 border border-slate-800 hover:border-rose-500/40 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-2xl transition-all duration-200 flex-shrink-0 z-10"
+                    title="Elimina prenotazione"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             )
           })}

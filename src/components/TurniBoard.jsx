@@ -90,6 +90,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
   const [viewType, setViewType] = useState('giorno') // 'giorno' | 'settimana'
   const [shifts, setShifts] = useState([])
   const [bookings, setBookings] = useState([])
+  const [lockedDates, setLockedDates] = useState(new Set())
   const [crews, setCrews] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null) // ID dello slot in fase di caricamento
@@ -367,12 +368,16 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
         await api.ensureShiftsExistForDates(allUniqueDatesStr, crewsData)
       }
 
-      // Carica turni e prenotazioni del periodo
-      const { data: shiftsData } = await api.fetchShifts(startStr, endStr)
-      const { data: bookingsData } = await api.fetchBookings(startStr, endStr)
+      // Carica turni, prenotazioni e stato di blocco del periodo
+      const [shiftsRes, bookingsRes, locksRes] = await Promise.all([
+        api.fetchShifts(startStr, endStr),
+        api.fetchBookings(startStr, endStr),
+        api.fetchShiftLocks(startStr, endStr)
+      ])
 
-      setShifts(shiftsData || [])
-      setBookings(bookingsData || [])
+      setShifts(shiftsRes.data || [])
+      setBookings(bookingsRes.data || [])
+      setLockedDates(new Set((locksRes.data || []).map(l => l.data)))
 
       // Se admin, carica i profili per assegnare turni a terzi
       if (profile?.ruolo === 'admin') {
@@ -384,6 +389,22 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
     } finally {
       if (showSpinner) setLoading(false)
       setIsFetching(false)
+    }
+  }
+
+  const handleToggleLock = async (dateStr, lockStatus) => {
+    try {
+      const { error } = await api.setShiftLock(dateStr, lockStatus, user?.id)
+      if (!error) {
+        setLockedDates(prev => {
+          const next = new Set(prev)
+          if (lockStatus) next.add(dateStr)
+          else next.delete(dateStr)
+          return next
+        })
+      }
+    } catch (e) {
+      console.error('Errore toggle lock:', e)
     }
   }
 
@@ -718,7 +739,8 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
               startTime: inter.is_partial ? inter.ora_inizio_effettiva : null,
               endTime: inter.is_partial ? inter.ora_fine_effettiva : null,
               isPartial: inter.is_partial,
-              note: inter.nota_parziale
+              note: inter.nota_parziale,
+              userRole: profile?.ruolo
             })
             if (bkErr) {
               lastError = bkErr.message
@@ -756,7 +778,8 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
           startTime: null,
           endTime: null,
           isPartial: false,
-          note: null
+          note: null,
+          userRole: profile?.ruolo
         })
 
         if (error) {
@@ -781,7 +804,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
 
     setActionLoading(bookingId)
     try {
-      const { error } = await api.cancelBooking(bookingId)
+      const { error } = await api.cancelBooking(bookingId, profile?.ruolo)
       if (error) {
         alert(error.message)
       } else {
@@ -903,6 +926,10 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
       : 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50'
     const roleTextClass = isCE ? 'text-emerald-400' : 'text-amber-400'
 
+    const isDateLocked = lockedDates.has(shift.data)
+    const isAdmin = profile?.ruolo === 'admin'
+    const canEdit = !isHistory && (!isDateLocked || isAdmin)
+
     if (slotBookings.length === 0) {
       // Slot completamente Libero
       return (
@@ -911,12 +938,17 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             <span className={`text-[10px] font-extrabold tracking-widest uppercase ${roleTextClass}`}>
               {roleLabel}
             </span>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Libero</span>
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+              {isDateLocked ? 'Ufficiale' : 'Libero'}
+            </span>
           </div>
           
-          {isHistory ? (
+          {isHistory || !canEdit ? (
             <div className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-950/20 text-left">
-              <span className="text-xs sm:text-sm font-medium text-slate-500 italic">Libero</span>
+              <span className="text-xs sm:text-sm font-medium text-slate-500 italic">
+                {isDateLocked ? 'Posto non assegnato (Ufficiale)' : 'Libero'}
+              </span>
+              {isDateLocked && <Lock className="w-3.5 h-3.5 text-slate-600" />}
             </div>
           ) : (
             <button
@@ -943,7 +975,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
             {roleLabel}
           </span>
           
-          {!isHistory && (
+          {canEdit && (
             <button
               onClick={() => handleOpenBookingConfirm(shift, role)}
               disabled={!profile?.attivo}
@@ -958,7 +990,6 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
         <div className="flex flex-col gap-2">
           {slotBookings.map(bk => {
             const isCurrentUser = bk.user_id === user.id
-            const isAdmin = profile?.ruolo === 'admin'
             const isBkLoading = actionLoading === bk.id
 
             if (isCurrentUser) {
@@ -970,7 +1001,7 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                       <span className="text-[11px] text-indigo-200 mt-0.5 leading-tight">{bk.nota_parziale}</span>
                     )}
                   </div>
-                  {!isHistory && (
+                  {canEdit ? (
                     <button
                       onClick={(e) => handleCancelBooking(bk.id, e)}
                       disabled={isBkLoading}
@@ -979,7 +1010,11 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  )}
+                  ) : isDateLocked ? (
+                    <span title="Turno confermato nel tabellone ufficiale (non modificabile)">
+                      <Lock className="w-3.5 h-3.5 text-amber-500/70 mr-1" />
+                    </span>
+                  ) : null}
                 </div>
               )
             } else {
@@ -1002,6 +1037,8 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                  ) : isDateLocked ? (
+                    <Lock className="w-3.5 h-3.5 text-slate-600 mr-1 flex-shrink-0" />
                   ) : !isHistory ? (
                     <Lock className="w-3.5 h-3.5 text-slate-500 mr-1 flex-shrink-0" />
                   ) : null}
@@ -1443,6 +1480,35 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
                     <span className="text-xs sm:text-sm font-bold text-indigo-400 mt-1.5 uppercase tracking-widest">
                       {format(day, 'd MMMM yyyy', { locale: it })}
                     </span>
+                    {lockedDates.has(dateStr) && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          <Lock className="w-3.5 h-3.5" />
+                          Tabellone Ufficiale (Bloccato)
+                        </span>
+                        {profile?.ruolo === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLock(dateStr, false)}
+                            className="text-[11px] font-semibold text-slate-400 hover:text-amber-300 underline cursor-pointer"
+                            title="Sblocca questo giorno per consentire modifiche"
+                          >
+                            Sblocca
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {!lockedDates.has(dateStr) && profile?.ruolo === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLock(dateStr, true)}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                        title="Blocca questo giorno per renderlo ufficiale"
+                      >
+                        <Lock className="w-3 h-3" />
+                        Blocca giorno
+                      </button>
+                    )}
                     {isToday && (
                       <span className="text-[10px] mt-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-3.5 py-1 rounded-full font-bold uppercase tracking-wider shadow-md shadow-indigo-500/20">
                         Oggi
