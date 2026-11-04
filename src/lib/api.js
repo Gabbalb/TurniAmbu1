@@ -1,4 +1,14 @@
 import { supabase, createTempClient } from './supabaseClient.js'
+import { checkAreShiftsConsecutive } from '../utils/shiftGenerator.js'
+
+const getSlotIdFromStartTime = (ora_inizio) => {
+  if (!ora_inizio) return 1
+  if (ora_inizio.startsWith('06:')) return 1
+  if (ora_inizio.startsWith('13:')) return 2
+  if (ora_inizio.startsWith('18:')) return 3
+  if (ora_inizio.startsWith('00:')) return 4
+  return 1
+}
 
 // Controlla se Supabase è configurato con chiavi reali
 const isSupabaseConfigured = () => {
@@ -420,18 +430,87 @@ export const api = {
 
   // Effettua una prenotazione singola
   bookSlot: async ({ shiftId, role, userId, startTime = null, endTime = null, isPartial = false, note = null, userRole = null }) => {
+    // 1. Informazioni sullo shift target
+    let targetShiftDate = null
+    let targetShiftStartTime = null
+    let targetCrewId = null
+
     if (USE_MOCK) {
       const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
       const currentShift = shifts.find(s => s.id === shiftId)
-      if (currentShift) {
-        const locks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
-        const isLocked = locks.some(l => l.data === currentShift.data && l.is_locked)
-        if (isLocked && userRole !== 'admin') {
-          return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
-        }
+      targetShiftDate = currentShift?.data
+      targetShiftStartTime = currentShift?.ora_inizio
+      targetCrewId = currentShift?.crew_id
+    } else {
+      try {
+        const { data: shiftObj } = await supabase.from('shifts').select('data, ora_inizio, crew_id').eq('id', shiftId).single()
+        targetShiftDate = shiftObj?.data
+        targetShiftStartTime = shiftObj?.ora_inizio
+        targetCrewId = shiftObj?.crew_id
+      } catch (e) {
+        console.warn('Errore lettura shift in bookSlot:', e)
+      }
+    }
+
+    // 2. Controllo Lock se non admin
+    if (userRole !== 'admin' && targetShiftDate) {
+      const localLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+      const isLocallyLocked = localLocks.some(l => l.data === targetShiftDate && l.is_locked)
+      if (isLocallyLocked) {
+        return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
       }
 
-      const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
+      if (!USE_MOCK) {
+        try {
+          const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', targetShiftDate).single()
+          if (lockObj && lockObj.is_locked) {
+            return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 3. Controllo 2 turni di fila (consecutivi) se non admin
+    if (userRole !== 'admin' && targetShiftDate && targetShiftStartTime) {
+      const targetSlotId = getSlotIdFromStartTime(targetShiftStartTime)
+      
+      if (USE_MOCK) {
+        const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+        const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+        const myShifts = bookings
+          .filter(b => b.user_id === userId)
+          .map(b => shifts.find(s => s.id === b.shift_id))
+          .filter(Boolean)
+
+        for (const mySh of myShifts) {
+          const mySlotId = getSlotIdFromStartTime(mySh.ora_inizio)
+          if (checkAreShiftsConsecutive(mySh.data, mySlotId, targetShiftDate, targetSlotId)) {
+            return { error: { message: `Non è consentito fare due turni di fila (consecutivi). Rispetta il riposo tra il turno del ${mySh.data} e questo turno.` } }
+          }
+        }
+      } else {
+        try {
+          const { data: userBookings } = await supabase
+            .from('bookings')
+            .select('shift_id, shifts(data, ora_inizio)')
+            .eq('user_id', userId)
+
+          for (const ub of (userBookings || [])) {
+            if (ub.shifts) {
+              const mySlotId = getSlotIdFromStartTime(ub.shifts.ora_inizio)
+              if (checkAreShiftsConsecutive(ub.shifts.data, mySlotId, targetShiftDate, targetSlotId)) {
+                return { error: { message: `Non è consentito fare due turni di fila (consecutivi). Rispetta il riposo tra il turno del ${ub.shifts.data} e questo turno.` } }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Errore verifica turni consecutivi:', e)
+        }
+      }
+    }
+
+    if (USE_MOCK) {
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
       
       // Controlla se il ruolo nello shift è già occupato
       const isOccupied = bookings.some(b => b.shift_id === shiftId && b.ruolo_turno === role)
@@ -456,21 +535,6 @@ export const api = {
       return { data: newBooking, error: null }
     }
 
-    // Verifica lock con Supabase se non admin
-    if (userRole !== 'admin') {
-      try {
-        const { data: shiftObj } = await supabase.from('shifts').select('data').eq('id', shiftId).single()
-        if (shiftObj) {
-          const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', shiftObj.data).single()
-          if (lockObj && lockObj.is_locked) {
-            return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può modificarlo.' } }
-          }
-        }
-      } catch (e) {
-        console.warn('Errore verifica lock:', e)
-      }
-    }
-
     return supabase
       .from('bookings')
       .insert({
@@ -488,40 +552,50 @@ export const api = {
 
   // Cancella una prenotazione
   cancelBooking: async (bookingId, userRole = null) => {
+    // 1. Controllo Lock se non admin
+    if (userRole !== 'admin') {
+      let shiftDate = null
+
+      if (USE_MOCK) {
+        const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
+        const targetBk = bookings.find(b => b.id === bookingId)
+        if (targetBk) {
+          const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
+          shiftDate = shifts.find(s => s.id === targetBk.shift_id)?.data
+        }
+      } else {
+        try {
+          const { data: bkObj } = await supabase.from('bookings').select('shift_id, shifts(data)').eq('id', bookingId).single()
+          shiftDate = bkObj?.shifts?.data
+        } catch (e) {}
+      }
+
+      if (shiftDate) {
+        const localLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+        const isLocallyLocked = localLocks.some(l => l.data === shiftDate && l.is_locked)
+        if (isLocallyLocked) {
+          return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
+        }
+
+        if (!USE_MOCK) {
+          try {
+            const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', shiftDate).single()
+            if (lockObj && lockObj.is_locked) {
+              return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
     if (USE_MOCK) {
-      const bookings = JSON.parse(localStorage.getItem('ta_bookings'))
+      const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
       const index = bookings.findIndex(b => b.id === bookingId)
       if (index === -1) return { error: { message: 'Prenotazione non trovata.' } }
       
-      const targetBk = bookings[index]
-      const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
-      const currentShift = shifts.find(s => s.id === targetBk.shift_id)
-      if (currentShift) {
-        const locks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
-        const isLocked = locks.some(l => l.data === currentShift.data && l.is_locked)
-        if (isLocked && userRole !== 'admin') {
-          return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
-        }
-      }
-
       bookings.splice(index, 1)
       localStorage.setItem('ta_bookings', JSON.stringify(bookings))
       return { error: null }
-    }
-
-    if (userRole !== 'admin') {
-      try {
-        const { data: bkObj } = await supabase.from('bookings').select('shift_id, shifts(data)').eq('id', bookingId).single()
-        const shiftDate = bkObj?.shifts?.data
-        if (shiftDate) {
-          const { data: lockObj } = await supabase.from('shift_locks').select('is_locked').eq('data', shiftDate).single()
-          if (lockObj && lockObj.is_locked) {
-            return { error: { message: 'Questo turno fa parte del tabellone ufficiale confermato ed è bloccato. Solo un amministratore può cancellarlo.' } }
-          }
-        }
-      } catch (e) {
-        console.warn('Errore verifica lock in cancelBooking:', e)
-      }
     }
 
     return supabase.from('bookings').delete().eq('id', bookingId)
@@ -619,6 +693,27 @@ export const api = {
         }
         if (userConflict) continue
 
+        // 1b. Controlla se l'utente è già prenotato in un turno consecutivo ("due turni di fila")
+        const myAllBks = bookings.filter(b => b.user_id === userId)
+        for (const myBk of myAllBks) {
+          const shiftObj = shifts.find(s => s.id === myBk.shift_id)
+          if (shiftObj) {
+            const mySlotId = getSlotIdFromStartTime(shiftObj.ora_inizio)
+            if (checkAreShiftsConsecutive(shiftObj.data, mySlotId, target.date, target.shift_id_placeholder)) {
+              conflicts.push({
+                date: target.date,
+                shiftLabel: target.label,
+                type: 'consecutive_conflict',
+                message: `Non è consentito fare due turni di fila (consecutivi). Sei già prenotato per il turno del ${shiftObj.data} (${shiftObj.ora_inizio.slice(0, 5)}).`,
+                bookingId: myBk.id
+              })
+              userConflict = true
+              break
+            }
+          }
+        }
+        if (userConflict) continue
+
         // 2. Controlla se il ruolo scelto è già occupato da un altro utente SOLO nell'equipaggio target
         const targetShift = dayShifts.find(s => String(s.crew_id) === targetCrewId)
         if (targetShift) {
@@ -684,6 +779,23 @@ export const api = {
             }
           }
           if (userConflict) break
+        }
+        if (userConflict) continue
+
+        // 1b. Controlla turni consecutivi dell'utente ("due turni di fila")
+        const allUserShifts = dbShifts.filter(s => s.bookings && s.bookings.some(b => b.user_id === userId))
+        for (const uSh of allUserShifts) {
+          const uSlotId = getSlotIdFromStartTime(uSh.ora_inizio)
+          if (checkAreShiftsConsecutive(uSh.data, uSlotId, target.date, target.shift_id_placeholder)) {
+            conflicts.push({
+              date: target.date,
+              shiftLabel: target.label,
+              type: 'consecutive_conflict',
+              message: `Non è consentito fare due turni di fila (consecutivi). Sei già prenotato per il turno del ${uSh.data} (${uSh.ora_inizio.slice(0, 5)}).`
+            })
+            userConflict = true
+            break
+          }
         }
         if (userConflict) continue
 
@@ -830,143 +942,185 @@ export const api = {
   // =========================================================================
 
   fetchUserAvailabilities: async (startDate, endDate) => {
-    if (USE_MOCK) {
-      const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
-      const filtered = allAvails.filter(a => a.data >= startDate && a.data <= endDate)
-      return { data: filtered, error: null }
+    const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
+    const localFiltered = allAvails.filter(a => a.data >= startDate && a.data <= endDate)
+
+    if (!USE_MOCK) {
+      try {
+        const { data, error } = await supabase
+          .from('user_availabilities')
+          .select('*')
+          .gte('data', startDate)
+          .lte('data', endDate)
+
+        if (!error && Array.isArray(data)) {
+          const map = new Map(allAvails.map(a => [`${a.user_id}_${a.data}_${a.slot_id}`, a]))
+          data.forEach(d => map.set(`${d.user_id}_${d.data}_${d.slot_id}`, d))
+          const merged = Array.from(map.values())
+          localStorage.setItem('ta_user_availabilities', JSON.stringify(merged))
+          return { data: merged.filter(a => a.data >= startDate && a.data <= endDate), error: null }
+        }
+      } catch (err) {
+        console.warn('user_availabilities remote sync warning:', err)
+      }
     }
 
-    return supabase
-      .from('user_availabilities')
-      .select('*')
-      .gte('data', startDate)
-      .lte('data', endDate)
+    return { data: localFiltered, error: null }
   },
 
   saveUserAvailabilities: async (availabilitiesList) => {
     if (!availabilitiesList || availabilitiesList.length === 0) return { error: null }
 
-    if (USE_MOCK) {
-      const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
-      availabilitiesList.forEach(item => {
-        const idx = allAvails.findIndex(
-          a => a.user_id === item.user_id && a.data === item.data && Number(a.slot_id) === Number(item.slot_id)
-        )
-        if (idx !== -1) {
-          allAvails[idx].disponibile = item.disponibile !== false
-        } else {
-          allAvails.push({
-            id: getNextId(allAvails),
-            user_id: item.user_id,
-            data: item.data,
-            slot_id: Number(item.slot_id),
-            disponibile: item.disponibile !== false,
-            created_at: new Date().toISOString()
-          })
-        }
-      })
-      localStorage.setItem('ta_user_availabilities', JSON.stringify(allAvails))
-      return { error: null }
+    const allAvails = JSON.parse(localStorage.getItem('ta_user_availabilities')) || []
+    availabilitiesList.forEach(item => {
+      const idx = allAvails.findIndex(
+        a => a.user_id === item.user_id && a.data === item.data && Number(a.slot_id) === Number(item.slot_id)
+      )
+      if (idx !== -1) {
+        allAvails[idx].disponibile = item.disponibile !== false
+      } else {
+        allAvails.push({
+          id: getNextId(allAvails),
+          user_id: item.user_id,
+          data: item.data,
+          slot_id: Number(item.slot_id),
+          disponibile: item.disponibile !== false,
+          created_at: new Date().toISOString()
+        })
+      }
+    })
+    localStorage.setItem('ta_user_availabilities', JSON.stringify(allAvails))
+
+    if (!USE_MOCK) {
+      try {
+        await supabase
+          .from('user_availabilities')
+          .upsert(
+            availabilitiesList.map(a => ({
+              user_id: a.user_id,
+              data: a.data,
+              slot_id: Number(a.slot_id),
+              disponibile: a.disponibile !== false
+            })),
+            { onConflict: 'user_id,data,slot_id' }
+          )
+      } catch (err) {
+        console.warn('user_availabilities remote upsert warning:', err)
+      }
     }
 
-    return supabase
-      .from('user_availabilities')
-      .upsert(
-        availabilitiesList.map(a => ({
-          user_id: a.user_id,
-          data: a.data,
-          slot_id: Number(a.slot_id),
-          disponibile: a.disponibile !== false
-        })),
-        { onConflict: 'user_id,data,slot_id' }
-      )
+    return { error: null }
   },
 
   fetchShiftLocks: async (startDate, endDate) => {
-    if (USE_MOCK) {
-      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
-      const filtered = allLocks.filter(l => l.data >= startDate && l.data <= endDate && l.is_locked)
-      return { data: filtered, error: null }
+    const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+    const localFiltered = allLocks.filter(l => l.data >= startDate && l.data <= endDate && l.is_locked)
+
+    if (!USE_MOCK) {
+      try {
+        const { data, error } = await supabase
+          .from('shift_locks')
+          .select('*')
+          .gte('data', startDate)
+          .lte('data', endDate)
+          .eq('is_locked', true)
+
+        if (!error && Array.isArray(data)) {
+          const lockMap = new Map(allLocks.map(l => [l.data, l]))
+          data.forEach(d => lockMap.set(d.data, d))
+          const merged = Array.from(lockMap.values())
+          localStorage.setItem('ta_shift_locks', JSON.stringify(merged))
+          return { data: merged.filter(l => l.data >= startDate && l.data <= endDate && l.is_locked), error: null }
+        }
+      } catch (err) {
+        console.warn('shift_locks remote read warning:', err)
+      }
     }
 
-    return supabase
-      .from('shift_locks')
-      .select('*')
-      .gte('data', startDate)
-      .lte('data', endDate)
-      .eq('is_locked', true)
+    return { data: localFiltered, error: null }
   },
 
   setShiftLock: async (date, isLocked, userId = null) => {
-    if (USE_MOCK) {
-      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
-      const idx = allLocks.findIndex(l => l.data === date)
-      if (idx !== -1) {
-        allLocks[idx].is_locked = isLocked
-        allLocks[idx].locked_by = userId
-        allLocks[idx].locked_at = new Date().toISOString()
-      } else {
-        allLocks.push({
-          id: getNextId(allLocks),
-          data: date,
-          is_locked: isLocked,
-          locked_by: userId,
-          locked_at: new Date().toISOString()
-        })
+    const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
+    const nowIso = new Date().toISOString()
+    const idx = allLocks.findIndex(l => l.data === date)
+
+    if (idx !== -1) {
+      allLocks[idx].is_locked = isLocked
+      allLocks[idx].locked_by = userId
+      allLocks[idx].locked_at = nowIso
+    } else {
+      allLocks.push({
+        id: getNextId(allLocks),
+        data: date,
+        is_locked: isLocked,
+        locked_by: userId,
+        locked_at: nowIso
+      })
+    }
+    localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
+
+    if (!USE_MOCK) {
+      try {
+        await supabase
+          .from('shift_locks')
+          .upsert(
+            {
+              data: date,
+              is_locked: isLocked,
+              locked_by: userId,
+              locked_at: nowIso
+            },
+            { onConflict: 'data' }
+          )
+      } catch (err) {
+        console.warn('shift_locks remote upsert warning:', err)
       }
-      localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
-      return { error: null }
     }
 
-    return supabase
-      .from('shift_locks')
-      .upsert(
-        {
-          data: date,
-          is_locked: isLocked,
-          locked_by: userId,
-          locked_at: new Date().toISOString()
-        },
-        { onConflict: 'data' }
-      )
+    return { error: null }
   },
 
   setPeriodLocks: async (dates, isLocked, userId = null) => {
     if (!dates || dates.length === 0) return { error: null }
+    const nowIso = new Date().toISOString()
+    const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
 
-    if (USE_MOCK) {
-      const allLocks = JSON.parse(localStorage.getItem('ta_shift_locks')) || []
-      const nowIso = new Date().toISOString()
-      dates.forEach(d => {
-        const idx = allLocks.findIndex(l => l.data === d)
-        if (idx !== -1) {
-          allLocks[idx].is_locked = isLocked
-          allLocks[idx].locked_by = userId
-          allLocks[idx].locked_at = nowIso
-        } else {
-          allLocks.push({
-            id: getNextId(allLocks),
-            data: d,
-            is_locked: isLocked,
-            locked_by: userId,
-            locked_at: nowIso
-          })
-        }
-      })
-      localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
-      return { error: null }
+    dates.forEach(d => {
+      const idx = allLocks.findIndex(l => l.data === d)
+      if (idx !== -1) {
+        allLocks[idx].is_locked = isLocked
+        allLocks[idx].locked_by = userId
+        allLocks[idx].locked_at = nowIso
+      } else {
+        allLocks.push({
+          id: getNextId(allLocks),
+          data: d,
+          is_locked: isLocked,
+          locked_by: userId,
+          locked_at: nowIso
+        })
+      }
+    })
+    localStorage.setItem('ta_shift_locks', JSON.stringify(allLocks))
+
+    if (!USE_MOCK) {
+      try {
+        const rows = dates.map(d => ({
+          data: d,
+          is_locked: isLocked,
+          locked_by: userId,
+          locked_at: nowIso
+        }))
+        await supabase
+          .from('shift_locks')
+          .upsert(rows, { onConflict: 'data' })
+      } catch (err) {
+        console.warn('shift_locks remote upsert warning:', err)
+      }
     }
 
-    const rows = dates.map(d => ({
-      data: d,
-      is_locked: isLocked,
-      locked_by: userId,
-      locked_at: new Date().toISOString()
-    }))
-
-    return supabase
-      .from('shift_locks')
-      .upsert(rows, { onConflict: 'data' })
+    return { error: null }
   },
 
   publishGeneratedShifts: async ({

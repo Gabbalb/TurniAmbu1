@@ -368,11 +368,14 @@ export default function TurniBoard({ initialDate, initialSlot, onDateChange, onC
         await api.ensureShiftsExistForDates(allUniqueDatesStr, crewsData)
       }
 
-      // Carica turni, prenotazioni e stato di blocco del periodo
+      // Carica turni, prenotazioni e stato di blocco dell'intero periodo visibile
+      const lockStartStr = allUniqueDatesStr[0] || startStr
+      const lockEndStr = allUniqueDatesStr[allUniqueDatesStr.length - 1] || endStr
+
       const [shiftsRes, bookingsRes, locksRes] = await Promise.all([
         api.fetchShifts(startStr, endStr),
         api.fetchBookings(startStr, endStr),
-        api.fetchShiftLocks(startStr, endStr)
+        api.fetchShiftLocks(lockStartStr, lockEndStr)
       ])
 
       setShifts(shiftsRes.data || [])

@@ -377,10 +377,9 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
   const handleTogglePeriodLock = async (newLockState) => {
     setTogglingLock(true)
     try {
-      const { error } = await api.setPeriodLocks(periodDates, newLockState)
-      if (!error) {
-        setLockedDates(newLockState ? new Set(periodDates) : new Set())
-      }
+      await api.setPeriodLocks(periodDates, newLockState)
+      setLockedDates(newLockState ? new Set(periodDates) : new Set())
+      if (onRefresh) onRefresh()
     } catch (e) {
       console.error('Errore toggle lock:', e)
     } finally {

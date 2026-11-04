@@ -20,36 +20,61 @@ export const isWeekend = (dateStr) => {
 }
 
 /**
+ * Verifica se due turni sono consecutivi ("di fila") o violano il riposo minimo obbligatorio.
+ * Fasce:
+ * 1: 06:00-13:00
+ * 2: 13:00-18:00
+ * 3: 18:00-00:00
+ * 4: 00:00-06:00
+ */
+export const checkAreShiftsConsecutive = (dateA, slotIdA, dateB, slotIdB) => {
+  const sA = Number(slotIdA)
+  const sB = Number(slotIdB)
+
+  // Stesso giorno
+  if (dateA === dateB) {
+    if (sA === sB) return true
+    // Fasce adiacenti: 1 e 2 (13:00), 2 e 3 (18:00)
+    if (Math.abs(sA - sB) === 1) return true
+    // Fascia 4 (00-06) e Fascia 1 (06-13): consecutive la mattina stessa
+    if ((sA === 4 && sB === 1) || (sA === 1 && sB === 4)) return true
+    return false
+  }
+
+  // Giorni differenti: calcola la differenza in giorni (B - A)
+  const dtA = typeof dateA === 'string' ? parseISO(dateA) : dateA
+  const dtB = typeof dateB === 'string' ? parseISO(dateB) : dateB
+  const diffTime = dtB.getTime() - dtA.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+
+  // Se B è il giorno successivo ad A (A è ieri, B è oggi)
+  if (diffDays === 1) {
+    // Ieri sera (3: 18-00) seguito da stanotte (4: 00-06) o stamattina (1: 06-13, solo 6h di stacco)
+    if (sA === 3 && (sB === 4 || sB === 1)) return true
+    // Ieri notte (4: 00-06) seguito da stamattina (1: 06-13)
+    if (sA === 4 && sB === 1) return true
+    return false
+  }
+
+  // Se A è il giorno successivo a B (B è ieri, A è oggi)
+  if (diffDays === -1) {
+    if (sB === 3 && (sA === 4 || sA === 1)) return true
+    if (sB === 4 && sA === 1) return true
+    return false
+  }
+
+  return false
+}
+
+/**
  * Verifica il rispetto del riposo minimo tra turni
  */
 export const checkRestViolation = (targetDateStr, targetSlotId, userAssignedShifts) => {
-  // targetSlotId: 1 (06-13), 2 (13-18), 3 (18-00), 4 (00-06)
-  const prevDateStr = format(subDays(parseISO(targetDateStr), 1), 'yyyy-MM-dd')
-  const nextDateStr = format(addDays(parseISO(targetDateStr), 1), 'yyyy-MM-dd')
-
   for (const shift of userAssignedShifts) {
-    // Stesso giorno
-    if (shift.date === targetDateStr) {
-      if (shift.slot_id === targetSlotId) return true // Già assegnato a questo stesso slot
-      // Slot 4 (00-06) seguito da Slot 1 (06-13) nello stesso giorno = riposo zero
-      if (shift.slot_id === 4 && targetSlotId === 1) return true
-      if (shift.slot_id === 1 && targetSlotId === 4) return true
-    }
-
-    // Giorno precedente (shift è ieri, target è oggi)
-    if (shift.date === prevDateStr) {
-      // Se ieri ha fatto Slot 3 (18-00), oggi non può fare Slot 4 (00-06) o Slot 1 (06-13, solo 6h di stacco)
-      if (shift.slot_id === 3 && (targetSlotId === 4 || targetSlotId === 1)) return true
-      // Se ieri ha fatto Slot 4 (00-06), oggi ha avuto tutto il giorno per riposare
-    }
-
-    // Giorno successivo (shift è domani, target è oggi)
-    if (shift.date === nextDateStr) {
-      // Se oggi fa Slot 3 (18-00), domani non può fare Slot 4 o Slot 1
-      if (targetSlotId === 3 && (shift.slot_id === 4 || shift.slot_id === 1)) return true
+    if (checkAreShiftsConsecutive(shift.date, shift.slot_id, targetDateStr, targetSlotId)) {
+      return true
     }
   }
-
   return false
 }
 
