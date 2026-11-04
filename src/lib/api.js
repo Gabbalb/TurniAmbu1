@@ -470,45 +470,6 @@ export const api = {
       }
     }
 
-    // 3. Controllo 2 turni di fila (consecutivi) se non admin
-    if (userRole !== 'admin' && targetShiftDate && targetShiftStartTime) {
-      const targetSlotId = getSlotIdFromStartTime(targetShiftStartTime)
-      
-      if (USE_MOCK) {
-        const shifts = JSON.parse(localStorage.getItem('ta_shifts')) || []
-        const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
-        const myShifts = bookings
-          .filter(b => b.user_id === userId)
-          .map(b => shifts.find(s => s.id === b.shift_id))
-          .filter(Boolean)
-
-        for (const mySh of myShifts) {
-          const mySlotId = getSlotIdFromStartTime(mySh.ora_inizio)
-          if (checkAreShiftsConsecutive(mySh.data, mySlotId, targetShiftDate, targetSlotId)) {
-            return { error: { message: `Non è consentito fare due turni di fila (consecutivi). Rispetta il riposo tra il turno del ${mySh.data} e questo turno.` } }
-          }
-        }
-      } else {
-        try {
-          const { data: userBookings } = await supabase
-            .from('bookings')
-            .select('shift_id, shifts(data, ora_inizio)')
-            .eq('user_id', userId)
-
-          for (const ub of (userBookings || [])) {
-            if (ub.shifts) {
-              const mySlotId = getSlotIdFromStartTime(ub.shifts.ora_inizio)
-              if (checkAreShiftsConsecutive(ub.shifts.data, mySlotId, targetShiftDate, targetSlotId)) {
-                return { error: { message: `Non è consentito fare due turni di fila (consecutivi). Rispetta il riposo tra il turno del ${ub.shifts.data} e questo turno.` } }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('Errore verifica turni consecutivi:', e)
-        }
-      }
-    }
-
     if (USE_MOCK) {
       const bookings = JSON.parse(localStorage.getItem('ta_bookings')) || []
       
@@ -693,27 +654,6 @@ export const api = {
         }
         if (userConflict) continue
 
-        // 1b. Controlla se l'utente è già prenotato in un turno consecutivo ("due turni di fila")
-        const myAllBks = bookings.filter(b => b.user_id === userId)
-        for (const myBk of myAllBks) {
-          const shiftObj = shifts.find(s => s.id === myBk.shift_id)
-          if (shiftObj) {
-            const mySlotId = getSlotIdFromStartTime(shiftObj.ora_inizio)
-            if (checkAreShiftsConsecutive(shiftObj.data, mySlotId, target.date, target.shift_id_placeholder)) {
-              conflicts.push({
-                date: target.date,
-                shiftLabel: target.label,
-                type: 'consecutive_conflict',
-                message: `Non è consentito fare due turni di fila (consecutivi). Sei già prenotato per il turno del ${shiftObj.data} (${shiftObj.ora_inizio.slice(0, 5)}).`,
-                bookingId: myBk.id
-              })
-              userConflict = true
-              break
-            }
-          }
-        }
-        if (userConflict) continue
-
         // 2. Controlla se il ruolo scelto è già occupato da un altro utente SOLO nell'equipaggio target
         const targetShift = dayShifts.find(s => String(s.crew_id) === targetCrewId)
         if (targetShift) {
@@ -779,23 +719,6 @@ export const api = {
             }
           }
           if (userConflict) break
-        }
-        if (userConflict) continue
-
-        // 1b. Controlla turni consecutivi dell'utente ("due turni di fila")
-        const allUserShifts = dbShifts.filter(s => s.bookings && s.bookings.some(b => b.user_id === userId))
-        for (const uSh of allUserShifts) {
-          const uSlotId = getSlotIdFromStartTime(uSh.ora_inizio)
-          if (checkAreShiftsConsecutive(uSh.data, uSlotId, target.date, target.shift_id_placeholder)) {
-            conflicts.push({
-              date: target.date,
-              shiftLabel: target.label,
-              type: 'consecutive_conflict',
-              message: `Non è consentito fare due turni di fila (consecutivi). Sei già prenotato per il turno del ${uSh.data} (${uSh.ora_inizio.slice(0, 5)}).`
-            })
-            userConflict = true
-            break
-          }
         }
         if (userConflict) continue
 

@@ -75,7 +75,9 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
   // Parametri dell'algoritmo
   const [options, setOptions] = useState({
     respectRestTime: true,
-    maxShiftsPerDay: 1,
+    maxShiftsPerDay: 2, // Consente fino a 2 turni al giorno
+    allowConsecutiveShifts: true, // I turni consecutivi (2 di fila) sono consentiti
+    maxConsecutiveShifts: 2,
     allowDriverAsCE: true // user confirmed: "si gli autisti possono essere usati"
   })
 
@@ -823,7 +825,7 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
                 Preferenze & Vincoli di Assegnazione
               </h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* 1. Tutti pari equità */}
                 <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 flex flex-col justify-between">
                   <div>
@@ -838,7 +840,32 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
                   <span className="text-[10px] font-bold text-emerald-700 mt-2 block">✓ Sempre Attivo</span>
                 </div>
 
-                {/* 2. Autisti usabili come soccorritori CE */}
+                {/* 2. Turni consecutivi consentiti (2 di fila) */}
+                <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 flex flex-col justify-between">
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={options.allowConsecutiveShifts}
+                        onChange={(e) => setOptions(prev => ({
+                          ...prev,
+                          allowConsecutiveShifts: e.target.checked,
+                          maxShiftsPerDay: e.target.checked ? 2 : 1
+                        }))}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs font-black text-slate-900">2 Turni Consecutivi</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Consente l'assegnazione di 2 turni di fila (es. Mattina + Pom, Pom + Sera, Sera + Notte). Max 2 turni al giorno.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-600 mt-2 block">
+                    {options.allowConsecutiveShifts ? 'Consentiti (Max 2 di fila)' : 'Disabilitati (Max 1)'}
+                  </span>
+                </div>
+
+                {/* 3. Autisti usabili come soccorritori CE */}
                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
                   <div>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -859,7 +886,7 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
                   </span>
                 </div>
 
-                {/* 3. Riposo minimo post-notte */}
+                {/* 4. Riposo minimo post-2 turni */}
                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
                   <div>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -869,14 +896,14 @@ export default function AdminGenerateShiftsTab({ profiles = [], crews = [], onRe
                         onChange={(e) => setOptions(prev => ({ ...prev, respectRestTime: e.target.checked }))}
                         className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="text-xs font-black text-slate-900">Riposo Minimo Obbligatorio</span>
+                      <span className="text-xs font-black text-slate-900">Riposo di Sicurezza</span>
                     </label>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Blocca l'assegnazione del turno Mattina se l'operatore ha fatto la Notte (00–06) o la Sera precedente (18–00).
+                      Impedisce 3 o più turni consecutivi senza sosta (es. Notte + Mattina + Pomeriggio), garantendo il dovuto stacco.
                     </p>
                   </div>
                   <span className="text-[10px] font-bold text-indigo-600 mt-2 block">
-                    {options.respectRestTime ? 'Rispettato' : 'Ignorato'}
+                    {options.respectRestTime ? 'Attivo (Blocca ≥3 di fila)' : 'Disattivato'}
                   </span>
                 </div>
               </div>

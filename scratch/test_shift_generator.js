@@ -1,4 +1,4 @@
-import { generateShifts, GENERATOR_SLOTS } from '../src/utils/shiftGenerator.js'
+import { generateShifts, GENERATOR_SLOTS, checkAreShiftsConsecutive, getConsecutiveChainLength } from '../src/utils/shiftGenerator.js'
 
 const testProfiles = [
   { id: 'u1', username: 'mario.rossi', nome: 'Mario', cognome: 'Rossi', qualifica: 'autista', attivo: true },
@@ -49,7 +49,9 @@ const result = generateShifts({
   slotCrewsConfig,
   options: {
     respectRestTime: true,
-    maxShiftsPerDay: 1,
+    maxShiftsPerDay: 2,
+    allowConsecutiveShifts: true,
+    maxConsecutiveShifts: 2,
     allowDriverAsCE: true
   }
 })
@@ -57,3 +59,26 @@ const result = generateShifts({
 console.log('Result summary:', result.summary)
 console.log('Uncovered count:', result.uncoveredSlots.length)
 console.log('User stats:', result.userStats)
+
+// Check if anyone has consecutive shifts assigned
+console.log('\n--- VERIFICA ASSEGNAZIONE TURNI CONSECUTIVI ---')
+let foundConsecutive = false
+testProfiles.forEach(p => {
+  const userShifts = result.assignments.filter(a => a.user_id === p.id)
+  console.log(`\nUtente ${p.nome} (${userShifts.length} turni assegnati):`)
+  userShifts.forEach(s => {
+    console.log(`  - ${s.date} [Fascia ${s.slot_id}: ${s.slot_label}] Ruolo: ${s.ruolo_turno}`)
+  })
+
+  // Controlla se ha turni consecutivi
+  for (let i = 0; i < userShifts.length; i++) {
+    for (let j = i + 1; j < userShifts.length; j++) {
+      if (checkAreShiftsConsecutive(userShifts[i].date, userShifts[i].slot_id, userShifts[j].date, userShifts[j].slot_id)) {
+        console.log(`  => HA 2 TURNI CONSECUTIVI: ${userShifts[i].date} slot ${userShifts[i].slot_id} e ${userShifts[j].date} slot ${userShifts[j].slot_id}!`)
+        foundConsecutive = true
+      }
+    }
+  }
+})
+
+console.log('\nAlmeno un turno consecutivo assegnato con successo?', foundConsecutive)

@@ -11,6 +11,35 @@ export const GENERATOR_SLOTS = [
 ]
 
 /**
+ * Ordine cronologico delle fasce all'interno di una giornata (da mezzanotte a mezzanotte):
+ * Fascia 4: 00:00 - 06:00 (prima fascia del giorno di calendario)
+ * Fascia 1: 06:00 - 13:00
+ * Fascia 2: 13:00 - 18:00
+ * Fascia 3: 18:00 - 00:00 (ultima fascia del giorno di calendario, prosegue nel giorno D+1 con fascia 4)
+ */
+export const SLOT_ORDER = {
+  4: 0,
+  1: 1,
+  2: 2,
+  3: 3
+}
+
+/**
+ * Calcola l'indice temporale assoluto di una fascia oraria.
+ * Permette di verificare adiacenza e continuità anche tra giorni consecutivi
+ * (es. Sera D -> Notte D+1, oppure Notte D -> Mattina D).
+ */
+export const getSlotTimelineIndex = (dateStr, slotId) => {
+  const parts = typeof dateStr === 'string'
+    ? dateStr.split('-').map(Number)
+    : [dateStr.getFullYear(), dateStr.getMonth() + 1, dateStr.getDate()]
+  const utcDate = Date.UTC(parts[0], parts[1] - 1, parts[2])
+  const dayIndex = Math.floor(utcDate / (1000 * 60 * 60 * 24))
+  const sOrder = SLOT_ORDER[Number(slotId)] ?? 0
+  return dayIndex * 4 + sOrder
+}
+
+/**
  * Verifica se un giorno è nel weekend (Sabato o Domenica)
  */
 export const isWeekend = (dateStr) => {
@@ -20,62 +49,49 @@ export const isWeekend = (dateStr) => {
 }
 
 /**
- * Verifica se due turni sono consecutivi ("di fila") o violano il riposo minimo obbligatorio.
- * Fasce:
- * 1: 06:00-13:00
- * 2: 13:00-18:00
- * 3: 18:00-00:00
- * 4: 00:00-06:00
+ * Verifica se due turni sono consecutivi ("di fila")
  */
 export const checkAreShiftsConsecutive = (dateA, slotIdA, dateB, slotIdB) => {
-  const sA = Number(slotIdA)
-  const sB = Number(slotIdB)
-
-  // Stesso giorno
-  if (dateA === dateB) {
-    if (sA === sB) return true
-    // Fasce adiacenti: 1 e 2 (13:00), 2 e 3 (18:00)
-    if (Math.abs(sA - sB) === 1) return true
-    // Fascia 4 (00-06) e Fascia 1 (06-13): consecutive la mattina stessa
-    if ((sA === 4 && sB === 1) || (sA === 1 && sB === 4)) return true
-    return false
-  }
-
-  // Giorni differenti: calcola la differenza in giorni (B - A)
-  const dtA = typeof dateA === 'string' ? parseISO(dateA) : dateA
-  const dtB = typeof dateB === 'string' ? parseISO(dateB) : dateB
-  const diffTime = dtB.getTime() - dtA.getTime()
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-
-  // Se B è il giorno successivo ad A (A è ieri, B è oggi)
-  if (diffDays === 1) {
-    // Ieri sera (3: 18-00) seguito da stanotte (4: 00-06) o stamattina (1: 06-13, solo 6h di stacco)
-    if (sA === 3 && (sB === 4 || sB === 1)) return true
-    // Ieri notte (4: 00-06) seguito da stamattina (1: 06-13)
-    if (sA === 4 && sB === 1) return true
-    return false
-  }
-
-  // Se A è il giorno successivo a B (B è ieri, A è oggi)
-  if (diffDays === -1) {
-    if (sB === 3 && (sA === 4 || sA === 1)) return true
-    if (sB === 4 && sA === 1) return true
-    return false
-  }
-
-  return false
+  const idxA = getSlotTimelineIndex(dateA, slotIdA)
+  const idxB = getSlotTimelineIndex(dateB, slotIdB)
+  return Math.abs(idxA - idxB) === 1
 }
 
 /**
- * Verifica il rispetto del riposo minimo tra turni
+ * Calcola la lunghezza della catena di turni consecutivi che risulterebbe
+ * assegnando targetDateStr e targetSlotId a un utente.
+ * Se l'utente ha già il turno 1 e si valuta il turno 2, la catena è 2 (consentita!).
+ * Se ha già il turno 1 e 2 e si valuta il turno 3, la catena è 3 (eccessiva, max 2).
  */
-export const checkRestViolation = (targetDateStr, targetSlotId, userAssignedShifts) => {
-  for (const shift of userAssignedShifts) {
-    if (checkAreShiftsConsecutive(shift.date, shift.slot_id, targetDateStr, targetSlotId)) {
-      return true
-    }
+export const getConsecutiveChainLength = (targetDateStr, targetSlotId, userAssignedShifts = []) => {
+  const candidateIdx = getSlotTimelineIndex(targetDateStr, targetSlotId)
+  const existingIndices = new Set(userAssignedShifts.map(s => getSlotTimelineIndex(s.date, s.slot_id)))
+
+  if (existingIndices.has(candidateIdx)) {
+    return Infinity // Già presente in questo slot esatto
   }
-  return false
+
+  let backward = 0
+  while (existingIndices.has(candidateIdx - 1 - backward)) {
+    backward++
+  }
+
+  let forward = 0
+  while (existingIndices.has(candidateIdx + 1 + forward)) {
+    forward++
+  }
+
+  return backward + 1 + forward
+}
+
+/**
+ * Verifica se l'assegnazione viola il limite di turni consecutivi o riposo minimo
+ * Per specifica TurniAmbu: 2 turni consecutivi sono PIENAMENTE CONSENTITI.
+ * Il limite blocca 3 o più turni di fila senza intervallo di riposo.
+ */
+export const checkRestViolation = (targetDateStr, targetSlotId, userAssignedShifts, maxConsecutive = 2) => {
+  const chainLen = getConsecutiveChainLength(targetDateStr, targetSlotId, userAssignedShifts)
+  return chainLen > maxConsecutive
 }
 
 /**
@@ -103,7 +119,9 @@ export function generateShifts({
 }) {
   const {
     respectRestTime = true,
-    maxShiftsPerDay = 1,
+    maxShiftsPerDay = 2, // Fino a 2 turni al giorno consentiti
+    allowConsecutiveShifts = true, // I turni consecutivi (2 di fila) sono pienamente consentiti
+    maxConsecutiveShifts = 2, // Massimo 2 turni consecutivi di fila
     allowDriverAsCE = true,
     existingBookings = []
   } = options
@@ -258,7 +276,7 @@ export function generateShifts({
     const wl = workloads.get(user.id)
     if (!wl) return { ok: false, reason: 'Profilo non trovato' }
 
-    // 6c. Massimo turni al giorno
+    // 6c. Massimo turni al giorno (default 2)
     if (maxShiftsPerDay > 0) {
       const sameDayCount = wl.shifts.filter(s => s.date === req.date).length
       if (sameDayCount >= maxShiftsPerDay) {
@@ -266,11 +284,20 @@ export function generateShifts({
       }
     }
 
-    // 6d. Riposo minimo
-    if (respectRestTime) {
-      if (checkRestViolation(req.date, req.slot_id, wl.shifts)) {
-        return { ok: false, reason: 'Violazione intervallo di riposo minimo' }
-      }
+    // 6d. Controllo non già assegnato a questa stessa fascia oraria
+    const alreadyInSlot = wl.shifts.some(s => s.date === req.date && Number(s.slot_id) === Number(req.slot_id))
+    if (alreadyInSlot) {
+      return { ok: false, reason: 'Già assegnato a questa fascia oraria' }
+    }
+
+    // 6e. Turni consecutivi e riposo minimo
+    // 2 turni consecutivi sono PIENAMENTE CONSENTITI se allowConsecutiveShifts è true.
+    const chainLen = getConsecutiveChainLength(req.date, req.slot_id, wl.shifts)
+    if (!allowConsecutiveShifts && chainLen > 1) {
+      return { ok: false, reason: 'I turni consecutivi sono disabilitati' }
+    }
+    if (respectRestTime && chainLen > maxConsecutiveShifts) {
+      return { ok: false, reason: `Superato il limite di ${maxConsecutiveShifts} turni consecutivi di fila` }
     }
 
     return { ok: true }
